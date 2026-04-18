@@ -12,6 +12,15 @@ export default tseslint.config(
     ignores: ['**/dist/**', '**/node_modules/**', '**/*.js', '**/*.mjs'],
   },
   {
+    files: ['**/*.{ts,tsx}'],
+    rules: {
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+      ],
+    },
+  },
+  {
     files: ['client/**/*.{ts,tsx}'],
     plugins: {
       react: reactPlugin,
@@ -28,11 +37,6 @@ export default tseslint.config(
   },
   {
     files: ['server/**/*.ts'],
-    rules: {
-      '@typescript-eslint/no-unused-vars': [
-        'error',
-        { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
-      ],
-    },
+    rules: {},
   },
 );
