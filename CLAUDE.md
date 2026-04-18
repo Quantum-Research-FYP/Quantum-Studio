@@ -25,6 +25,14 @@ npm test             # Server tests (vitest)
 - **Database**: PostgreSQL (connection via `DATABASE_URL` env var)
 - **Auth**: Cookie-based sessions (HttpOnly + Secure + SameSite)
 
+## Server Structure
+
+- `server/src/db/` — PostgreSQL pool, migration runner, SQL migration files
+- `server/src/auth/` — Auth handlers, router, password hashing (Argon2id), session management
+- `server/src/middleware/` — Express middleware (auth session validation)
+- `server/src/types/` — TypeScript declaration files (Express augmentation)
+- Tests use `embedded-postgres` for real PostgreSQL integration tests
+
 ## Conventions
 
 - Shared TypeScript base config at `tsconfig.base.json`, extended per package
