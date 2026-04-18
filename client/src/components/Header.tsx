@@ -10,7 +10,7 @@ const NAV_ITEMS = [
 ] as const;
 
 export default function Header() {
-  const { user, logout } = useAuth();
+  const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = async () => {
@@ -40,7 +40,7 @@ export default function Header() {
       </nav>
 
       <div className="app-header__actions">
-        {user ? (
+        {loading ? null : user ? (
           <>
             <span className="user-email">{user.email}</span>
             <button type="button" className="btn btn--ghost" onClick={handleLogout}>

@@ -1,9 +1,7 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { fetchCurrentUser, loginUser, signupUser, logoutUser, type User } from '../api/auth';
 
-export interface User {
-  id: string;
-  email: string;
-}
+export type { User } from '../api/auth';
 
 interface AuthContextValue {
   user: User | null;
@@ -17,19 +15,28 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const login = useCallback(async (_email: string, _password: string) => {
-    // Stub — real implementation in step 4
-    setUser(null);
+  // Restore session on mount via /api/auth/me
+  useEffect(() => {
+    fetchCurrentUser()
+      .then((res) => setUser(res.user))
+      .catch(() => setUser(null))
+      .finally(() => setLoading(false));
   }, []);
 
-  const signup = useCallback(async (_email: string, _password: string) => {
-    // Stub — real implementation in step 4
-    setUser(null);
+  const login = useCallback(async (email: string, password: string) => {
+    const res = await loginUser(email, password);
+    setUser(res.user);
+  }, []);
+
+  const signup = useCallback(async (email: string, password: string) => {
+    const res = await signupUser(email, password);
+    setUser(res.user);
   }, []);
 
   const logout = useCallback(async () => {
+    await logoutUser();
     setUser(null);
   }, []);
 
