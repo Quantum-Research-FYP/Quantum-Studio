@@ -23,26 +23,26 @@ cp .env.example .env
 npm run dev
 ```
 
-| Service | URL |
-|---------|-----|
+| Service       | URL                   |
+| ------------- | --------------------- |
 | Client (Vite) | http://localhost:5173 |
-| Server (API) | http://localhost:3001 |
+| Server (API)  | http://localhost:3001 |
 
 The Vite dev server proxies `/api` requests to the backend automatically.
 
 ## Scripts
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Start client and server concurrently |
-| `npm run dev:client` | Start only the Vite dev server |
-| `npm run dev:server` | Start only the Express API (with hot-reload) |
-| `npm run build` | Production build for both packages |
-| `npm run lint` | Run ESLint across the project |
-| `npm run format` | Format all files with Prettier |
-| `npm run format:check` | Check formatting without writing |
-| `npm test` | Run server tests |
-| `npm run clean` | Remove build artifacts and caches |
+| Command                | Description                                  |
+| ---------------------- | -------------------------------------------- |
+| `npm run dev`          | Start client and server concurrently         |
+| `npm run dev:client`   | Start only the Vite dev server               |
+| `npm run dev:server`   | Start only the Express API (with hot-reload) |
+| `npm run build`        | Production build for both packages           |
+| `npm run lint`         | Run ESLint across the project                |
+| `npm run format`       | Format all files with Prettier               |
+| `npm run format:check` | Check formatting without writing             |
+| `npm test`             | Run server tests                             |
+| `npm run clean`        | Remove build artifacts and caches            |
 
 ## Project Structure
 
