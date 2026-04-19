@@ -30,7 +30,10 @@ npm run test:client  # Client circuit domain tests only
 
 - `server/src/db/` — PostgreSQL pool, migration runner, SQL migration files
 - `server/src/auth/` — Auth handlers, router, password hashing (Argon2id), session management
-- `server/src/simulations/` — Simulation job API: repository, handlers, router, validation (resource limits via `SIM_MAX_*` env vars)
+- `server/src/simulations/` — Simulation job API: repository, handlers, router, validation, runner, and Python execution script
+  - Job runner polls queue with concurrency limit, spawns Python subprocess per job
+  - `simulate.py` executes OpenQASM via Qiskit AerSimulator (Python venv at `server/.venv`)
+  - Resource limits configurable via `SIM_MAX_*` env vars (shots, qubits, depth, execution time, concurrent jobs)
 - `server/src/middleware/` — Express middleware (auth session validation, route-level `requireAuth` guard)
 - `server/src/types/` — TypeScript declaration files (Express augmentation)
 - Tests use `embedded-postgres` for real PostgreSQL integration tests
