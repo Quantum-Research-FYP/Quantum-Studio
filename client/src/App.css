@@ -1286,3 +1286,46 @@ html {
   color: #92400e;
   font-weight: 500;
 }
+
+/* ------------------------------------------------------------------ */
+/* Results — export bar                                                */
+/* ------------------------------------------------------------------ */
+.export-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.export-bar__btn {
+  font-size: 0.8125rem;
+  padding: 6px 14px;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.export-bar__btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: #eef2ff;
+}
+
+.export-bar__status {
+  font-size: 0.75rem;
+  font-weight: 500;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.export-bar__status--success {
+  color: #16a34a;
+}
+
+.export-bar__status--error {
+  color: #dc2626;
+}

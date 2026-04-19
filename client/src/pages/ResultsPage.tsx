@@ -4,6 +4,7 @@ import { useSimulation } from '../hooks/useSimulation';
 import type { JobResponse } from '../api/simulations';
 import ProbabilityBarChart from '../components/results/ProbabilityBarChart';
 import ResultsTable from '../components/results/ResultsTable';
+import ExportButtons from '../components/results/ExportButtons';
 
 const DEFAULT_MAX_DISPLAY = 20;
 
@@ -146,6 +147,8 @@ export default function ResultsPage() {
               <ResultsTable outcomes={outcomes} maxDisplay={maxDisplay} />
             </div>
           )}
+
+          <ExportButtons jobId={jobId} chartVisible={showChart} />
         </>
       )}
 
