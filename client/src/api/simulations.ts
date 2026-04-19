@@ -21,9 +21,18 @@ export interface JobResponse {
 
 export interface JobResultResponse {
   jobId: string;
+  shots: number;
   counts: Record<string, number>;
+  probabilities?: Record<string, number>;
   metadata: Record<string, unknown>;
   createdAt: string;
+}
+
+/** A single measurement outcome, pre-sorted for display. */
+export interface Outcome {
+  bitstring: string;
+  count: number;
+  probability: number;
 }
 
 export interface SubmitJobInput {
@@ -76,4 +85,9 @@ export function getJobStatus(jobId: string): Promise<JobResponse> {
 
 export function getJobResult(jobId: string): Promise<JobResultResponse> {
   return request<JobResultResponse>(`/api/v1/simulations/jobs/${encodeURIComponent(jobId)}/result`);
+}
+
+/** Build the URL for the server-side export endpoint (JSON or CSV). */
+export function getExportUrl(jobId: string, format: 'json' | 'csv'): string {
+  return `/api/v1/simulations/jobs/${encodeURIComponent(jobId)}/result/export?format=${format}`;
 }

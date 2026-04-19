@@ -1,12 +1,21 @@
-import { useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useSimulation } from '../hooks/useSimulation';
-import type { JobResponse, JobResultResponse } from '../api/simulations';
+import type { JobResponse } from '../api/simulations';
+import ProbabilityBarChart from '../components/results/ProbabilityBarChart';
+import ResultsTable from '../components/results/ResultsTable';
+import ExportButtons from '../components/results/ExportButtons';
+
+const DEFAULT_MAX_DISPLAY = 20;
 
 export default function ResultsPage() {
   const [searchParams] = useSearchParams();
   const jobId = searchParams.get('jobId');
-  const { job, result, error, loading, polling, loadJob } = useSimulation();
+  const { job, viewState, outcomes, error, polling, loadJob } = useSimulation();
+
+  const [showChart, setShowChart] = useState(true);
+  const [showTable, setShowTable] = useState(true);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     if (jobId) {
@@ -14,7 +23,17 @@ export default function ResultsPage() {
     }
   }, [jobId, loadJob]);
 
-  if (!jobId) {
+  // Reset showAll when job changes
+  useEffect(() => {
+    setShowAll(false);
+  }, [jobId]);
+
+  // Determine whether truncation applies
+  const maxDisplay = showAll ? undefined : DEFAULT_MAX_DISPLAY;
+  const canShowAll = outcomes.length > DEFAULT_MAX_DISPLAY;
+
+  // ── no-job state ──────────────────────────────────────────────────────
+  if (!jobId || viewState === 'no-job') {
     return (
       <div className="page">
         <h1 className="page__title">Results</h1>
@@ -29,15 +48,17 @@ export default function ResultsPage() {
     );
   }
 
-  if (loading) {
+  // ── loading state ─────────────────────────────────────────────────────
+  if (viewState === 'loading') {
     return (
       <div className="page">
         <h1 className="page__title">Results</h1>
-        <p className="page__subtitle">Loading job...</p>
+        <p className="page__subtitle">Loading job…</p>
       </div>
     );
   }
 
+  // ── error (fetch failure) ─────────────────────────────────────────────
   if (error) {
     return (
       <div className="results-page">
@@ -60,9 +81,76 @@ export default function ResultsPage() {
 
       <JobStatusPanel job={job} polling={polling} />
 
-      {job.status === 'completed' && result && <CountsTable result={result} />}
+      {/* ── pending state ──────────────────────────────────────────── */}
+      {viewState === 'pending' && (
+        <div className="results-pending" role="status" aria-live="polite">
+          <p className="results-pending__message">
+            Results pending — waiting for the simulation to complete…
+          </p>
+        </div>
+      )}
 
-      {job.status === 'failed' && job.error && <ErrorBanner error={job.error} />}
+      {/* ── failed state ───────────────────────────────────────────── */}
+      {viewState === 'failed' && job.error && <ErrorBanner error={job.error} />}
+
+      {/* ── empty-results state ────────────────────────────────────── */}
+      {viewState === 'empty-results' && (
+        <div className="results-empty" role="status">
+          <p className="results-empty__message">
+            No measurement outcomes available. The simulation completed but produced no results.
+          </p>
+        </div>
+      )}
+
+      {/* ── completed state: chart + table ─────────────────────────── */}
+      {viewState === 'completed' && (
+        <>
+          <div className="results-toggles">
+            <button
+              type="button"
+              className={`btn btn--ghost results-toggle ${showChart ? 'results-toggle--active' : ''}`}
+              onClick={() => setShowChart((v) => !v)}
+              aria-pressed={showChart}
+            >
+              {showChart ? 'Hide chart' : 'Show chart'}
+            </button>
+            <button
+              type="button"
+              className={`btn btn--ghost results-toggle ${showTable ? 'results-toggle--active' : ''}`}
+              onClick={() => setShowTable((v) => !v)}
+              aria-pressed={showTable}
+            >
+              {showTable ? 'Hide table' : 'Show table'}
+            </button>
+            {canShowAll && (
+              <button
+                type="button"
+                className="btn btn--ghost results-toggle"
+                onClick={() => setShowAll((v) => !v)}
+                aria-pressed={showAll}
+              >
+                {showAll ? `Show top ${DEFAULT_MAX_DISPLAY}` : 'Show all outcomes'}
+              </button>
+            )}
+          </div>
+
+          {showChart && (
+            <div className="results-chart-container">
+              <h2 className="results-section__title">Probability Distribution</h2>
+              <ProbabilityBarChart outcomes={outcomes} maxDisplay={maxDisplay} />
+            </div>
+          )}
+
+          {showTable && (
+            <div className="results-table-container">
+              <h2 className="results-section__title">Measurement Results</h2>
+              <ResultsTable outcomes={outcomes} maxDisplay={maxDisplay} />
+            </div>
+          )}
+
+          <ExportButtons jobId={jobId} chartVisible={showChart} />
+        </>
+      )}
 
       <div className="results-page__actions">
         <Link to="/run" className="btn btn--primary">
@@ -74,7 +162,7 @@ export default function ResultsPage() {
 }
 
 // ---------------------------------------------------------------------------
-// Sub-components
+// Sub-components (page-specific, kept inline)
 // ---------------------------------------------------------------------------
 
 function JobStatusPanel({ job, polling }: { job: JobResponse; polling: boolean }) {
@@ -131,58 +219,10 @@ function StatusBadge({ status, polling }: { status: string; polling: boolean }) 
       {polling && (status === 'queued' || status === 'running') && (
         <span className="status-badge__polling" aria-label="Checking for updates">
           {' '}
-          ...
+          …
         </span>
       )}
     </span>
-  );
-}
-
-function CountsTable({ result }: { result: JobResultResponse }) {
-  const rows = useMemo(() => {
-    const totalShots = Object.values(result.counts).reduce((sum, c) => sum + c, 0);
-    return Object.entries(result.counts)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([bitstring, count]) => ({
-        bitstring,
-        count,
-        probability: totalShots > 0 ? count / totalShots : 0,
-      }));
-  }, [result.counts]);
-
-  const metadata = result.metadata as { durationMs?: number; backend?: string };
-
-  return (
-    <div className="counts-table-wrapper">
-      <h2 className="counts-table__title">Measurement Counts</h2>
-      {metadata.durationMs !== undefined && (
-        <p className="counts-table__meta">Completed in {metadata.durationMs.toLocaleString()} ms</p>
-      )}
-      <table className="counts-table" aria-label="Simulation measurement counts">
-        <thead>
-          <tr>
-            <th scope="col">Bitstring</th>
-            <th scope="col" className="counts-table__num">
-              Count
-            </th>
-            <th scope="col" className="counts-table__num">
-              Probability
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr key={row.bitstring}>
-              <td>
-                <code>{row.bitstring}</code>
-              </td>
-              <td className="counts-table__num">{row.count.toLocaleString()}</td>
-              <td className="counts-table__num">{(row.probability * 100).toFixed(2)}%</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }
 
@@ -203,7 +243,10 @@ function ErrorBanner({ error }: { error: { errorCode: string; message: string } 
       <div className="error-banner__header">Simulation Failed</div>
       <p className="error-banner__message">{error.message}</p>
       {hint && <p className="error-banner__hint">{hint}</p>}
-      <p className="error-banner__code">Error code: {error.errorCode}</p>
+      <details className="error-banner__details">
+        <summary className="error-banner__details-toggle">Error details</summary>
+        <p className="error-banner__code">Error code: {error.errorCode}</p>
+      </details>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   submitJob,
   getJobStatus,
@@ -6,9 +6,26 @@ import {
   type JobResponse,
   type JobResultResponse,
   type SubmitJobInput,
+  type Outcome,
 } from '../api/simulations';
 
 const POLL_INTERVAL_MS = 2000;
+
+// ---------------------------------------------------------------------------
+// View-state discriminator
+// ---------------------------------------------------------------------------
+
+export type ResultsViewState =
+  | 'no-job'
+  | 'loading'
+  | 'pending'
+  | 'failed'
+  | 'empty-results'
+  | 'completed';
+
+// ---------------------------------------------------------------------------
+// Internal state
+// ---------------------------------------------------------------------------
 
 interface UseSimulationState {
   /** Current job metadata (status, timestamps, error info). */
@@ -23,7 +40,15 @@ interface UseSimulationState {
   polling: boolean;
 }
 
+// ---------------------------------------------------------------------------
+// Public return type
+// ---------------------------------------------------------------------------
+
 interface UseSimulationReturn extends UseSimulationState {
+  /** Discriminated view-state for the results page. */
+  viewState: ResultsViewState;
+  /** Pre-sorted outcomes (probability desc, bitstring asc for ties). Empty for non-completed states. */
+  outcomes: Outcome[];
   /** Submit a new simulation job. */
   submit: (input: SubmitJobInput) => Promise<void>;
   /** Load an existing job by ID (e.g. from URL params). */
@@ -31,6 +56,72 @@ interface UseSimulationReturn extends UseSimulationState {
   /** Reset state to initial. */
   reset: () => void;
 }
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Safely extract the counts map from a result, returning an empty object on malformed data. */
+function safeCounts(result: JobResultResponse | null): Record<string, number> {
+  if (!result || typeof result.counts !== 'object' || result.counts === null) return {};
+  return result.counts;
+}
+
+/**
+ * Build a sorted outcomes list from the result payload.
+ * Uses server-provided probabilities when available, otherwise derives them
+ * client-side with deterministic 4dp rounding.
+ */
+function buildOutcomes(result: JobResultResponse | null, jobShots: number): Outcome[] {
+  const counts = safeCounts(result);
+  const entries = Object.entries(counts);
+  if (entries.length === 0) return [];
+
+  const serverProbs = result?.probabilities;
+  const shots = result?.shots ?? jobShots;
+
+  const outcomes: Outcome[] = entries.map(([bitstring, count]) => {
+    const probability =
+      serverProbs && typeof serverProbs[bitstring] === 'number'
+        ? serverProbs[bitstring]
+        : shots > 0
+          ? parseFloat((count / shots).toFixed(4))
+          : 0;
+    return { bitstring, count, probability };
+  });
+
+  // Sort: probability descending, bitstring ascending for deterministic tie-breaking
+  outcomes.sort((a, b) => {
+    const probDiff = b.probability - a.probability;
+    if (probDiff !== 0) return probDiff;
+    return a.bitstring.localeCompare(b.bitstring);
+  });
+
+  return outcomes;
+}
+
+/** Derive the view-state from internal hook state. */
+function deriveViewState(state: UseSimulationState): ResultsViewState {
+  if (state.loading) return 'loading';
+  if (!state.job) return 'no-job';
+
+  const { status } = state.job;
+
+  if (status === 'queued' || status === 'running') return 'pending';
+  if (status === 'failed') return 'failed';
+
+  // completed — check for results
+  if (!state.result) return 'empty-results';
+
+  const counts = safeCounts(state.result);
+  if (Object.keys(counts).length === 0) return 'empty-results';
+
+  return 'completed';
+}
+
+// ---------------------------------------------------------------------------
+// Hook
+// ---------------------------------------------------------------------------
 
 export function useSimulation(): UseSimulationReturn {
   const [state, setState] = useState<UseSimulationState>({
@@ -167,5 +258,13 @@ export function useSimulation(): UseSimulationReturn {
     setState({ job: null, result: null, error: null, loading: false, polling: false });
   }, [stopPolling]);
 
-  return { ...state, submit, loadJob, reset };
+  // Computed view-model
+  const viewState = useMemo(() => deriveViewState(state), [state]);
+
+  const outcomes = useMemo(
+    () => buildOutcomes(state.result, state.job?.shots ?? 0),
+    [state.result, state.job?.shots],
+  );
+
+  return { ...state, viewState, outcomes, submit, loadJob, reset };
 }
