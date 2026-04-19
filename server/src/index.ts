@@ -6,6 +6,7 @@ import cors from 'cors';
 import pool from './db/pool.js';
 import { runMigrations } from './db/migrate.js';
 import { createAuthRouter } from './auth/router.js';
+import { createSimulationsRouter } from './simulations/router.js';
 import { createAuthMiddleware } from './middleware/authenticate.js';
 
 const app = express();
@@ -32,6 +33,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.use('/api/auth', createAuthRouter(pool));
+app.use('/api/v1/simulations', createSimulationsRouter(pool));
 
 /** Create the Express app (used by tests to get the app without starting the listener). */
 export function createApp(testPool?: import('pg').Pool) {
@@ -47,6 +49,7 @@ export function createApp(testPool?: import('pg').Pool) {
     res.json({ status: 'ok' });
   });
   testApp.use('/api/auth', createAuthRouter(p));
+  testApp.use('/api/v1/simulations', createSimulationsRouter(p));
 
   return testApp;
 }
