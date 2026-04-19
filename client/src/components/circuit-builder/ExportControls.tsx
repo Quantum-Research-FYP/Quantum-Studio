@@ -1,10 +1,19 @@
+import type { CircuitModel } from '../../circuit';
+
 /**
  * ExportControls provides copy-to-clipboard and download-as-file actions
- * for the generated Qiskit Python code. Disabled when validation errors exist.
+ * for the generated Qiskit Python code. Disabled when validation errors exist
+ * or the circuit has no gates.
  */
-export default function ExportControls() {
+
+interface ExportControlsProps {
+  circuit: CircuitModel;
+}
+
+export default function ExportControls({ circuit }: ExportControlsProps) {
+  const hasGates = circuit.operations.length > 0;
+  // Validation integration will be added in a later step
   const hasErrors = false;
-  const hasGates = false;
   const isDisabled = hasErrors || !hasGates;
 
   return (

@@ -2,10 +2,24 @@
  * WireList displays the current qubit and classical bit counts
  * with controls to add or remove wires.
  */
-export default function WireList() {
-  const qubits = 0;
-  const clbits = 0;
 
+interface WireListProps {
+  qubits: number;
+  clbits: number;
+  onAddQubit: () => void;
+  onRemoveQubit: () => void;
+  onAddClbit: () => void;
+  onRemoveClbit: () => void;
+}
+
+export default function WireList({
+  qubits,
+  clbits,
+  onAddQubit,
+  onRemoveQubit,
+  onAddClbit,
+  onRemoveClbit,
+}: WireListProps) {
   return (
     <div className="wire-list" aria-label="Wire controls">
       <div className="wire-list__group">
@@ -16,13 +30,14 @@ export default function WireList() {
             className="wire-list__btn"
             aria-label="Remove qubit"
             disabled={qubits === 0}
+            onClick={onRemoveQubit}
           >
             &minus;
           </button>
           <span className="wire-list__count" aria-live="polite">
             {qubits}
           </span>
-          <button type="button" className="wire-list__btn" aria-label="Add qubit">
+          <button type="button" className="wire-list__btn" aria-label="Add qubit" onClick={onAddQubit}>
             +
           </button>
         </div>
@@ -36,13 +51,19 @@ export default function WireList() {
             className="wire-list__btn"
             aria-label="Remove classical bit"
             disabled={clbits === 0}
+            onClick={onRemoveClbit}
           >
             &minus;
           </button>
           <span className="wire-list__count" aria-live="polite">
             {clbits}
           </span>
-          <button type="button" className="wire-list__btn" aria-label="Add classical bit">
+          <button
+            type="button"
+            className="wire-list__btn"
+            aria-label="Add classical bit"
+            onClick={onAddClbit}
+          >
             +
           </button>
         </div>

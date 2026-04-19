@@ -477,6 +477,12 @@ html {
   outline-offset: 2px;
 }
 
+.gate-palette__btn--selected {
+  border-color: var(--color-primary);
+  background: #eef2ff;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.25);
+}
+
 /* ------------------------------------------------------------------ */
 /* Circuit Builder — Circuit canvas                                    */
 /* ------------------------------------------------------------------ */
@@ -497,6 +503,128 @@ html {
   padding: 24px;
   color: var(--color-text-muted);
   font-size: 0.875rem;
+}
+
+.circuit-canvas__scroll {
+  overflow: auto;
+  height: 100%;
+  padding: 8px;
+}
+
+.circuit-canvas__grid {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.circuit-canvas__time-header {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: 2px 0 4px;
+  min-width: 44px;
+  width: 44px;
+}
+
+.circuit-canvas__label-col {
+  width: 36px;
+  min-width: 36px;
+}
+
+.circuit-canvas__wire-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  font-family: 'Courier New', Courier, monospace;
+  color: var(--color-text-muted);
+  text-align: right;
+  padding-right: 8px;
+  white-space: nowrap;
+}
+
+.circuit-canvas__row--qubit .circuit-canvas__wire-label {
+  color: var(--color-primary);
+}
+
+.circuit-canvas__row--clbit .circuit-canvas__wire-label {
+  color: #92400e;
+}
+
+.circuit-canvas__cell {
+  position: relative;
+  height: 36px;
+  min-width: 44px;
+  text-align: center;
+  vertical-align: middle;
+  border: 1px solid transparent;
+  cursor: default;
+}
+
+.circuit-canvas__wire {
+  display: block;
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.circuit-canvas__row--clbit .circuit-canvas__wire {
+  height: 2px;
+  background: repeating-linear-gradient(
+    to right,
+    var(--color-border) 0,
+    var(--color-border) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+
+.circuit-canvas__cell--placeable {
+  cursor: crosshair;
+  border: 1px dashed var(--color-border);
+  border-radius: 4px;
+}
+
+.circuit-canvas__cell--placeable:hover {
+  background: #eef2ff;
+  border-color: var(--color-primary);
+}
+
+.circuit-canvas__cell--gate {
+  padding: 0;
+}
+
+.circuit-canvas__gate {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+  width: 32px;
+  height: 28px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 2px solid var(--color-primary);
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.circuit-canvas__gate:hover {
+  background: #fef2f2;
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.circuit-canvas__gate:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
 }
 
 /* ------------------------------------------------------------------ */
