@@ -6,6 +6,8 @@ import cors from 'cors';
 import pool from './db/pool.js';
 import { runMigrations } from './db/migrate.js';
 import { createAuthRouter } from './auth/router.js';
+import { createSimulationsRouter } from './simulations/router.js';
+import { createJobRunner } from './simulations/runner.js';
 import { createAuthMiddleware } from './middleware/authenticate.js';
 
 const app = express();
@@ -26,12 +28,19 @@ app.use(cookieParser());
 // Attach authenticated user to request (non-blocking)
 app.use(createAuthMiddleware(pool));
 
+// Job runner (started when the server boots)
+const jobRunner = createJobRunner(pool);
+
 // Routes
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
 
 app.use('/api/auth', createAuthRouter(pool));
+app.use(
+  '/api/v1/simulations',
+  createSimulationsRouter(pool, () => jobRunner.nudge()),
+);
 
 /** Create the Express app (used by tests to get the app without starting the listener). */
 export function createApp(testPool?: import('pg').Pool) {
@@ -47,6 +56,7 @@ export function createApp(testPool?: import('pg').Pool) {
     res.json({ status: 'ok' });
   });
   testApp.use('/api/auth', createAuthRouter(p));
+  testApp.use('/api/v1/simulations', createSimulationsRouter(p));
 
   return testApp;
 }
@@ -57,6 +67,7 @@ const isMainModule =
 if (isMainModule || process.env.START_SERVER === 'true') {
   runMigrations(pool)
     .then(() => {
+      jobRunner.start();
       app.listen(PORT, () => {
         console.log(`Server listening on http://localhost:${PORT}`);
       });

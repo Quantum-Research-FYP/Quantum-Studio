@@ -30,7 +30,11 @@ npm run test:client  # Client circuit domain tests only
 
 - `server/src/db/` — PostgreSQL pool, migration runner, SQL migration files
 - `server/src/auth/` — Auth handlers, router, password hashing (Argon2id), session management
-- `server/src/middleware/` — Express middleware (auth session validation)
+- `server/src/simulations/` — Simulation job API: repository, handlers, router, validation, runner, and Python execution script
+  - Job runner polls queue with concurrency limit, spawns Python subprocess per job
+  - `simulate.py` executes OpenQASM via Qiskit AerSimulator (Python venv at `server/.venv`)
+  - Resource limits configurable via `SIM_MAX_*` env vars (shots, qubits, depth, execution time, concurrent jobs)
+- `server/src/middleware/` — Express middleware (auth session validation, route-level `requireAuth` guard)
 - `server/src/types/` — TypeScript declaration files (Express augmentation)
 - Tests use `embedded-postgres` for real PostgreSQL integration tests
 
@@ -39,9 +43,9 @@ npm run test:client  # Client circuit domain tests only
 - `client/src/pages/` — Route-level page components
 - `client/src/components/` — Shared UI components (AppShell, Header, ProtectedRoute)
 - `client/src/components/circuit-builder/` — Circuit builder components (CircuitCanvas, GatePalette, WireList, UndoRedoControls, CodePanel, ValidationSummaryPanel, ExportControls)
-- `client/src/hooks/` — React hooks (useAuth, useCircuitHistory)
-- `client/src/api/` — API client modules
-- `client/src/circuit/` — Pure TypeScript circuit domain layer (no React dependencies): types, model operations, serialization, validation, codegen
+- `client/src/hooks/` — React hooks (useAuth, useCircuitHistory, useSimulation)
+- `client/src/api/` — API client modules (auth, simulations)
+- `client/src/circuit/` — Pure TypeScript circuit domain layer (no React dependencies): types, model operations, serialization, validation, codegen, qasm-codegen
 - Routes: `/create` (landing), `/builder` (circuit builder), `/run`, `/results`, `/experiments` (protected), `/templates`, `/login`, `/signup`
 
 ## Conventions
