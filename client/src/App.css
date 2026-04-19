@@ -896,3 +896,244 @@ html {
 .export-controls__status--error {
   color: #dc2626;
 }
+
+/* ------------------------------------------------------------------ */
+/* Run page                                                            */
+/* ------------------------------------------------------------------ */
+.run-page {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 32px 0;
+}
+
+.run-page__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.run-page__subtitle {
+  color: var(--color-text-muted);
+  margin-bottom: 24px;
+}
+
+.run-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.run-form__qasm {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  resize: vertical;
+  min-height: 180px;
+}
+
+.run-form__shots {
+  max-width: 200px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Results page                                                        */
+/* ------------------------------------------------------------------ */
+.results-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 0;
+}
+
+.results-page__title {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 20px;
+}
+
+.results-page__actions {
+  margin-top: 24px;
+}
+
+.results-link {
+  color: var(--color-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.results-link:hover {
+  text-decoration: underline;
+}
+
+/* ------------------------------------------------------------------ */
+/* Job status panel                                                    */
+/* ------------------------------------------------------------------ */
+.job-status-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.job-status-panel__row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.job-status-panel__label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  min-width: 90px;
+}
+
+.job-status-panel__value {
+  font-size: 0.875rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Status badge                                                        */
+/* ------------------------------------------------------------------ */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.status-badge--queued {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.status-badge--running {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.status-badge--completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.status-badge--failed {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.status-badge__polling {
+  animation: pulse-dots 1.2s infinite;
+}
+
+@keyframes pulse-dots {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Counts table                                                        */
+/* ------------------------------------------------------------------ */
+.counts-table-wrapper {
+  margin-bottom: 20px;
+}
+
+.counts-table__title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.counts-table__meta {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  margin-bottom: 12px;
+}
+
+.counts-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.counts-table th,
+.counts-table td {
+  padding: 8px 14px;
+  text-align: left;
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.counts-table th {
+  background: var(--color-bg);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.counts-table__num {
+  text-align: right !important;
+  font-variant-numeric: tabular-nums;
+}
+
+.counts-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.counts-table code {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+}
+
+/* ------------------------------------------------------------------ */
+/* Error banner                                                        */
+/* ------------------------------------------------------------------ */
+.error-banner {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.error-banner__header {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #991b1b;
+  margin-bottom: 6px;
+}
+
+.error-banner__message {
+  font-size: 0.875rem;
+  color: #991b1b;
+  margin-bottom: 6px;
+}
+
+.error-banner__hint {
+  font-size: 0.8125rem;
+  color: #b91c1c;
+  font-style: italic;
+  margin-bottom: 6px;
+}
+
+.error-banner__code {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
