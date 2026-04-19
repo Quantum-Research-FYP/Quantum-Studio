@@ -10,6 +10,7 @@ import { GATE_QUBIT_COUNT, GATE_REQUIRES_CLBITS } from '../../circuit';
 interface CircuitCanvasProps {
   circuit: CircuitModel;
   selectedGate: GateType | null;
+  errorOperationIds: Set<string>;
   onPlaceGate: (type: GateType, qubitIndex: number, time: number) => void;
   onDeleteGate: (operationId: string) => void;
 }
@@ -55,6 +56,7 @@ function getGateLabel(op: Operation, wirePrefix: string, wireIndex: number): str
 export default function CircuitCanvas({
   circuit,
   selectedGate,
+  errorOperationIds,
   onPlaceGate,
   onDeleteGate,
 }: CircuitCanvasProps) {
@@ -101,16 +103,25 @@ export default function CircuitCanvas({
 
     if (op) {
       const label = getGateLabel(op, wirePrefix, wireIndex);
+      const hasError = errorOperationIds.has(op.id);
+      const gateClass = `circuit-canvas__gate${hasError ? ' circuit-canvas__gate--error' : ''}`;
+      const errorSuffix = hasError ? ' (has validation error)' : '';
       return (
         <td key={time} className="circuit-canvas__cell circuit-canvas__cell--gate">
           <button
             type="button"
-            className="circuit-canvas__gate"
+            className={gateClass}
             onClick={(e) => handleGateClick(e, op)}
-            title={`${op.type} gate — click to delete`}
-            aria-label={`${op.type} gate at ${wirePrefix === 'q' ? 'qubit' : 'classical bit'} ${wireIndex}, time ${time}. Click to delete.`}
+            title={`${op.type} gate — click to delete${errorSuffix}`}
+            aria-label={`${op.type} gate at ${wirePrefix === 'q' ? 'qubit' : 'classical bit'} ${wireIndex}, time ${time}. Click to delete.${errorSuffix}`}
+            aria-invalid={hasError || undefined}
           >
             {label}
+            {hasError && (
+              <span className="circuit-canvas__error-badge" aria-hidden="true">
+                !
+              </span>
+            )}
           </button>
         </td>
       );

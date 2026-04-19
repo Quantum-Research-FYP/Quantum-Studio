@@ -26,3 +26,6 @@ export {
 export { deserialize, serialize } from './serialization';
 
 export { generateQiskitCode } from './codegen';
+
+export type { ValidationError } from './validation';
+export { validateCircuit } from './validation';

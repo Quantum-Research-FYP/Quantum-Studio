@@ -1,18 +1,16 @@
-import type { CircuitModel } from '../../circuit';
+import type { ValidationError } from '../../circuit';
 
 /**
  * ValidationSummaryPanel displays a list of circuit validation errors.
- * Accessible: messages are available to screen readers and not color-only.
+ * Accessible: messages are available to screen readers, not communicated
+ * by color alone, and each error item is keyboard-focusable.
  */
 
 interface ValidationSummaryPanelProps {
-  circuit: CircuitModel;
+  errors: ValidationError[];
 }
 
-export default function ValidationSummaryPanel({ circuit: _circuit }: ValidationSummaryPanelProps) {
-  // Validation logic will be added in a later step
-  const errors: string[] = [];
-
+export default function ValidationSummaryPanel({ errors }: ValidationSummaryPanelProps) {
   if (errors.length === 0) {
     return null;
   }
@@ -24,14 +22,28 @@ export default function ValidationSummaryPanel({ circuit: _circuit }: Validation
       role="status"
       aria-live="polite"
     >
-      <h3 className="validation-panel__title">Validation Issues ({errors.length})</h3>
+      <h3 className="validation-panel__title">
+        <span className="validation-panel__title-icon" aria-hidden="true">
+          &#9888;
+        </span>
+        Validation Issues ({errors.length})
+      </h3>
       <ul className="validation-panel__list">
-        {errors.map((message, index) => (
-          <li key={index} className="validation-panel__item">
+        {errors.map((error, index) => (
+          <li
+            key={error.operationId ? `${error.operationId}-${index}` : index}
+            className="validation-panel__item"
+            tabIndex={0}
+          >
             <span className="validation-panel__icon" aria-hidden="true">
               &#9888;
             </span>
-            {message}
+            <span className="validation-panel__message">{error.message}</span>
+            {error.time !== undefined && (
+              <span className="validation-panel__location">
+                (time {error.time})
+              </span>
+            )}
           </li>
         ))}
       </ul>

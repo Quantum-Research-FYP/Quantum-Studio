@@ -627,6 +627,32 @@ html {
   outline-offset: 2px;
 }
 
+.circuit-canvas__gate--error {
+  border-color: #dc2626;
+  background: #fef2f2;
+}
+
+.circuit-canvas__gate--error:hover {
+  border-color: #991b1b;
+}
+
+.circuit-canvas__error-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  font-size: 0.625rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: #dc2626;
+  border-radius: 50%;
+  line-height: 1;
+}
+
 /* ------------------------------------------------------------------ */
 /* Circuit Builder — Wire list                                         */
 /* ------------------------------------------------------------------ */
@@ -757,12 +783,20 @@ html {
 }
 
 .validation-panel__title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 0.75rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: #92400e;
   margin-bottom: 6px;
+}
+
+.validation-panel__title-icon {
+  font-size: 0.875rem;
+  line-height: 1;
 }
 
 .validation-panel__list {
@@ -778,6 +812,25 @@ html {
   display: flex;
   align-items: flex-start;
   gap: 6px;
+  padding: 4px 6px;
+  border-radius: 4px;
+  cursor: default;
+}
+
+.validation-panel__item:focus {
+  outline: 2px solid #92400e;
+  outline-offset: 1px;
+  background: #fef3c7;
+}
+
+.validation-panel__message {
+  flex: 1;
+}
+
+.validation-panel__location {
+  font-size: 0.75rem;
+  color: #b45309;
+  white-space: nowrap;
 }
 
 .validation-panel__icon {
@@ -790,10 +843,31 @@ html {
 /* ------------------------------------------------------------------ */
 .export-controls {
   display: flex;
+  align-items: center;
   gap: 4px;
   margin-left: auto;
 }
 
+.export-controls__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .export-controls__btn {
   font-size: 0.8125rem;
+}
+
+.export-controls__status {
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.export-controls__status--success {
+  color: #16a34a;
+}
+
+.export-controls__status--error {
+  color: #dc2626;
 }

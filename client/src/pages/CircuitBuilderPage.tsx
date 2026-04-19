@@ -1,12 +1,14 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { GateType } from '../circuit';
 import {
   addClbit,
   addQubit,
   deleteGate,
+  generateQiskitCode,
   getDependentOperations,
   placeGate,
   removeWireWithDependents,
+  validateCircuit,
 } from '../circuit';
 import CircuitCanvas from '../components/circuit-builder/CircuitCanvas';
 import GatePalette from '../components/circuit-builder/GatePalette';
@@ -24,6 +26,16 @@ import { useCircuitHistory } from '../hooks/useCircuitHistory';
 export default function CircuitBuilderPage() {
   const { circuit, canUndo, canRedo, push, undo, redo } = useCircuitHistory();
   const [selectedGate, setSelectedGate] = useState<GateType | null>(null);
+
+  // Validation runs on every circuit change
+  const errors = useMemo(() => validateCircuit(circuit), [circuit]);
+  const errorOperationIds = useMemo(
+    () => new Set(errors.filter((e) => e.operationId).map((e) => e.operationId!)),
+    [errors],
+  );
+
+  // Code generation for export
+  const code = generateQiskitCode(circuit);
 
   const handleAddQubit = useCallback(() => {
     push(addQubit(circuit));
@@ -96,7 +108,11 @@ export default function CircuitBuilderPage() {
           onRemoveClbit={handleRemoveClbit}
         />
         <UndoRedoControls canUndo={canUndo} canRedo={canRedo} onUndo={undo} onRedo={redo} />
-        <ExportControls circuit={circuit} />
+        <ExportControls
+          code={code}
+          hasErrors={errors.length > 0}
+          hasGates={circuit.operations.length > 0}
+        />
       </div>
 
       <div className="builder__workspace">
@@ -106,6 +122,7 @@ export default function CircuitBuilderPage() {
           <CircuitCanvas
             circuit={circuit}
             selectedGate={selectedGate}
+            errorOperationIds={errorOperationIds}
             onPlaceGate={handlePlaceGate}
             onDeleteGate={handleDeleteGate}
           />
@@ -113,7 +130,7 @@ export default function CircuitBuilderPage() {
 
         <div className="builder__sidebar">
           <CodePanel circuit={circuit} />
-          <ValidationSummaryPanel circuit={circuit} />
+          <ValidationSummaryPanel errors={errors} />
         </div>
       </div>
     </div>
