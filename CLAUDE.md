@@ -40,6 +40,7 @@ npm test             # Server tests (vitest)
 - `client/src/components/circuit-builder/` — Circuit builder components (CircuitCanvas, GatePalette, WireList, UndoRedoControls, CodePanel, ValidationSummaryPanel, ExportControls)
 - `client/src/hooks/` — React hooks (useAuth)
 - `client/src/api/` — API client modules
+- `client/src/circuit/` — Pure TypeScript circuit domain layer (no React dependencies): types, model operations, serialization
 - Routes: `/create` (landing), `/builder` (circuit builder), `/run`, `/results`, `/experiments` (protected), `/templates`, `/login`, `/signup`
 
 ## Conventions
