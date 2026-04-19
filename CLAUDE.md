@@ -33,6 +33,15 @@ npm test             # Server tests (vitest)
 - `server/src/types/` — TypeScript declaration files (Express augmentation)
 - Tests use `embedded-postgres` for real PostgreSQL integration tests
 
+## Client Structure
+
+- `client/src/pages/` — Route-level page components
+- `client/src/components/` — Shared UI components (AppShell, Header, ProtectedRoute)
+- `client/src/components/circuit-builder/` — Circuit builder components (CircuitCanvas, GatePalette, WireList, UndoRedoControls, CodePanel, ValidationSummaryPanel, ExportControls)
+- `client/src/hooks/` — React hooks (useAuth)
+- `client/src/api/` — API client modules
+- Routes: `/create` (landing), `/builder` (circuit builder), `/run`, `/results`, `/experiments` (protected), `/templates`, `/login`, `/signup`
+
 ## Conventions
 
 - Shared TypeScript base config at `tsconfig.base.json`, extended per package
