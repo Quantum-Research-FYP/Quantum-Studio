@@ -14,7 +14,8 @@ npm install          # Install all workspace dependencies
 npm run dev          # Start both client and server
 npm run lint         # ESLint (flat config) across client/src and server/src
 npm run format       # Prettier formatting
-npm test             # Server tests (vitest)
+npm test             # Client + server tests (vitest)
+npm run test:client  # Client circuit domain tests only
 ```
 
 ## Architecture
