@@ -162,6 +162,9 @@ export function createExperimentHandlers(pool: pg.Pool) {
 
         const experiment = await repo.getById(experimentId, userId);
         if (!experiment) {
+          console.log(
+            `[experiment] action=load-denied userId=${userId} experimentId=${experimentId}`,
+          );
           res.status(404).json({ error: 'Experiment not found.' });
           return;
         }
@@ -299,6 +302,9 @@ export function createExperimentHandlers(pool: pg.Pool) {
               errorCode: 'EXPERIMENT_VERSION_CONFLICT',
             });
           } else {
+            console.log(
+              `[experiment] action=update-denied userId=${userId} experimentId=${experimentId}`,
+            );
             res.status(404).json({ error: 'Experiment not found.' });
           }
           return;
@@ -350,6 +356,9 @@ export function createExperimentHandlers(pool: pg.Pool) {
               errorCode: 'EXPERIMENT_VERSION_CONFLICT',
             });
           } else {
+            console.log(
+              `[experiment] action=rename-denied userId=${userId} experimentId=${experimentId}`,
+            );
             res.status(404).json({ error: 'Experiment not found.' });
           }
           return;
@@ -375,6 +384,9 @@ export function createExperimentHandlers(pool: pg.Pool) {
 
         const deleted = await repo.softDelete(experimentId, userId);
         if (!deleted) {
+          console.log(
+            `[experiment] action=delete-denied userId=${userId} experimentId=${experimentId}`,
+          );
           res.status(404).json({ error: 'Experiment not found.' });
           return;
         }
@@ -398,6 +410,9 @@ export function createExperimentHandlers(pool: pg.Pool) {
 
         const experiment = await repo.getRawById(experimentId, userId);
         if (!experiment) {
+          console.log(
+            `[experiment] action=export-denied userId=${userId} experimentId=${experimentId}`,
+          );
           res.status(404).json({ error: 'Experiment not found.' });
           return;
         }

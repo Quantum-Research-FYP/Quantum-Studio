@@ -35,6 +35,10 @@ export default function CircuitBuilderPage() {
 
   const experiment = useExperiment();
   const loadedRef = useRef<string | null>(null);
+  const [loadedRunSettings, setLoadedRunSettings] = useState<Record<string, unknown> | null>(null);
+  const [loadedLatestResult, setLoadedLatestResult] = useState<Record<string, unknown> | null>(
+    null,
+  );
 
   // Load experiment from URL params on mount
   const experimentId = searchParams.get('experimentId');
@@ -44,19 +48,29 @@ export default function CircuitBuilderPage() {
 
     experiment.loadExperiment(experimentId).then((data) => {
       if (data?.circuitJson) {
-        // Push the loaded circuit as the initial state
         push(data.circuitJson as unknown as CircuitModel);
       }
+      // Preserve run settings and latest result for round-trip saving
+      setLoadedRunSettings(data?.runSettingsJson ?? null);
+      setLoadedLatestResult(data?.latestResultJson ?? null);
     });
     // Only run when experimentId changes, not on every render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experimentId]);
 
-  // Save handler
+  // Save handler — prompts for name on first save
   const handleSave = useCallback(async () => {
-    const name = experiment.experimentName || 'Untitled Experiment';
-    await experiment.save(name, circuit);
-  }, [experiment, circuit]);
+    let name = experiment.experimentName;
+
+    if (!experiment.experimentId) {
+      // First save: prompt for experiment name
+      const input = window.prompt('Experiment name:', name || 'Untitled Experiment');
+      if (!input || input.trim().length === 0) return;
+      name = input.trim();
+    }
+
+    await experiment.save(name || 'Untitled Experiment', circuit, loadedRunSettings, loadedLatestResult);
+  }, [experiment, circuit, loadedRunSettings, loadedLatestResult]);
 
   // Save-as handler (prompt for name)
   const handleSaveAs = useCallback(async () => {
@@ -66,8 +80,8 @@ export default function CircuitBuilderPage() {
 
     // Reset experiment state so save() creates a new experiment
     experiment.reset();
-    await experiment.save(name.trim(), circuit);
-  }, [experiment, circuit]);
+    await experiment.save(name.trim(), circuit, loadedRunSettings, loadedLatestResult);
+  }, [experiment, circuit, loadedRunSettings, loadedLatestResult]);
 
   // Validation runs on every circuit change
   const errors = useMemo(() => validateCircuit(circuit), [circuit]);
