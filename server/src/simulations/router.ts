@@ -13,6 +13,7 @@ export function createSimulationsRouter(pool: pg.Pool, onJobCreated?: () => void
   router.post('/jobs', handlers.submitJob);
   router.get('/jobs/:jobId', handlers.getJobStatus);
   router.get('/jobs/:jobId/result', handlers.getJobResult);
+  router.get('/jobs/:jobId/result/export', handlers.getJobResultExport);
 
   return router;
 }

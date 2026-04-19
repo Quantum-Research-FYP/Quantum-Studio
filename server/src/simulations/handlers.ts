@@ -3,6 +3,33 @@ import type pg from 'pg';
 import { createSimulationRepository } from './repository.js';
 import { validateSubmission, getResourceLimits } from './validation.js';
 
+/** Compute probability for each bitstring as count / shots, rounded to 4 decimal places. */
+function computeProbabilities(
+  counts: Record<string, number>,
+  shots: number,
+): Record<string, number> {
+  const probabilities: Record<string, number> = {};
+  for (const [bitstring, count] of Object.entries(counts)) {
+    probabilities[bitstring] = shots > 0 ? parseFloat((count / shots).toFixed(4)) : 0;
+  }
+  return probabilities;
+}
+
+/**
+ * Sort outcomes by probability descending, then bitstring ascending for determinism.
+ * Returns an array of [bitstring, count] pairs in stable order.
+ */
+function sortedOutcomes(
+  counts: Record<string, number>,
+  probabilities: Record<string, number>,
+): Array<[string, number]> {
+  return Object.entries(counts).sort(([aKey], [bKey]) => {
+    const probDiff = (probabilities[bKey] ?? 0) - (probabilities[aKey] ?? 0);
+    if (probDiff !== 0) return probDiff;
+    return aKey.localeCompare(bKey);
+  });
+}
+
 /** Shape the public job response (omits qasmInput to avoid echoing untrusted input). */
 function formatJobResponse(job: {
   id: string;
@@ -169,14 +196,129 @@ export function createSimulationHandlers(pool: pg.Pool, onJobCreated?: () => voi
           return;
         }
 
+        const probabilities = computeProbabilities(result.countsJson, job.shots);
+
         res.status(200).json({
           jobId: result.jobId,
+          shots: job.shots,
           counts: result.countsJson,
+          probabilities,
           metadata: result.metadataJson,
           createdAt: result.createdAt,
         });
       } catch (err) {
         console.error('Get job result error:', err);
+        res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
+      }
+    },
+
+    /** GET /api/v1/simulations/jobs/:jobId/result/export — Download results as JSON or CSV. */
+    async getJobResultExport(req: Request, res: Response): Promise<void> {
+      try {
+        const jobId = req.params.jobId as string;
+        const userId = req.user!.id;
+        const format = (req.query.format as string | undefined)?.toLowerCase() ?? 'json';
+
+        if (format !== 'json' && format !== 'csv') {
+          res.status(400).json({
+            error: 'Invalid export format. Supported formats: json, csv.',
+            errorCode: 'EXPORT_INVALID_FORMAT',
+          });
+          return;
+        }
+
+        const job = await repo.getJob(jobId);
+
+        if (!job) {
+          res.status(404).json({ error: 'Job not found.' });
+          return;
+        }
+
+        if (job.createdByUserId !== userId) {
+          res.status(404).json({ error: 'Job not found.' });
+          return;
+        }
+
+        if (job.status === 'failed') {
+          res.status(400).json({
+            error: 'Cannot export results for a failed job.',
+            errorCode: 'EXPORT_JOB_FAILED',
+          });
+          return;
+        }
+
+        if (job.status !== 'completed') {
+          res.status(400).json({
+            error: `Cannot export results. Job is still ${job.status}.`,
+            errorCode: 'EXPORT_JOB_NOT_COMPLETED',
+          });
+          return;
+        }
+
+        const result = await repo.getResult(jobId);
+
+        if (!result) {
+          res.status(404).json({
+            error: 'Results have expired or are no longer available.',
+          });
+          return;
+        }
+
+        const counts = result.countsJson;
+
+        if (!counts || Object.keys(counts).length === 0) {
+          res.status(400).json({
+            error: 'No measurement outcomes available to export.',
+            errorCode: 'EXPORT_EMPTY_RESULTS',
+          });
+          return;
+        }
+
+        const probabilities = computeProbabilities(counts, job.shots);
+        const sorted = sortedOutcomes(counts, probabilities);
+        const exportedAt = new Date().toISOString();
+
+        if (format === 'csv') {
+          const lines: string[] = [
+            `# jobId: ${job.id}`,
+            `# shots: ${job.shots}`,
+            `# exportedAt: ${exportedAt}`,
+            'outcome,counts,probability',
+          ];
+
+          for (const [bitstring, count] of sorted) {
+            lines.push(`${bitstring},${count},${(probabilities[bitstring] ?? 0).toFixed(4)}`);
+          }
+
+          const csv = lines.join('\n') + '\n';
+
+          res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+          res.setHeader('Content-Disposition', `attachment; filename="results-${job.id}.csv"`);
+          res.status(200).send(csv);
+          return;
+        }
+
+        // JSON export
+        const sortedCounts: Record<string, number> = {};
+        const sortedProbabilities: Record<string, number> = {};
+        for (const [bitstring, count] of sorted) {
+          sortedCounts[bitstring] = count;
+          sortedProbabilities[bitstring] = probabilities[bitstring] ?? 0;
+        }
+
+        const payload = {
+          jobId: job.id,
+          shots: job.shots,
+          counts: sortedCounts,
+          probabilities: sortedProbabilities,
+          exportedAt,
+        };
+
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        res.setHeader('Content-Disposition', `attachment; filename="results-${job.id}.json"`);
+        res.status(200).json(payload);
+      } catch (err) {
+        console.error('Export job result error:', err);
         res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
       }
     },
