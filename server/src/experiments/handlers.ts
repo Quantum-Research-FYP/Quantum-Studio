@@ -1,6 +1,11 @@
 import type { Request, Response } from 'express';
 import type pg from 'pg';
 import { createExperimentRepository } from './repository.js';
+import {
+  isNewerVersion,
+  isSupportedVersion,
+  migrateExperimentPayload,
+} from './schema-migration.js';
 
 // ---------------------------------------------------------------------------
 // Validation
@@ -161,12 +166,40 @@ export function createExperimentHandlers(pool: pg.Pool) {
           return;
         }
 
+        // Block experiments saved with a newer/unknown schema version
+        if (isNewerVersion(experiment.schemaVersion)) {
+          res.status(422).json({
+            error:
+              `This experiment uses schema version ${experiment.schemaVersion}, ` +
+              'which is not supported by this server. Please upgrade the application ' +
+              'or export the raw experiment data for recovery.',
+            errorCode: 'SCHEMA_VERSION_UNSUPPORTED',
+            exportUrl: `/api/experiments/${experimentId}/raw`,
+          });
+          return;
+        }
+
+        // Block unsupported old versions (older than N-1)
+        if (!isSupportedVersion(experiment.schemaVersion)) {
+          res.status(422).json({
+            error:
+              `This experiment uses schema version ${experiment.schemaVersion}, ` +
+              'which is too old to migrate. Export the raw data for manual recovery.',
+            errorCode: 'SCHEMA_VERSION_TOO_OLD',
+            exportUrl: `/api/experiments/${experimentId}/raw`,
+          });
+          return;
+        }
+
+        // Migrate in-memory if needed (defer-save: not written back to DB)
+        const migrated = migrateExperimentPayload(experiment);
+
         console.log(
           `[experiment] action=load userId=${userId} experimentId=${experimentId}`,
         );
 
-        setETag(res, experiment.rowVersion);
-        res.status(200).json(formatExperiment(experiment));
+        setETag(res, migrated.rowVersion);
+        res.status(200).json(formatExperiment(migrated));
       } catch (err) {
         console.error('Get experiment error:', err);
         res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
