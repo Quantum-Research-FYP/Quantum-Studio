@@ -9,6 +9,7 @@ import ExperimentsPage from './pages/ExperimentsPage';
 import TemplatesPage from './pages/TemplatesPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
+import CircuitBuilderPage from './pages/CircuitBuilderPage';
 import NotFoundPage from './pages/NotFoundPage';
 import './App.css';
 
@@ -20,6 +21,7 @@ export default function App() {
           <Route element={<AppShell />}>
             <Route index element={<Navigate to="/create" replace />} />
             <Route path="create" element={<CreatePage />} />
+            <Route path="builder" element={<CircuitBuilderPage />} />
             <Route path="run" element={<RunPage />} />
             <Route path="results" element={<ResultsPage />} />
             <Route element={<ProtectedRoute />}>

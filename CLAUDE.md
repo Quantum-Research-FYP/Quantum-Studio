@@ -14,7 +14,8 @@ npm install          # Install all workspace dependencies
 npm run dev          # Start both client and server
 npm run lint         # ESLint (flat config) across client/src and server/src
 npm run format       # Prettier formatting
-npm test             # Server tests (vitest)
+npm test             # Client + server tests (vitest)
+npm run test:client  # Client circuit domain tests only
 ```
 
 ## Architecture
@@ -32,6 +33,16 @@ npm test             # Server tests (vitest)
 - `server/src/middleware/` — Express middleware (auth session validation)
 - `server/src/types/` — TypeScript declaration files (Express augmentation)
 - Tests use `embedded-postgres` for real PostgreSQL integration tests
+
+## Client Structure
+
+- `client/src/pages/` — Route-level page components
+- `client/src/components/` — Shared UI components (AppShell, Header, ProtectedRoute)
+- `client/src/components/circuit-builder/` — Circuit builder components (CircuitCanvas, GatePalette, WireList, UndoRedoControls, CodePanel, ValidationSummaryPanel, ExportControls)
+- `client/src/hooks/` — React hooks (useAuth, useCircuitHistory)
+- `client/src/api/` — API client modules
+- `client/src/circuit/` — Pure TypeScript circuit domain layer (no React dependencies): types, model operations, serialization, validation, codegen
+- Routes: `/create` (landing), `/builder` (circuit builder), `/run`, `/results`, `/experiments` (protected), `/templates`, `/login`, `/signup`
 
 ## Conventions
 
