@@ -45,8 +45,8 @@ npm run test:client  # Client circuit domain tests only
 - `client/src/pages/` — Route-level page components
 - `client/src/components/` — Shared UI components (AppShell, Header, ProtectedRoute)
 - `client/src/components/circuit-builder/` — Circuit builder components (CircuitCanvas, GatePalette, WireList, UndoRedoControls, CodePanel, ValidationSummaryPanel, ExportControls)
-- `client/src/hooks/` — React hooks (useAuth, useCircuitHistory, useSimulation)
-- `client/src/api/` — API client modules (auth, simulations)
+- `client/src/hooks/` — React hooks (useAuth, useCircuitHistory, useSimulation, useExperiment)
+- `client/src/api/` — API client modules (auth, simulations, experiments)
 - `client/src/circuit/` — Pure TypeScript circuit domain layer (no React dependencies): types, model operations, serialization, validation, codegen, qasm-codegen
 - Routes: `/create` (landing), `/builder` (circuit builder), `/run`, `/results`, `/experiments` (protected), `/templates`, `/login`, `/signup`
 
