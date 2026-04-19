@@ -24,3 +24,5 @@ export {
 } from './model';
 
 export { deserialize, serialize } from './serialization';
+
+export { generateQiskitCode } from './codegen';
