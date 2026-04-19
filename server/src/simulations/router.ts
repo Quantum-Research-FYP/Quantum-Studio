@@ -3,9 +3,9 @@ import type pg from 'pg';
 import { requireAuth } from '../middleware/authenticate.js';
 import { createSimulationHandlers } from './handlers.js';
 
-export function createSimulationsRouter(pool: pg.Pool): Router {
+export function createSimulationsRouter(pool: pg.Pool, onJobCreated?: () => void): Router {
   const router = Router();
-  const handlers = createSimulationHandlers(pool);
+  const handlers = createSimulationHandlers(pool, onJobCreated);
 
   // All simulation routes require authentication
   router.use(requireAuth);

@@ -40,7 +40,7 @@ function formatJobResponse(job: {
   return base;
 }
 
-export function createSimulationHandlers(pool: pg.Pool) {
+export function createSimulationHandlers(pool: pg.Pool, onJobCreated?: () => void) {
   const repo = createSimulationRepository(pool);
 
   return {
@@ -88,6 +88,9 @@ export function createSimulationHandlers(pool: pg.Pool) {
           idempotencyKey && job.idempotencyKey === idempotencyKey.trim() && job.status !== 'queued';
 
         res.status(wasPreExisting ? 200 : 201).json(formatJobResponse(job));
+
+        // Nudge the runner to pick up the new job immediately
+        if (!wasPreExisting) onJobCreated?.();
       } catch (err) {
         console.error('Submit job error:', err);
         res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
