@@ -505,6 +505,14 @@ html {
   font-size: 0.875rem;
 }
 
+.circuit-canvas__hint {
+  padding: 6px 12px;
+  font-size: 0.8125rem;
+  color: var(--color-primary);
+  background: #eef2ff;
+  border-bottom: 1px solid var(--color-border);
+}
+
 .circuit-canvas__scroll {
   overflow: auto;
   height: 100%;
@@ -589,6 +597,23 @@ html {
 .circuit-canvas__cell--placeable:hover {
   background: #eef2ff;
   border-color: var(--color-primary);
+}
+
+.circuit-canvas__cell--pending {
+  background: #eef2ff;
+  border: 1px solid var(--color-primary);
+  border-radius: 4px;
+}
+
+.circuit-canvas__pending-marker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+  font-size: 1rem;
+  color: var(--color-primary);
+  pointer-events: none;
 }
 
 .circuit-canvas__cell--gate {

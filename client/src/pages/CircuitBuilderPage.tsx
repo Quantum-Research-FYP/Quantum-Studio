@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
-import type { GateType } from '../circuit';
+import type { GateType, OperationTargets } from '../circuit';
 import {
   addClbit,
   addQubit,
@@ -78,12 +78,12 @@ export default function CircuitBuilderPage() {
   }, [circuit, push]);
 
   const handlePlaceGate = useCallback(
-    (type: GateType, qubitIndex: number, time: number) => {
+    (type: GateType, targets: OperationTargets, time: number) => {
       try {
-        const { circuit: updated } = placeGate(circuit, type, { qubits: [qubitIndex] }, time);
+        const { circuit: updated } = placeGate(circuit, type, targets, time);
         push(updated);
       } catch {
-        // Validation error — gate can't be placed here (e.g. CX needs 2 qubits)
+        // Validation error — gate can't be placed here
       }
     },
     [circuit, push],
@@ -129,7 +129,7 @@ export default function CircuitBuilderPage() {
         </div>
 
         <div className="builder__sidebar">
-          <CodePanel circuit={circuit} />
+          <CodePanel code={code} />
           <ValidationSummaryPanel errors={errors} />
         </div>
       </div>
