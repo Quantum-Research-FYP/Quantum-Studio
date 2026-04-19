@@ -55,7 +55,7 @@ async function createUserSession(
     .post('/api/auth/signup')
     .send({ email, password });
 
-  const cookies = res.headers['set-cookie'] as string[];
+  const cookies = res.headers['set-cookie'] as unknown as string[];
   return { cookie: cookies[0], userId: res.body.user.id };
 }
 

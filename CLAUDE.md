@@ -34,6 +34,7 @@ npm run test:client  # Client circuit domain tests only
   - Job runner polls queue with concurrency limit, spawns Python subprocess per job
   - `simulate.py` executes OpenQASM via Qiskit AerSimulator (Python venv at `server/.venv`)
   - Resource limits configurable via `SIM_MAX_*` env vars (shots, qubits, depth, execution time, concurrent jobs)
+  - Results endpoint returns server-computed probabilities (counts/shots, 4dp); export endpoint supports JSON and CSV download with stable sort order
 - `server/src/middleware/` — Express middleware (auth session validation, route-level `requireAuth` guard)
 - `server/src/types/` — TypeScript declaration files (Express augmentation)
 - Tests use `embedded-postgres` for real PostgreSQL integration tests
