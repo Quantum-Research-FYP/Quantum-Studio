@@ -30,7 +30,7 @@ npm run test:client  # Client circuit domain tests only
 
 - `server/src/db/` — PostgreSQL pool, migration runner, SQL migration files
 - `server/src/auth/` — Auth handlers, router, password hashing (Argon2id), session management
-- `server/src/simulations/` — Simulation job repository (data-access layer for job lifecycle and results)
+- `server/src/simulations/` — Simulation job API: repository, handlers, router, validation (resource limits via `SIM_MAX_*` env vars)
 - `server/src/middleware/` — Express middleware (auth session validation, route-level `requireAuth` guard)
 - `server/src/types/` — TypeScript declaration files (Express augmentation)
 - Tests use `embedded-postgres` for real PostgreSQL integration tests
