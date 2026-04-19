@@ -374,3 +374,298 @@ html {
   font-weight: 500;
   text-align: center;
 }
+
+/* ------------------------------------------------------------------ */
+/* Circuit Builder — layout                                            */
+/* ------------------------------------------------------------------ */
+.builder {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  /* Override the constrained app-main width for the builder */
+  max-width: none;
+  margin: 0 -24px;
+  padding: 16px 24px;
+  min-height: calc(100vh - var(--header-height) - 64px);
+}
+
+.builder__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+
+.builder__workspace {
+  display: grid;
+  grid-template-columns: auto 1fr 320px;
+  gap: 16px;
+  flex: 1;
+  min-height: 0;
+}
+
+.builder__center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.builder__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Circuit Builder — Gate palette                                      */
+/* ------------------------------------------------------------------ */
+.gate-palette {
+  padding: 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  min-width: 80px;
+}
+
+.gate-palette__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: 8px;
+}
+
+.gate-palette__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.gate-palette__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.gate-palette__btn:hover {
+  border-color: var(--color-primary);
+  background: #eef2ff;
+}
+
+.gate-palette__btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Circuit Builder — Circuit canvas                                    */
+/* ------------------------------------------------------------------ */
+.circuit-canvas {
+  flex: 1;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: auto;
+  min-height: 200px;
+}
+
+.circuit-canvas__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: 24px;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Circuit Builder — Wire list                                         */
+/* ------------------------------------------------------------------ */
+.wire-list {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.wire-list__group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wire-list__label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+}
+
+.wire-list__controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.wire-list__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 1rem;
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+
+.wire-list__btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  background: #eef2ff;
+}
+
+.wire-list__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.wire-list__btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.wire-list__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ------------------------------------------------------------------ */
+/* Circuit Builder — Undo / redo                                       */
+/* ------------------------------------------------------------------ */
+.undo-redo {
+  display: flex;
+  gap: 4px;
+}
+
+.undo-redo__btn {
+  font-size: 0.8125rem;
+}
+
+/* ------------------------------------------------------------------ */
+/* Circuit Builder — Code panel                                        */
+/* ------------------------------------------------------------------ */
+.code-panel {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.code-panel__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  padding: 10px 12px 6px;
+}
+
+.code-panel__code {
+  flex: 1;
+  margin: 0;
+  padding: 8px 12px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--color-text);
+  background: #fafafa;
+  overflow: auto;
+  white-space: pre;
+  user-select: text;
+}
+
+/* ------------------------------------------------------------------ */
+/* Circuit Builder — Validation panel                                  */
+/* ------------------------------------------------------------------ */
+.validation-panel {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.validation-panel__title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #92400e;
+  margin-bottom: 6px;
+}
+
+.validation-panel__list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.validation-panel__item {
+  font-size: 0.8125rem;
+  color: #92400e;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+.validation-panel__icon {
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+
+/* ------------------------------------------------------------------ */
+/* Circuit Builder — Export controls                                    */
+/* ------------------------------------------------------------------ */
+.export-controls {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.export-controls__btn {
+  font-size: 0.8125rem;
+}

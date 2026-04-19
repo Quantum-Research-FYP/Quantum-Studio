@@ -12,7 +12,7 @@ export default function CreatePage() {
       </p>
 
       <div className="cta-group">
-        <Link to="/create" className="cta-card">
+        <Link to="/builder" className="cta-card">
           <span className="cta-card__icon" aria-hidden="true">
             +
           </span>
