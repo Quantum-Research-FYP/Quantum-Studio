@@ -113,8 +113,14 @@ export function createSimulationRepository(pool: pg.Pool) {
      * instead of creating a duplicate.
      */
     async createJob(input: CreateJobInput): Promise<SimulationJob> {
-      const { userId, qasmInput, shots, backend = 'aer_simulator', limitsSnapshot, idempotencyKey } =
-        input;
+      const {
+        userId,
+        qasmInput,
+        shots,
+        backend = 'aer_simulator',
+        limitsSnapshot,
+        idempotencyKey,
+      } = input;
 
       const requestHash = computeRequestHash(userId, qasmInput, shots);
 
@@ -135,7 +141,15 @@ export function createSimulationRepository(pool: pg.Pool) {
            (created_by_user_id, shots, qasm_input, backend, limits_snapshot, request_hash, idempotency_key)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
-        [userId, shots, qasmInput, backend, JSON.stringify(limitsSnapshot), requestHash, idempotencyKey ?? null],
+        [
+          userId,
+          shots,
+          qasmInput,
+          backend,
+          JSON.stringify(limitsSnapshot),
+          requestHash,
+          idempotencyKey ?? null,
+        ],
       );
 
       return rowToJob(result.rows[0]);
