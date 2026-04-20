@@ -27,6 +27,7 @@ import { useExperiment } from '../hooks/useExperiment';
 import { useSimulation } from '../hooks/useSimulation';
 import { getTemplateById, loadTemplateCircuit, type ExecutionConfig } from '../templates';
 import type { AiDraftResponse, AiValidationResponse } from '../api/ai';
+import type { AiProvenanceInput } from '../api/experiments';
 
 /**
  * CircuitBuilderPage is the top-level page for the visual quantum circuit editor.
@@ -36,6 +37,29 @@ import type { AiDraftResponse, AiValidationResponse } from '../api/ai';
  * and populates the circuit editor with the saved state.
  */
 const DEFAULT_SHOTS = 1024;
+
+/** Compute SHA-256 hex hash of a string using SubtleCrypto. */
+async function computeCodeHash(code: string): Promise<string> {
+  const data = new TextEncoder().encode(code);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Build AI provenance input from import info. */
+async function buildAiProvenance(importInfo: AiImportInfo): Promise<AiProvenanceInput> {
+  const { draft } = importInfo;
+  return {
+    aiAssisted: true,
+    aiProvider: draft.provider,
+    aiModel: draft.model,
+    aiGeneratedAt: draft.generatedAt,
+    aiCodeHash: await computeCodeHash(draft.generatedCode),
+    aiPrompt: draft.explanation ? undefined : undefined, // Prompt not sent to server — retention is server-controlled
+    aiExplanation: draft.explanation,
+    aiGeneratedCode: draft.generatedCode,
+  };
+}
 
 export default function CircuitBuilderPage() {
   const { circuit, canUndo, canRedo, push, undo, redo } = useCircuitHistory();
@@ -98,6 +122,10 @@ export default function CircuitBuilderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateId]);
 
+  // AI Draft panel toggle and provenance state (declared early — used in save handlers)
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [aiImportInfo, setAiImportInfo] = useState<AiImportInfo | null>(null);
+
   // Save handler — prompts for name on first save
   const handleSave = useCallback(async () => {
     let name = experiment.experimentName;
@@ -113,8 +141,9 @@ export default function CircuitBuilderPage() {
       }
     }
 
-    await experiment.save(name || 'Untitled Experiment', circuit, loadedRunSettings, loadedLatestResult);
-  }, [experiment, circuit, loadedRunSettings, loadedLatestResult]);
+    const provenance = aiImportInfo ? await buildAiProvenance(aiImportInfo) : undefined;
+    await experiment.save(name || 'Untitled Experiment', circuit, loadedRunSettings, loadedLatestResult, provenance);
+  }, [experiment, circuit, loadedRunSettings, loadedLatestResult, aiImportInfo]);
 
   // Save-as handler (prompt for name)
   const handleSaveAs = useCallback(async () => {
@@ -128,9 +157,10 @@ export default function CircuitBuilderPage() {
     }
 
     // Reset experiment state so save() creates a new experiment
+    const provenance = aiImportInfo ? await buildAiProvenance(aiImportInfo) : undefined;
     experiment.reset();
-    await experiment.save(name, circuit, loadedRunSettings, loadedLatestResult);
-  }, [experiment, circuit, loadedRunSettings, loadedLatestResult]);
+    await experiment.save(name, circuit, loadedRunSettings, loadedLatestResult, provenance);
+  }, [experiment, circuit, loadedRunSettings, loadedLatestResult, aiImportInfo]);
 
   // Run handler — generates QASM and submits to the simulator
   const handleRun = useCallback(async () => {
@@ -153,10 +183,6 @@ export default function CircuitBuilderPage() {
     () => new Set(errors.filter((e) => e.operationId).map((e) => e.operationId!)),
     [errors],
   );
-
-  // AI Draft panel toggle and provenance state
-  const [showAiPanel, setShowAiPanel] = useState(false);
-  const [aiImportInfo, setAiImportInfo] = useState<AiImportInfo | null>(null);
 
   const handleAiImport = useCallback(
     (validationResult: AiValidationResponse, draft: AiDraftResponse) => {

@@ -15,6 +15,13 @@ export interface SharedExperimentResponse {
   visibility: Visibility;
   createdAt: string;
   updatedAt: string;
+  aiAssisted?: boolean;
+  aiProvider?: string | null;
+  aiModel?: string | null;
+  aiGeneratedAt?: string | null;
+  aiPrompt?: string | null;
+  aiExplanation?: string | null;
+  aiGeneratedCode?: string | null;
 }
 
 export interface VisibilityResponse {
