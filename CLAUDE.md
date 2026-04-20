@@ -37,6 +37,10 @@ npm run test:client  # Client circuit domain tests only
   - Results endpoint returns server-computed probabilities (counts/shots, 4dp); export endpoint supports JSON and CSV download with stable sort order
 - `server/src/experiments/` — Experiment persistence: repository with ownership-scoped CRUD, soft-delete, optimistic concurrency (rowVersion), paginated listing, raw export, and schema versioning with in-memory migration on load (defer-save)
   - Sharing: `visibility` column (private/unlisted/public, default private), `experiment_share_tokens` table (hashed tokens, at most one active per experiment via partial unique index), `share_audit_events` table for tracking visibility and token lifecycle changes
+- `server/src/sharing/` — Experiment sharing APIs: repository (token CRUD, visibility updates, audit events), handlers, and router
+  - Public endpoint: `GET /api/shared/experiments/:id?token=...` (no auth, non-disclosure 404s)
+  - Owner endpoints: `PATCH /:id/visibility`, `GET /:id/share-link`, `POST /:id/share-token/rotate`, `DELETE /:id/share-token`
+  - Tokens: 192-bit base64url, stored as SHA-256 hash only; public sharing gated by `ENABLE_PUBLIC_SHARING` env var
 - `server/src/middleware/` — Express middleware (auth session validation, route-level `requireAuth` guard)
 - `server/src/types/` — TypeScript declaration files (Express augmentation)
 - Tests use `embedded-postgres` for real PostgreSQL integration tests
