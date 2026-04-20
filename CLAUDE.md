@@ -36,6 +36,7 @@ npm run test:client  # Client circuit domain tests only
   - Resource limits configurable via `SIM_MAX_*` env vars (shots, qubits, depth, execution time, concurrent jobs)
   - Results endpoint returns server-computed probabilities (counts/shots, 4dp); export endpoint supports JSON and CSV download with stable sort order
 - `server/src/experiments/` — Experiment persistence: repository with ownership-scoped CRUD, soft-delete, optimistic concurrency (rowVersion), paginated listing, raw export, and schema versioning with in-memory migration on load (defer-save)
+  - AI provenance: `ai_assisted`, `ai_provider`, `ai_model`, `ai_generated_at`, `ai_code_hash` (always stored), `ai_prompt`/`ai_explanation`/`ai_generated_code` (stored only when `AI_RETAIN_PROMPTS=true`), `ai_share_provenance` (owner opt-in for sharing details)
   - Sharing: `visibility` column (private/unlisted/public, default private), `experiment_share_tokens` table (hashed tokens, at most one active per experiment via partial unique index), `share_audit_events` table for tracking visibility and token lifecycle changes
 - `server/src/sharing/` — Experiment sharing APIs: repository (token CRUD, visibility updates, audit events), handlers, and router
   - Public endpoint: `GET /api/shared/experiments/:id?token=...` (no auth, non-disclosure 404s)
