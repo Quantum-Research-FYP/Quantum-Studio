@@ -54,6 +54,10 @@ npm run test:client  # Client circuit domain tests only
   - `types.ts`: `ExecutionProvider` (`simulator`|`ibm_quantum`), `ExecutionJobStatus` (submitted/queued/running/completed/failed/cancelled), IBM status mapping, valid transitions, audit types
   - `audit.ts`: Append-only audit log repository with metadata sanitization (strips secret keys); supports queries by entity or actor
   - `encryption.ts`: AES-256-GCM encrypt/decrypt using `IBM_QUANTUM_ENCRYPTION_KEY` (64-char hex env var)
+  - `ibm-client.ts`: IBM Quantum Runtime API client with mock mode for development; list backends, submit/status/cancel jobs
+  - `poll-rate-limiter.ts`: Per-user sliding window rate limiter for job polling (configurable `EXECUTION_POLL_RATE_LIMIT`/`EXECUTION_POLL_RATE_WINDOW_MS`)
+  - `handlers.ts` + `router.ts`: Execution API at `/api/execution` — `GET /providers`, `GET /ibm/backends`, `POST /jobs`, `GET /jobs/:jobId`, `POST /jobs/:jobId/cancel`
+  - Status refresh with caching/backoff (5s running, 30s queued); results stored on completion
   - Feature flag: `ENABLE_IBM_QUANTUM` (disabled by default); encryption key via `IBM_QUANTUM_ENCRYPTION_KEY`
   - DB migration 008: extends `simulation_jobs` with `provider`, `provider_job_id`, `status_detail`, `cancelled_at`; expands status CHECK
   - DB migration 009: creates `audit_log` table (actor, action, entity_type, entity_id, correlation_id, metadata JSONB)
