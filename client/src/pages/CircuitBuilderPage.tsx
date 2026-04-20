@@ -19,10 +19,12 @@ import UndoRedoControls from '../components/circuit-builder/UndoRedoControls';
 import CodePanel from '../components/circuit-builder/CodePanel';
 import ValidationSummaryPanel from '../components/circuit-builder/ValidationSummaryPanel';
 import ExportControls from '../components/circuit-builder/ExportControls';
+import AiDraftPanel from '../components/circuit-builder/AiDraftPanel';
 import { useCircuitHistory } from '../hooks/useCircuitHistory';
 import { useExperiment } from '../hooks/useExperiment';
 import { useSimulation } from '../hooks/useSimulation';
 import { getTemplateById, loadTemplateCircuit, type ExecutionConfig } from '../templates';
+import type { AiDraftResponse, AiValidationResponse } from '../api/ai';
 
 /**
  * CircuitBuilderPage is the top-level page for the visual quantum circuit editor.
@@ -150,6 +152,20 @@ export default function CircuitBuilderPage() {
     [errors],
   );
 
+  // AI Draft panel toggle
+  const [showAiPanel, setShowAiPanel] = useState(false);
+
+  const handleAiImport = useCallback(
+    (validationResult: AiValidationResponse, _draft: AiDraftResponse) => {
+      if (validationResult.status === 'invalid' || !validationResult.importableCircuit) {
+        return;
+      }
+      const importedCircuit = validationResult.importableCircuit as unknown as CircuitModel;
+      push(importedCircuit);
+    },
+    [push],
+  );
+
   // Code generation for export
   const code = generateQiskitCode(circuit);
 
@@ -229,6 +245,15 @@ export default function CircuitBuilderPage() {
           hasErrors={errors.length > 0}
           hasGates={circuit.operations.length > 0}
         />
+        <button
+          className="btn btn--ghost btn--sm"
+          onClick={() => setShowAiPanel((prev) => !prev)}
+          aria-label={showAiPanel ? 'Hide AI Draft panel' : 'Show AI Draft panel'}
+          aria-expanded={showAiPanel}
+          aria-controls="ai-draft-panel"
+        >
+          {showAiPanel ? 'Hide AI Draft' : 'AI Draft'}
+        </button>
 
         {/* Experiment save controls */}
         <div className="builder__save-controls">
@@ -323,6 +348,11 @@ export default function CircuitBuilderPage() {
           </div>
 
           <div className="builder__sidebar">
+            {showAiPanel && (
+              <div id="ai-draft-panel">
+                <AiDraftPanel onImport={handleAiImport} />
+              </div>
+            )}
             <CodePanel code={code} />
             <ValidationSummaryPanel errors={errors} />
           </div>
