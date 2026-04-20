@@ -20,6 +20,8 @@ import CodePanel from '../components/circuit-builder/CodePanel';
 import ValidationSummaryPanel from '../components/circuit-builder/ValidationSummaryPanel';
 import ExportControls from '../components/circuit-builder/ExportControls';
 import AiDraftPanel from '../components/circuit-builder/AiDraftPanel';
+import AiImportBanner from '../components/circuit-builder/AiImportBanner';
+import type { AiImportInfo } from '../components/circuit-builder/AiImportBanner';
 import { useCircuitHistory } from '../hooks/useCircuitHistory';
 import { useExperiment } from '../hooks/useExperiment';
 import { useSimulation } from '../hooks/useSimulation';
@@ -152,19 +154,26 @@ export default function CircuitBuilderPage() {
     [errors],
   );
 
-  // AI Draft panel toggle
+  // AI Draft panel toggle and provenance state
   const [showAiPanel, setShowAiPanel] = useState(false);
+  const [aiImportInfo, setAiImportInfo] = useState<AiImportInfo | null>(null);
 
   const handleAiImport = useCallback(
-    (validationResult: AiValidationResponse, _draft: AiDraftResponse) => {
+    (validationResult: AiValidationResponse, draft: AiDraftResponse) => {
       if (validationResult.status === 'invalid' || !validationResult.importableCircuit) {
+        // Circuit remains unchanged — the panel shows the error messages
         return;
       }
       const importedCircuit = validationResult.importableCircuit as unknown as CircuitModel;
       push(importedCircuit);
+      setAiImportInfo({ draft, validation: validationResult });
     },
     [push],
   );
+
+  const handleDismissAiBanner = useCallback(() => {
+    setAiImportInfo(null);
+  }, []);
 
   // Code generation for export
   const code = generateQiskitCode(circuit);
@@ -329,6 +338,11 @@ export default function CircuitBuilderPage() {
             Retry
           </button>
         </div>
+      )}
+
+      {/* AI import provenance banner */}
+      {aiImportInfo && (
+        <AiImportBanner importInfo={aiImportInfo} onDismiss={handleDismissAiBanner} />
       )}
 
       {experiment.loading ? (

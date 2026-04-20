@@ -300,6 +300,18 @@ export default function AiDraftPanel({ onImport }: AiDraftPanelProps) {
                   ))}
                 </ul>
               )}
+              {validation.status === 'invalid' && (
+                <p className="ai-draft-panel__suggestion">
+                  Try simplifying your prompt or using only supported gates (H, X, Y, Z, S, T, CX,
+                  MEASURE). Ensure qubit and classical bit counts are within limits.
+                </p>
+              )}
+              {validation.status === 'partially_valid' && (
+                <p className="ai-draft-panel__suggestion">
+                  Some operations were omitted. You can still import the supported parts, or refine
+                  your prompt to avoid unsupported gates.
+                </p>
+              )}
             </div>
           )}
 
@@ -316,8 +328,12 @@ export default function AiDraftPanel({ onImport }: AiDraftPanelProps) {
             <button
               className="btn btn--primary btn--sm"
               onClick={handleImport}
-              disabled={validating}
-              aria-label="Import draft into circuit builder"
+              disabled={validating || validation?.status === 'invalid'}
+              aria-label={
+                validation?.status === 'invalid'
+                  ? 'Cannot import — draft is invalid'
+                  : 'Import draft into circuit builder'
+              }
             >
               {validating ? 'Validating...' : 'Import into Builder'}
             </button>
