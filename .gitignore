@@ -21,6 +21,10 @@ npm-debug.log*
 # Coverage
 coverage/
 
+# Test databases (embedded-postgres)
+test-pg-data/
+test-pg-results/
+
 # IDE / Editor
 .vscode/settings.json
 .vscode/*.code-workspace

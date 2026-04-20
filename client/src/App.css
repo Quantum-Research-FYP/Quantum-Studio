@@ -1329,3 +1329,230 @@ html {
 .export-bar__status--error {
   color: #dc2626;
 }
+
+/* ------------------------------------------------------------------ */
+/* Experiments page                                                    */
+/* ------------------------------------------------------------------ */
+.experiments-page {
+  padding: 0;
+}
+
+.experiments-page__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.experiments-page__loading {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 48px 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Experiments table                                                   */
+/* ------------------------------------------------------------------ */
+.experiments-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.experiments-table th,
+.experiments-table td {
+  padding: 10px 14px;
+  text-align: left;
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.experiments-table th {
+  background: var(--color-bg);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.experiments-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.experiments-table tbody tr:hover {
+  background: #fafafe;
+}
+
+.experiments-table__name-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--color-primary);
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+}
+
+.experiments-table__name-btn:hover {
+  text-decoration: underline;
+}
+
+.experiments-table__name-btn:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+.experiments-table__date {
+  white-space: nowrap;
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+}
+
+.experiments-table__muted {
+  color: var(--color-text-muted);
+}
+
+.experiments-table__actions {
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* ------------------------------------------------------------------ */
+/* Pagination                                                          */
+/* ------------------------------------------------------------------ */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.pagination__info {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+
+/* ------------------------------------------------------------------ */
+/* Button modifiers                                                    */
+/* ------------------------------------------------------------------ */
+.btn--sm {
+  padding: 4px 10px;
+  font-size: 0.8125rem;
+}
+
+.btn--danger {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.btn--danger:hover {
+  background: #b91c1c;
+}
+
+.btn--danger-text {
+  color: #dc2626;
+}
+
+.btn--danger-text:hover {
+  color: #991b1b;
+  background: #fef2f2;
+}
+
+/* ------------------------------------------------------------------ */
+/* Dialog (native <dialog> element)                                    */
+/* ------------------------------------------------------------------ */
+.dialog {
+  border: none;
+  border-radius: 12px;
+  padding: 0;
+  max-width: 440px;
+  width: calc(100% - 48px);
+  box-shadow:
+    0 20px 60px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.dialog__content {
+  padding: 24px;
+}
+
+.dialog__title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+.dialog__message {
+  font-size: 0.875rem;
+  color: var(--color-text);
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+/* ------------------------------------------------------------------ */
+/* Screen-reader only utility                                          */
+/* ------------------------------------------------------------------ */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ------------------------------------------------------------------ */
+/* Builder — save controls                                             */
+/* ------------------------------------------------------------------ */
+.builder__save-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.builder__save-status {
+  font-size: 0.75rem;
+  color: #16a34a;
+  white-space: nowrap;
+}
+
+.builder__experiment-name {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.builder__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+}

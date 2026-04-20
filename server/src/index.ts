@@ -7,6 +7,7 @@ import pool from './db/pool.js';
 import { runMigrations } from './db/migrate.js';
 import { createAuthRouter } from './auth/router.js';
 import { createSimulationsRouter } from './simulations/router.js';
+import { createExperimentsRouter } from './experiments/router.js';
 import { createJobRunner } from './simulations/runner.js';
 import { createAuthMiddleware } from './middleware/authenticate.js';
 
@@ -41,6 +42,7 @@ app.use(
   '/api/v1/simulations',
   createSimulationsRouter(pool, () => jobRunner.nudge()),
 );
+app.use('/api/experiments', createExperimentsRouter(pool));
 
 /** Create the Express app (used by tests to get the app without starting the listener). */
 export function createApp(testPool?: import('pg').Pool) {
@@ -57,6 +59,7 @@ export function createApp(testPool?: import('pg').Pool) {
   });
   testApp.use('/api/auth', createAuthRouter(p));
   testApp.use('/api/v1/simulations', createSimulationsRouter(p));
+  testApp.use('/api/experiments', createExperimentsRouter(p));
 
   return testApp;
 }
