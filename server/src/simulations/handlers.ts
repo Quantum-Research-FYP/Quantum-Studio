@@ -33,18 +33,22 @@ function sortedOutcomes(
 /** Shape the public job response (omits qasmInput to avoid echoing untrusted input). */
 function formatJobResponse(job: {
   id: string;
+  provider: string;
   status: string;
   shots: number;
   backend: string;
+  providerJobId: string | null;
   createdAt: string;
   updatedAt: string;
   startedAt: string | null;
   completedAt: string | null;
+  cancelledAt: string | null;
   errorCode: string | null;
   errorMessageSafe: string | null;
 }) {
-  const base = {
+  const base: Record<string, unknown> = {
     jobId: job.id,
+    provider: job.provider,
     status: job.status,
     shots: job.shots,
     backend: job.backend,
@@ -52,15 +56,18 @@ function formatJobResponse(job: {
     updatedAt: job.updatedAt,
     startedAt: job.startedAt,
     completedAt: job.completedAt,
+    cancelledAt: job.cancelledAt,
   };
 
+  // Include provider job ID for IBM jobs (useful for traceability)
+  if (job.providerJobId) {
+    base.providerJobId = job.providerJobId;
+  }
+
   if (job.errorCode) {
-    return {
-      ...base,
-      error: {
-        errorCode: job.errorCode,
-        message: job.errorMessageSafe ?? 'An unexpected error occurred.',
-      },
+    base.error = {
+      errorCode: job.errorCode,
+      message: job.errorMessageSafe ?? 'An unexpected error occurred.',
     };
   }
 
