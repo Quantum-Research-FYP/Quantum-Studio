@@ -11,6 +11,7 @@ import { createExperimentsRouter } from './experiments/router.js';
 import { createSharedRouter, createShareManagementRouter } from './sharing/router.js';
 import { createJobRunner } from './simulations/runner.js';
 import { createAuthMiddleware } from './middleware/authenticate.js';
+import { createAiRouter } from './ai/router.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -46,6 +47,7 @@ app.use(
 app.use('/api/experiments', createExperimentsRouter(pool));
 app.use('/api/experiments', createShareManagementRouter(pool));
 app.use('/api/shared', createSharedRouter(pool));
+app.use('/api/ai', createAiRouter());
 
 /** Create the Express app (used by tests to get the app without starting the listener). */
 export function createApp(testPool?: import('pg').Pool) {
@@ -65,6 +67,7 @@ export function createApp(testPool?: import('pg').Pool) {
   testApp.use('/api/experiments', createExperimentsRouter(p));
   testApp.use('/api/experiments', createShareManagementRouter(p));
   testApp.use('/api/shared', createSharedRouter(p));
+  testApp.use('/api/ai', createAiRouter());
 
   return testApp;
 }
