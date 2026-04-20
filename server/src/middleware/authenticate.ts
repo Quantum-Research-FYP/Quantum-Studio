@@ -1,6 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Request, Response, NextFunction } from 'express';
+import type { Db } from 'mongodb';
 import { getSessionIdFromRequest, getValidSession } from '../auth/session.js';
+import { COLLECTIONS, type AppDocument } from '../db/collections.js';
 
 export interface AuthenticatedUser {
   id: string;
@@ -11,7 +12,7 @@ export interface AuthenticatedUser {
  * Middleware that attaches `req.user` if a valid session cookie is present.
  * Does NOT block the request — downstream handlers decide whether auth is required.
  */
-export function createAuthMiddleware(pool: any) {
+export function createAuthMiddleware(pool: Db) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     const sessionId = getSessionIdFromRequest(req);
     if (!sessionId) {
@@ -26,13 +27,14 @@ export function createAuthMiddleware(pool: any) {
         return;
       }
 
-      const userResult = await (pool as any).query(
-        'SELECT id, email FROM users WHERE id = $1',
-        [session.user_id],
+      const users = pool.collection<AppDocument>(COLLECTIONS.USERS);
+      const user = await users.findOne(
+        { _id: session.user_id },
+        { projection: { _id: 1, email: 1 } },
       );
 
-      if (userResult.rows[0]) {
-        req.user = userResult.rows[0];
+      if (user) {
+        req.user = { id: user._id as string, email: user.email as string };
       }
     } catch (err) {
       console.error('Auth middleware error:', err);

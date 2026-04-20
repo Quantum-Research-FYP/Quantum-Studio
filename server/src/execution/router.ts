@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Router } from 'express';
+import type { Db } from 'mongodb';
 import { requireAuth } from '../middleware/authenticate.js';
 import { createExecutionHandlers } from './handlers.js';
 
 export function createExecutionRouter(
-  pool: any,
+  pool: Db,
   onSimulatorJobCreated?: () => void,
 ): Router {
   const router = Router();

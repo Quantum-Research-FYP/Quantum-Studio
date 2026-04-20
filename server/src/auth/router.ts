@@ -1,8 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Router } from 'express';
+import type { Db } from 'mongodb';
 import { createAuthHandlers } from './handlers.js';
 
-export function createAuthRouter(pool: any): Router {
+export function createAuthRouter(pool: Db): Router {
   const router = Router();
   const handlers = createAuthHandlers(pool);
 

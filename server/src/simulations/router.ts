@@ -1,9 +1,9 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Router } from 'express';
+import type { Db } from 'mongodb';
 import { requireAuth } from '../middleware/authenticate.js';
 import { createSimulationHandlers } from './handlers.js';
 
-export function createSimulationsRouter(pool: any, onJobCreated?: () => void): Router {
+export function createSimulationsRouter(pool: Db, onJobCreated?: () => void): Router {
   const router = Router();
   const handlers = createSimulationHandlers(pool, onJobCreated);
 

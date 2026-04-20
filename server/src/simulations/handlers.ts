@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Request, Response } from 'express';
+import type { Db } from 'mongodb';
 import { createSimulationRepository } from './repository.js';
 import { validateSubmission, getResourceLimits } from './validation.js';
 
@@ -74,7 +74,7 @@ function formatJobResponse(job: {
   return base;
 }
 
-export function createSimulationHandlers(pool: any, onJobCreated?: () => void) {
+export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
   const repo = createSimulationRepository(pool);
 
   return {

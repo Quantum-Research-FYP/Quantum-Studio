@@ -1,5 +1,6 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Request, Response } from 'express';
+import type { Db } from 'mongodb';
+import { v4 as uuid } from 'uuid';
 import { hashPassword, verifyPassword, validatePassword } from './password.js';
 import {
   createSession,
@@ -7,6 +8,7 @@ import {
   clearSessionCookie,
   getSessionIdFromRequest,
 } from './session.js';
+import { COLLECTIONS, type AppDocument } from '../db/collections.js';
 
 /** Normalise email: trim whitespace and lowercase. */
 function normalizeEmail(email: string): string {
@@ -18,7 +20,9 @@ function isValidEmailFormat(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-export function createAuthHandlers(pool: any) {
+export function createAuthHandlers(pool: Db) {
+  const users = pool.collection<AppDocument>(COLLECTIONS.USERS);
+
   return {
     /** POST /api/auth/signup */
     async signup(req: Request, res: Response): Promise<void> {
@@ -44,16 +48,22 @@ export function createAuthHandlers(pool: any) {
         }
 
         const passwordHash = await hashPassword(password);
+        const now = new Date();
+        const userId = uuid();
 
         try {
-          await pool.query(`INSERT INTO users (email, password_hash) VALUES ($1, $2)`, [
+          await users.insertOne({
+            _id: userId,
             email,
             passwordHash,
-          ]);
+            lastLoginAt: null,
+            schemaVersion: 1,
+            createdAt: now,
+            updatedAt: now,
+          });
         } catch (err: unknown) {
-          const pgError = err as { code?: string };
-          if (pgError.code === '23505') {
-            // Unique violation — email already registered
+          const mongoError = err as { code?: number };
+          if (mongoError.code === 11000) {
             res
               .status(409)
               .json({ error: 'An account with this email already exists.', action: 'login' });
@@ -62,15 +72,9 @@ export function createAuthHandlers(pool: any) {
           throw err;
         }
 
-        const userResult = await (pool as any).query(
-          'SELECT id, email FROM users WHERE email = $1',
-          [email],
-        );
-        const user = userResult.rows[0];
+        await createSession(pool, userId, req, res);
 
-        await createSession(pool, user.id, req, res);
-
-        res.status(201).json({ user: { id: user.id, email: user.email } });
+        res.status(201).json({ user: { id: userId, email } });
       } catch (err) {
         console.error('Signup error:', err);
         res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
@@ -91,32 +95,25 @@ export function createAuthHandlers(pool: any) {
 
         const email = normalizeEmail(rawEmail);
 
-        const userResult = await (pool as any).query(
-          'SELECT id, email, password_hash FROM users WHERE email = $1',
-          [email],
-        );
-
-        const user = userResult.rows[0];
+        const user = await users.findOne({ email });
 
         if (!user) {
-          // Hash a dummy password to keep response time consistent (prevent timing attacks)
           await hashPassword(password);
           res.status(401).json({ error: GENERIC_ERROR });
           return;
         }
 
-        const valid = await verifyPassword(user.password_hash, password);
+        const valid = await verifyPassword(user.passwordHash as string, password);
         if (!valid) {
           res.status(401).json({ error: GENERIC_ERROR });
           return;
         }
 
-        // Update last_login_at
-        await pool.query('UPDATE users SET last_login_at = now() WHERE id = $1', [user.id]);
+        await users.updateOne({ _id: user._id }, { $set: { lastLoginAt: new Date() } });
 
-        await createSession(pool, user.id, req, res);
+        await createSession(pool, user._id as string, req, res);
 
-        res.status(200).json({ user: { id: user.id, email: user.email } });
+        res.status(200).json({ user: { id: user._id, email: user.email } });
       } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });

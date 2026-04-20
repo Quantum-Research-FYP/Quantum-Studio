@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Request, Response } from 'express';
+import type { Db } from 'mongodb';
 import { createSharingRepository, generateRawToken, hashToken } from './repository.js';
 import type { Visibility } from './repository.js';
 import {
@@ -26,7 +26,7 @@ function isPublicSharingEnabled(): boolean {
 // Handlers
 // ---------------------------------------------------------------------------
 
-export function createSharingHandlers(pool: any) {
+export function createSharingHandlers(pool: Db) {
   const repo = createSharingRepository(pool);
 
   return {

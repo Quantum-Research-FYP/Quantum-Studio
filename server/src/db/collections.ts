@@ -1,5 +1,14 @@
-import { type Collection, type Db, type Document } from 'mongodb';
+import { type Collection, type Db } from 'mongodb';
 import { getDb } from './mongo.js';
+
+/**
+ * Document type used by all collections in this app.
+ * Uses string UUIDs as _id rather than ObjectId for API compatibility.
+ * The index signature allows arbitrary fields while enforcing string _id.
+ */
+export type AppDocument = {
+  _id: string;
+} & Record<string, unknown>;
 
 /**
  * Standardised collection names — matching prior PostgreSQL table names for consistency.
@@ -31,7 +40,7 @@ export interface BaseDocument {
  * Returns a typed MongoDB Collection handle for the given collection name.
  * Uses the active Db instance from connectMongo().
  */
-export function getCollection<T extends Document = Document>(name: string): Collection<T> {
+export function getCollection<T extends AppDocument = AppDocument>(name: string): Collection<T> {
   return getDb().collection<T>(name);
 }
 

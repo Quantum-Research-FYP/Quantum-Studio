@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Request, Response } from 'express';
+import type { Db } from 'mongodb';
 import crypto from 'node:crypto';
 import { createIntegrationsRepository } from './repository.js';
 import { validateIbmToken } from './ibm-validation.js';
@@ -52,7 +52,7 @@ function validationErrorMessage(errorCode: string): string {
 // Handler Factory
 // ---------------------------------------------------------------------------
 
-export function createIntegrationsHandlers(pool: any) {
+export function createIntegrationsHandlers(pool: Db) {
   const repo = createIntegrationsRepository(pool);
   const audit = createAuditRepository(pool);
 

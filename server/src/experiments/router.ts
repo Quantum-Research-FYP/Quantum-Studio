@@ -1,10 +1,10 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Router } from 'express';
+import type { Db } from 'mongodb';
 import express from 'express';
 import { requireAuth } from '../middleware/authenticate.js';
 import { createExperimentHandlers } from './handlers.js';
 
-export function createExperimentsRouter(pool: any): Router {
+export function createExperimentsRouter(pool: Db): Router {
   const router = Router();
   const handlers = createExperimentHandlers(pool);
 

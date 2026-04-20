@@ -1,6 +1,8 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import crypto from 'node:crypto';
+import type { Db } from 'mongodb';
+import { v4 as uuid } from 'uuid';
 import type { ExecutionProvider, ExecutionJobStatus } from '../execution/types.js';
+import { COLLECTIONS, type AppDocument } from '../db/collections.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -66,40 +68,40 @@ export function computeRequestHash(userId: string, qasm: string, shots: number):
   return crypto.createHash('sha256').update(`${userId}:${qasm}:${shots}`).digest('hex');
 }
 
-/** Map a snake_case DB row to a camelCase SimulationJob. */
-function rowToJob(row: Record<string, unknown>): SimulationJob {
+/** Map a MongoDB document to a camelCase SimulationJob. */
+function docToJob(doc: Record<string, unknown>): SimulationJob {
   return {
-    id: row.id as string,
-    createdByUserId: row.created_by_user_id as string,
-    provider: (row.provider as ExecutionProvider) ?? 'simulator',
-    status: row.status as JobStatus,
-    shots: row.shots as number,
-    qasmInput: row.qasm_input as string,
-    backend: row.backend as string,
-    providerJobId: (row.provider_job_id as string) ?? null,
-    statusDetail: (row.status_detail as string) ?? null,
-    limitsSnapshot: row.limits_snapshot as Record<string, unknown>,
-    createdAt: (row.created_at as Date).toISOString(),
-    updatedAt: (row.updated_at as Date).toISOString(),
-    startedAt: row.started_at ? (row.started_at as Date).toISOString() : null,
-    completedAt: row.completed_at ? (row.completed_at as Date).toISOString() : null,
-    cancelledAt: row.cancelled_at ? (row.cancelled_at as Date).toISOString() : null,
-    errorCode: (row.error_code as string) ?? null,
-    errorMessageSafe: (row.error_message_safe as string) ?? null,
-    requestHash: (row.request_hash as string) ?? null,
-    idempotencyKey: (row.idempotency_key as string) ?? null,
+    id: doc._id as string,
+    createdByUserId: doc.userId as string,
+    provider: (doc.provider as ExecutionProvider) ?? 'simulator',
+    status: doc.status as JobStatus,
+    shots: doc.shots as number,
+    qasmInput: doc.qasmInput as string,
+    backend: doc.backend as string,
+    providerJobId: (doc.providerJobId as string) ?? null,
+    statusDetail: (doc.statusDetail as string) ?? null,
+    limitsSnapshot: doc.limitsSnapshot as Record<string, unknown>,
+    createdAt: (doc.createdAt as Date).toISOString(),
+    updatedAt: (doc.updatedAt as Date).toISOString(),
+    startedAt: doc.startedAt ? (doc.startedAt as Date).toISOString() : null,
+    completedAt: doc.completedAt ? (doc.completedAt as Date).toISOString() : null,
+    cancelledAt: doc.cancelledAt ? (doc.cancelledAt as Date).toISOString() : null,
+    errorCode: (doc.errorCode as string) ?? null,
+    errorMessageSafe: (doc.errorMessageSafe as string) ?? null,
+    requestHash: (doc.requestHash as string) ?? null,
+    idempotencyKey: (doc.idempotencyKey as string) ?? null,
   };
 }
 
-/** Map a snake_case DB row to a camelCase SimulationJobResult. */
-function rowToResult(row: Record<string, unknown>): SimulationJobResult {
+/** Map a MongoDB document to a camelCase SimulationJobResult. */
+function docToResult(doc: Record<string, unknown>): SimulationJobResult {
   return {
-    jobId: row.job_id as string,
-    countsJson: row.counts_json as Record<string, number>,
-    metadataJson: row.metadata_json as Record<string, unknown>,
-    rawResultJson: (row.raw_result_json as unknown) ?? null,
-    createdAt: (row.created_at as Date).toISOString(),
-    retentionUntil: (row.retention_until as Date).toISOString(),
+    jobId: doc.jobId as string,
+    countsJson: doc.countsJson as Record<string, number>,
+    metadataJson: doc.metadataJson as Record<string, unknown>,
+    rawResultJson: (doc.rawResultJson as unknown) ?? null,
+    createdAt: (doc.createdAt as Date).toISOString(),
+    retentionUntil: (doc.retentionUntil as Date).toISOString(),
   };
 }
 
@@ -117,13 +119,13 @@ const VALID_TRANSITIONS: Record<string, JobStatus[]> = {
 // Repository
 // ---------------------------------------------------------------------------
 
-export function createSimulationRepository(pool: any) {
+const DEFAULT_RETENTION_DAYS = 90;
+
+export function createSimulationRepository(pool: Db) {
+  const jobs = pool.collection<AppDocument>(COLLECTIONS.SIMULATION_JOBS);
+  const results = pool.collection<AppDocument>(COLLECTIONS.SIMULATION_JOB_RESULTS);
+
   return {
-    /**
-     * Create a new simulation job. If an idempotency key is provided and a job
-     * with that key already exists for this user, the existing job is returned
-     * instead of creating a duplicate.
-     */
     async createJob(input: CreateJobInput): Promise<SimulationJob> {
       const {
         userId,
@@ -140,54 +142,47 @@ export function createSimulationRepository(pool: any) {
 
       // Check idempotency: return existing job if key matches
       if (idempotencyKey) {
-        const existing = await pool.query(
-          `SELECT * FROM simulation_jobs
-           WHERE created_by_user_id = $1 AND idempotency_key = $2`,
-          [userId, idempotencyKey],
-        );
-        if (existing.rows.length > 0) {
-          return rowToJob(existing.rows[0]);
+        const existing = await jobs.findOne({ userId, idempotencyKey });
+        if (existing) {
+          return docToJob(existing as unknown as Record<string, unknown>);
         }
       }
 
-      // IBM jobs start as 'submitted'; simulator jobs start as 'queued'
       const initialStatus: JobStatus = provider === 'ibm_quantum' ? 'submitted' : 'queued';
+      const now = new Date();
 
-      const result = await pool.query(
-        `INSERT INTO simulation_jobs
-           (created_by_user_id, shots, qasm_input, backend, provider, provider_job_id, status, limits_snapshot, request_hash, idempotency_key)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-         RETURNING *`,
-        [
-          userId,
-          shots,
-          qasmInput,
-          backend,
-          provider,
-          providerJobId ?? null,
-          initialStatus,
-          JSON.stringify(limitsSnapshot),
-          requestHash,
-          idempotencyKey ?? null,
-        ],
-      );
+      const doc = {
+        _id: uuid(),
+        userId,
+        shots,
+        qasmInput,
+        backend,
+        provider,
+        providerJobId: providerJobId ?? null,
+        status: initialStatus,
+        statusDetail: null,
+        limitsSnapshot,
+        requestHash,
+        idempotencyKey: idempotencyKey ?? null,
+        errorCode: null,
+        errorMessageSafe: null,
+        startedAt: null,
+        completedAt: null,
+        cancelledAt: null,
+        schemaVersion: 1,
+        createdAt: now,
+        updatedAt: now,
+      };
 
-      return rowToJob(result.rows[0]);
+      await jobs.insertOne(doc);
+      return docToJob(doc as unknown as Record<string, unknown>);
     },
 
-    /**
-     * Fetch a job by ID. Returns null if not found.
-     */
     async getJob(jobId: string): Promise<SimulationJob | null> {
-      const result = await pool.query('SELECT * FROM simulation_jobs WHERE id = $1', [jobId]);
-      return result.rows.length > 0 ? rowToJob(result.rows[0]) : null;
+      const doc = await jobs.findOne({ _id: jobId });
+      return doc ? docToJob(doc as unknown as Record<string, unknown>) : null;
     },
 
-    /**
-     * Transition a job's status atomically and monotonically.
-     * Only succeeds if the current status is a valid predecessor of the new status.
-     * Returns the updated job, or null if the transition was invalid / job not found.
-     */
     async transitionStatus(
       jobId: string,
       newStatus: JobStatus,
@@ -198,146 +193,102 @@ export function createSimulationRepository(pool: any) {
         statusDetail?: string;
       },
     ): Promise<SimulationJob | null> {
-      // Determine which previous statuses can transition to newStatus
       const allowedFrom = Object.entries(VALID_TRANSITIONS)
         .filter(([, targets]) => targets.includes(newStatus))
         .map(([from]) => from);
 
-      if (allowedFrom.length === 0) {
-        return null; // newStatus is not a valid target (e.g. 'queued')
-      }
+      if (allowedFrom.length === 0) return null;
 
-      // Build the SET clause dynamically
-      const setClauses = ['status = $2', 'updated_at = now()'];
-      const params: unknown[] = [jobId, newStatus];
-      let paramIdx = 3;
+      const now = new Date();
+      const setFields: Record<string, unknown> = {
+        status: newStatus,
+        updatedAt: now,
+      };
 
       if (newStatus === 'running') {
-        setClauses.push(`started_at = COALESCE(started_at, now())`);
+        setFields.startedAt = now;
       }
-
       if (newStatus === 'completed' || newStatus === 'failed') {
-        setClauses.push(`completed_at = COALESCE(completed_at, now())`);
+        setFields.completedAt = now;
       }
-
       if (newStatus === 'cancelled') {
-        setClauses.push(`cancelled_at = COALESCE(cancelled_at, now())`);
+        setFields.cancelledAt = now;
       }
-
       if (extra?.errorCode !== undefined) {
-        setClauses.push(`error_code = $${paramIdx}`);
-        params.push(extra.errorCode);
-        paramIdx++;
+        setFields.errorCode = extra.errorCode;
       }
-
       if (extra?.errorMessageSafe !== undefined) {
-        setClauses.push(`error_message_safe = $${paramIdx}`);
-        params.push(extra.errorMessageSafe);
-        paramIdx++;
+        setFields.errorMessageSafe = extra.errorMessageSafe;
       }
-
       if (extra?.providerJobId !== undefined) {
-        setClauses.push(`provider_job_id = $${paramIdx}`);
-        params.push(extra.providerJobId);
-        paramIdx++;
+        setFields.providerJobId = extra.providerJobId;
       }
-
       if (extra?.statusDetail !== undefined) {
-        setClauses.push(`status_detail = $${paramIdx}`);
-        params.push(extra.statusDetail);
-        paramIdx++;
+        setFields.statusDetail = extra.statusDetail;
       }
 
-      // Build the WHERE clause for allowed previous statuses
-      const statusPlaceholders = allowedFrom.map((_, i) => `$${paramIdx + i}`);
-      params.push(...allowedFrom);
+      // Use $set with conditional: only set timestamp if not already set
+      const update: Record<string, unknown> = { $set: setFields };
 
-      const result = await pool.query(
-        `UPDATE simulation_jobs
-         SET ${setClauses.join(', ')}
-         WHERE id = $1 AND status IN (${statusPlaceholders.join(', ')})
-         RETURNING *`,
-        params,
+      const result = await jobs.findOneAndUpdate(
+        { _id: jobId, status: { $in: allowedFrom } },
+        update,
+        { returnDocument: 'after' },
       );
 
-      return result.rows.length > 0 ? rowToJob(result.rows[0]) : null;
+      return result ? docToJob(result as unknown as Record<string, unknown>) : null;
     },
 
-    /**
-     * Store structured results for a completed job.
-     */
     async storeResult(input: StoreResultInput): Promise<SimulationJobResult> {
-      const result = await pool.query(
-        `INSERT INTO simulation_job_results (job_id, counts_json, metadata_json, raw_result_json)
-         VALUES ($1, $2, $3, $4)
-         RETURNING *`,
-        [
-          input.jobId,
-          JSON.stringify(input.counts),
-          JSON.stringify(input.metadata),
-          input.rawResult ? JSON.stringify(input.rawResult) : null,
-        ],
-      );
+      const now = new Date();
+      const retentionUntil = new Date(now.getTime() + DEFAULT_RETENTION_DAYS * 24 * 60 * 60 * 1000);
 
-      return rowToResult(result.rows[0]);
+      const doc = {
+        _id: uuid(),
+        jobId: input.jobId,
+        countsJson: input.counts,
+        metadataJson: input.metadata,
+        rawResultJson: input.rawResult ?? null,
+        schemaVersion: 1,
+        createdAt: now,
+        updatedAt: now,
+        retentionUntil,
+      };
+
+      await results.insertOne(doc);
+      return docToResult(doc as unknown as Record<string, unknown>);
     },
 
-    /**
-     * Fetch results for a job, respecting the retention window.
-     * Returns null if not found or past retention.
-     */
     async getResult(jobId: string): Promise<SimulationJobResult | null> {
-      const result = await pool.query(
-        `SELECT * FROM simulation_job_results
-         WHERE job_id = $1 AND retention_until > now()`,
-        [jobId],
-      );
-      return result.rows.length > 0 ? rowToResult(result.rows[0]) : null;
+      const doc = await results.findOne({
+        jobId,
+        retentionUntil: { $gt: new Date() },
+      });
+      return doc ? docToResult(doc as unknown as Record<string, unknown>) : null;
     },
 
-    /**
-     * Fetch all jobs for a user, ordered by most recent first.
-     */
     async getJobsByUser(userId: string, limit = 50): Promise<SimulationJob[]> {
-      const result = await pool.query(
-        `SELECT * FROM simulation_jobs
-         WHERE created_by_user_id = $1
-         ORDER BY created_at DESC
-         LIMIT $2`,
-        [userId, limit],
-      );
-      return result.rows.map(rowToJob);
+      const docs = await jobs
+        .find({ userId })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
+      return docs.map((d) => docToJob(d as unknown as Record<string, unknown>));
     },
 
-    /**
-     * Find the next queued job (FIFO) and atomically transition it to 'running'.
-     * Returns the job if one was dequeued, null if the queue is empty.
-     */
     async dequeueNextJob(): Promise<SimulationJob | null> {
-      const result = await pool.query(
-        `UPDATE simulation_jobs
-         SET status = 'running', started_at = now(), updated_at = now()
-         WHERE id = (
-           SELECT id FROM simulation_jobs
-           WHERE status = 'queued'
-           ORDER BY created_at ASC
-           LIMIT 1
-           FOR UPDATE SKIP LOCKED
-         )
-         RETURNING *`,
+      const now = new Date();
+      const result = await jobs.findOneAndUpdate(
+        { status: 'queued' },
+        { $set: { status: 'running', startedAt: now, updatedAt: now } },
+        { sort: { createdAt: 1 }, returnDocument: 'after' },
       );
-      return result.rows.length > 0 ? rowToJob(result.rows[0]) : null;
+      return result ? docToJob(result as unknown as Record<string, unknown>) : null;
     },
 
-    /**
-     * Delete expired results past their retention window.
-     * Returns the number of rows deleted.
-     */
     async purgeExpiredResults(): Promise<number> {
-      const result = await pool.query(
-        `DELETE FROM simulation_job_results WHERE retention_until <= now()`,
-      );
-      return result.rowCount ?? 0;
+      const result = await results.deleteMany({ retentionUntil: { $lte: new Date() } });
+      return result.deletedCount;
     },
   };
 }
