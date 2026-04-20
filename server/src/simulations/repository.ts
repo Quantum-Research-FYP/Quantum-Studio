@@ -1,24 +1,29 @@
 import type pg from 'pg';
 import crypto from 'node:crypto';
+import type { ExecutionProvider, ExecutionJobStatus } from '../execution/types.js';
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
-export type JobStatus = 'queued' | 'running' | 'completed' | 'failed';
+export type JobStatus = ExecutionJobStatus;
 
 export interface SimulationJob {
   id: string;
   createdByUserId: string;
+  provider: ExecutionProvider;
   status: JobStatus;
   shots: number;
   qasmInput: string;
   backend: string;
+  providerJobId: string | null;
+  statusDetail: string | null;
   limitsSnapshot: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
   startedAt: string | null;
   completedAt: string | null;
+  cancelledAt: string | null;
   errorCode: string | null;
   errorMessageSafe: string | null;
   requestHash: string | null;
@@ -39,6 +44,8 @@ export interface CreateJobInput {
   qasmInput: string;
   shots: number;
   backend?: string;
+  provider?: ExecutionProvider;
+  providerJobId?: string;
   limitsSnapshot: Record<string, unknown>;
   idempotencyKey?: string;
 }
@@ -64,15 +71,19 @@ function rowToJob(row: Record<string, unknown>): SimulationJob {
   return {
     id: row.id as string,
     createdByUserId: row.created_by_user_id as string,
+    provider: (row.provider as ExecutionProvider) ?? 'simulator',
     status: row.status as JobStatus,
     shots: row.shots as number,
     qasmInput: row.qasm_input as string,
     backend: row.backend as string,
+    providerJobId: (row.provider_job_id as string) ?? null,
+    statusDetail: (row.status_detail as string) ?? null,
     limitsSnapshot: row.limits_snapshot as Record<string, unknown>,
     createdAt: (row.created_at as Date).toISOString(),
     updatedAt: (row.updated_at as Date).toISOString(),
     startedAt: row.started_at ? (row.started_at as Date).toISOString() : null,
     completedAt: row.completed_at ? (row.completed_at as Date).toISOString() : null,
+    cancelledAt: row.cancelled_at ? (row.cancelled_at as Date).toISOString() : null,
     errorCode: (row.error_code as string) ?? null,
     errorMessageSafe: (row.error_message_safe as string) ?? null,
     requestHash: (row.request_hash as string) ?? null,
@@ -97,8 +108,9 @@ function rowToResult(row: Record<string, unknown>): SimulationJobResult {
 // ---------------------------------------------------------------------------
 
 const VALID_TRANSITIONS: Record<string, JobStatus[]> = {
-  queued: ['running', 'failed'],
-  running: ['completed', 'failed'],
+  submitted: ['queued', 'running', 'completed', 'failed', 'cancelled'],
+  queued: ['running', 'completed', 'failed', 'cancelled'],
+  running: ['completed', 'failed', 'cancelled'],
 };
 
 // ---------------------------------------------------------------------------
@@ -118,6 +130,8 @@ export function createSimulationRepository(pool: pg.Pool) {
         qasmInput,
         shots,
         backend = 'aer_simulator',
+        provider = 'simulator',
+        providerJobId,
         limitsSnapshot,
         idempotencyKey,
       } = input;
@@ -136,16 +150,22 @@ export function createSimulationRepository(pool: pg.Pool) {
         }
       }
 
+      // IBM jobs start as 'submitted'; simulator jobs start as 'queued'
+      const initialStatus: JobStatus = provider === 'ibm_quantum' ? 'submitted' : 'queued';
+
       const result = await pool.query(
         `INSERT INTO simulation_jobs
-           (created_by_user_id, shots, qasm_input, backend, limits_snapshot, request_hash, idempotency_key)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+           (created_by_user_id, shots, qasm_input, backend, provider, provider_job_id, status, limits_snapshot, request_hash, idempotency_key)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
         [
           userId,
           shots,
           qasmInput,
           backend,
+          provider,
+          providerJobId ?? null,
+          initialStatus,
           JSON.stringify(limitsSnapshot),
           requestHash,
           idempotencyKey ?? null,
@@ -174,6 +194,8 @@ export function createSimulationRepository(pool: pg.Pool) {
       extra?: {
         errorCode?: string;
         errorMessageSafe?: string;
+        providerJobId?: string;
+        statusDetail?: string;
       },
     ): Promise<SimulationJob | null> {
       // Determine which previous statuses can transition to newStatus
@@ -198,6 +220,10 @@ export function createSimulationRepository(pool: pg.Pool) {
         setClauses.push(`completed_at = COALESCE(completed_at, now())`);
       }
 
+      if (newStatus === 'cancelled') {
+        setClauses.push(`cancelled_at = COALESCE(cancelled_at, now())`);
+      }
+
       if (extra?.errorCode !== undefined) {
         setClauses.push(`error_code = $${paramIdx}`);
         params.push(extra.errorCode);
@@ -207,6 +233,18 @@ export function createSimulationRepository(pool: pg.Pool) {
       if (extra?.errorMessageSafe !== undefined) {
         setClauses.push(`error_message_safe = $${paramIdx}`);
         params.push(extra.errorMessageSafe);
+        paramIdx++;
+      }
+
+      if (extra?.providerJobId !== undefined) {
+        setClauses.push(`provider_job_id = $${paramIdx}`);
+        params.push(extra.providerJobId);
+        paramIdx++;
+      }
+
+      if (extra?.statusDetail !== undefined) {
+        setClauses.push(`status_detail = $${paramIdx}`);
+        params.push(extra.statusDetail);
         paramIdx++;
       }
 

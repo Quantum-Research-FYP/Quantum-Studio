@@ -50,6 +50,24 @@ npm run test:client  # Client circuit domain tests only
   - Per-user sliding-window rate limiter (`AI_RATE_LIMIT_MAX_REQUESTS` / `AI_RATE_LIMIT_WINDOW_MS`)
   - Feature flag: `ENABLE_AI_DRAFTS` (disabled by default); timeout via `AI_TIMEOUT_MS` (default 30s)
   - All responses include `requestId` for correlation; logs structured as `[ai] action=... userId=... requestId=...`
+- `server/src/execution/` — Multi-provider execution domain (IBM Quantum + simulator)
+  - `types.ts`: `ExecutionProvider` (`simulator`|`ibm_quantum`), `ExecutionJobStatus` (submitted/queued/running/completed/failed/cancelled), IBM status mapping, valid transitions, audit types
+  - `audit.ts`: Append-only audit log repository with metadata sanitization (strips secret keys); supports queries by entity or actor
+  - `encryption.ts`: AES-256-GCM encrypt/decrypt using `IBM_QUANTUM_ENCRYPTION_KEY` (64-char hex env var)
+  - `ibm-client.ts`: IBM Quantum Runtime API client with mock mode for development; list backends, submit/status/cancel jobs
+  - `poll-rate-limiter.ts`: Per-user sliding window rate limiter for job polling (configurable `EXECUTION_POLL_RATE_LIMIT`/`EXECUTION_POLL_RATE_WINDOW_MS`)
+  - `handlers.ts` + `router.ts`: Execution API at `/api/execution` — `GET /providers`, `GET /ibm/backends`, `POST /jobs`, `GET /jobs/:jobId`, `POST /jobs/:jobId/cancel`
+  - Status refresh with caching/backoff (5s running, 30s queued); results stored on completion
+  - Feature flag: `ENABLE_IBM_QUANTUM` (disabled by default); encryption key via `IBM_QUANTUM_ENCRYPTION_KEY`
+  - DB migration 008: extends `simulation_jobs` with `provider`, `provider_job_id`, `status_detail`, `cancelled_at`; expands status CHECK
+  - DB migration 009: creates `audit_log` table (actor, action, entity_type, entity_id, correlation_id, metadata JSONB)
+  - DB migration 010: creates `user_integration_settings` table (encrypted token, validation status, unique per user+provider)
+- `server/src/integrations/` — Per-user IBM Quantum credential management
+  - `POST /api/integrations/ibm-quantum/settings` — save token (encrypted at rest), validate against IBM, audit
+  - `GET /api/integrations/ibm-quantum/settings` — masked response (never returns raw token)
+  - `DELETE /api/integrations/ibm-quantum/settings` — remove credentials, audit
+  - Token validation: dev mock (prefix `valid-`) or real IBM API call with timeout
+  - Stable error codes: `IBM_QUANTUM_DISABLED`, `INVALID_TOKEN`, `NETWORK_ERROR`, `PROVIDER_UNAVAILABLE`, `PROVIDER_RATE_LIMITED`
 - `server/src/middleware/` — Express middleware (auth session validation, route-level `requireAuth` guard)
 - `server/src/types/` — TypeScript declaration files (Express augmentation)
 - Tests use `embedded-postgres` for real PostgreSQL integration tests
@@ -59,11 +77,11 @@ npm run test:client  # Client circuit domain tests only
 - `client/src/pages/` — Route-level page components
 - `client/src/components/` — Shared UI components (AppShell, Header, ProtectedRoute, RenameDialog, DeleteConfirmDialog, ShareSettingsDialog)
 - `client/src/components/circuit-builder/` — Circuit builder components (CircuitCanvas, GatePalette, WireList, UndoRedoControls, CodePanel, ValidationSummaryPanel, ExportControls, AiDraftPanel)
-- `client/src/hooks/` — React hooks (useAuth, useCircuitHistory, useSimulation, useExperiment)
-- `client/src/api/` — API client modules (auth, simulations, experiments, sharing, ai)
+- `client/src/hooks/` — React hooks (useAuth, useCircuitHistory, useSimulation, useExperiment, useExecution)
+- `client/src/api/` — API client modules (auth, simulations, experiments, sharing, ai, execution, integrations)
 - `client/src/circuit/` — Pure TypeScript circuit domain layer (no React dependencies): types, model operations, serialization, validation, codegen, qasm-codegen
 - `client/src/templates/` — Static starter template definitions (Bell state, Grover-2q) with `loadTemplateCircuit()` to produce editor-compatible CircuitModel instances
-- Routes: `/create` (landing), `/builder` (circuit builder), `/run`, `/results`, `/experiments` (protected), `/shared/:experimentId` (public read-only viewer), `/templates` (protected), `/login`, `/signup`
+- Routes: `/create` (landing), `/builder` (circuit builder), `/run` (provider selection + submission), `/results`, `/experiments` (protected), `/shared/:experimentId` (public read-only viewer), `/templates` (protected), `/settings` (protected, IBM Quantum credentials), `/login`, `/signup`
 
 ## Conventions
 
