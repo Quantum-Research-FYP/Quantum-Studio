@@ -50,6 +50,12 @@ npm run test:client  # Client circuit domain tests only
   - Per-user sliding-window rate limiter (`AI_RATE_LIMIT_MAX_REQUESTS` / `AI_RATE_LIMIT_WINDOW_MS`)
   - Feature flag: `ENABLE_AI_DRAFTS` (disabled by default); timeout via `AI_TIMEOUT_MS` (default 30s)
   - All responses include `requestId` for correlation; logs structured as `[ai] action=... userId=... requestId=...`
+- `server/src/execution/` — Multi-provider execution domain (IBM Quantum + simulator)
+  - `types.ts`: `ExecutionProvider` (`simulator`|`ibm_quantum`), `ExecutionJobStatus` (submitted/queued/running/completed/failed/cancelled), IBM status mapping, valid transitions, audit types
+  - `audit.ts`: Append-only audit log repository with metadata sanitization (strips secret keys); supports queries by entity or actor
+  - Feature flag: `ENABLE_IBM_QUANTUM` (disabled by default); encryption key via `IBM_QUANTUM_ENCRYPTION_KEY`
+  - DB migration 008: extends `simulation_jobs` with `provider`, `provider_job_id`, `status_detail`, `cancelled_at`; expands status CHECK
+  - DB migration 009: creates `audit_log` table (actor, action, entity_type, entity_id, correlation_id, metadata JSONB)
 - `server/src/middleware/` — Express middleware (auth session validation, route-level `requireAuth` guard)
 - `server/src/types/` — TypeScript declaration files (Express augmentation)
 - Tests use `embedded-postgres` for real PostgreSQL integration tests
