@@ -91,7 +91,24 @@ export function createSharingHandlers(pool: pg.Pool) {
           runSettingsJson: null,
           deletedAt: null,
           rowVersion: 0,
+          aiCodeHash: null,
         });
+
+        // AI provenance: always include aiAssisted flag; detailed fields only when owner opted in
+        const aiFields: Record<string, unknown> = {
+          aiAssisted: experiment.aiAssisted,
+        };
+        if (experiment.aiAssisted) {
+          aiFields.aiProvider = experiment.aiProvider;
+          aiFields.aiModel = experiment.aiModel;
+          aiFields.aiGeneratedAt = experiment.aiGeneratedAt;
+          // Prompt/explanation/code only when owner has opted in to share them
+          if (experiment.aiShareProvenance) {
+            aiFields.aiPrompt = experiment.aiPrompt;
+            aiFields.aiExplanation = experiment.aiExplanation;
+            aiFields.aiGeneratedCode = experiment.aiGeneratedCode;
+          }
+        }
 
         // Return only the safe subset — no owner info, no run settings
         res.setHeader('Referrer-Policy', 'no-referrer');
@@ -106,6 +123,7 @@ export function createSharingHandlers(pool: pg.Pool) {
           visibility: experiment.visibility,
           createdAt: migrated.createdAt,
           updatedAt: migrated.updatedAt,
+          ...aiFields,
         });
       } catch (err) {
         console.error('Get shared experiment error:', err);

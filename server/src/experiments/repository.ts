@@ -18,6 +18,15 @@ export interface Experiment {
   updatedAt: string;
   deletedAt: string | null;
   rowVersion: number;
+  aiAssisted: boolean;
+  aiProvider: string | null;
+  aiModel: string | null;
+  aiGeneratedAt: string | null;
+  aiCodeHash: string | null;
+  aiPrompt: string | null;
+  aiExplanation: string | null;
+  aiGeneratedCode: string | null;
+  aiShareProvenance: boolean;
 }
 
 /** Lightweight projection for list queries. */
@@ -35,6 +44,17 @@ export interface ExperimentListItem {
   lastRunAt: string | null;
 }
 
+export interface AiProvenanceInput {
+  aiAssisted: boolean;
+  aiProvider?: string;
+  aiModel?: string;
+  aiGeneratedAt?: string;
+  aiCodeHash?: string;
+  aiPrompt?: string;
+  aiExplanation?: string;
+  aiGeneratedCode?: string;
+}
+
 export interface CreateExperimentInput {
   userId: string;
   name: string;
@@ -44,6 +64,7 @@ export interface CreateExperimentInput {
   schemaVersion?: number;
   runSettingsJson?: Record<string, unknown>;
   latestResultJson?: Record<string, unknown>;
+  aiProvenance?: AiProvenanceInput;
 }
 
 export interface UpdateExperimentInput {
@@ -57,6 +78,7 @@ export interface UpdateExperimentInput {
   schemaVersion?: number;
   runSettingsJson?: Record<string, unknown> | null;
   latestResultJson?: Record<string, unknown> | null;
+  aiProvenance?: AiProvenanceInput;
 }
 
 export interface ExperimentListOptions {
@@ -93,6 +115,15 @@ function rowToExperiment(row: Record<string, unknown>): Experiment {
     updatedAt: (row.updated_at as Date).toISOString(),
     deletedAt: row.deleted_at ? (row.deleted_at as Date).toISOString() : null,
     rowVersion: row.row_version as number,
+    aiAssisted: (row.ai_assisted as boolean) ?? false,
+    aiProvider: (row.ai_provider as string) ?? null,
+    aiModel: (row.ai_model as string) ?? null,
+    aiGeneratedAt: row.ai_generated_at ? (row.ai_generated_at as Date).toISOString() : null,
+    aiCodeHash: (row.ai_code_hash as string) ?? null,
+    aiPrompt: (row.ai_prompt as string) ?? null,
+    aiExplanation: (row.ai_explanation as string) ?? null,
+    aiGeneratedCode: (row.ai_generated_code as string) ?? null,
+    aiShareProvenance: (row.ai_share_provenance as boolean) ?? false,
   };
 }
 
@@ -142,13 +173,20 @@ export function createExperimentRepository(pool: pg.Pool) {
         schemaVersion = 1,
         runSettingsJson,
         latestResultJson,
+        aiProvenance,
       } = input;
+
+      const retainPrompts = process.env.AI_RETAIN_PROMPTS === 'true';
+      const ai = aiProvenance;
 
       const result = await pool.query(
         `INSERT INTO experiments
            (owner_user_id, name, description, tags, schema_version,
-            circuit_json, run_settings_json, latest_result_json)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            circuit_json, run_settings_json, latest_result_json,
+            ai_assisted, ai_provider, ai_model, ai_generated_at,
+            ai_code_hash, ai_prompt, ai_explanation, ai_generated_code)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
+                 $9, $10, $11, $12, $13, $14, $15, $16)
          RETURNING *`,
         [
           userId,
@@ -159,6 +197,14 @@ export function createExperimentRepository(pool: pg.Pool) {
           JSON.stringify(circuitJson),
           runSettingsJson ? JSON.stringify(runSettingsJson) : null,
           latestResultJson ? JSON.stringify(latestResultJson) : null,
+          ai?.aiAssisted ?? false,
+          ai?.aiProvider ?? null,
+          ai?.aiModel ?? null,
+          ai?.aiGeneratedAt ?? null,
+          ai?.aiCodeHash ?? null,
+          retainPrompts ? (ai?.aiPrompt ?? null) : null,
+          retainPrompts ? (ai?.aiExplanation ?? null) : null,
+          retainPrompts ? (ai?.aiGeneratedCode ?? null) : null,
         ],
       );
 
@@ -234,7 +280,11 @@ export function createExperimentRepository(pool: pg.Pool) {
         schemaVersion = 1,
         runSettingsJson,
         latestResultJson,
+        aiProvenance,
       } = input;
+
+      const retainPrompts = process.env.AI_RETAIN_PROMPTS === 'true';
+      const ai = aiProvenance;
 
       const result = await pool.query(
         `UPDATE experiments
@@ -245,6 +295,14 @@ export function createExperimentRepository(pool: pg.Pool) {
              circuit_json = $7,
              run_settings_json = $8,
              latest_result_json = $9,
+             ai_assisted = $11,
+             ai_provider = $12,
+             ai_model = $13,
+             ai_generated_at = $14,
+             ai_code_hash = $15,
+             ai_prompt = $16,
+             ai_explanation = $17,
+             ai_generated_code = $18,
              updated_at = now(),
              row_version = row_version + 1
          WHERE id = $1
@@ -263,6 +321,14 @@ export function createExperimentRepository(pool: pg.Pool) {
           runSettingsJson ? JSON.stringify(runSettingsJson) : null,
           latestResultJson ? JSON.stringify(latestResultJson) : null,
           expectedRowVersion,
+          ai?.aiAssisted ?? false,
+          ai?.aiProvider ?? null,
+          ai?.aiModel ?? null,
+          ai?.aiGeneratedAt ?? null,
+          ai?.aiCodeHash ?? null,
+          retainPrompts ? (ai?.aiPrompt ?? null) : null,
+          retainPrompts ? (ai?.aiExplanation ?? null) : null,
+          retainPrompts ? (ai?.aiGeneratedCode ?? null) : null,
         ],
       );
 

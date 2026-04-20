@@ -7,6 +7,7 @@ import {
   type ExperimentResponse,
   type CreateExperimentInput,
   type UpdateExperimentInput,
+  type AiProvenanceInput,
 } from '../api/experiments';
 
 // ---------------------------------------------------------------------------
@@ -45,6 +46,7 @@ interface UseExperimentReturn extends ExperimentState {
     circuit: CircuitModel,
     runSettingsJson?: Record<string, unknown> | null,
     latestResultJson?: Record<string, unknown> | null,
+    aiProvenance?: AiProvenanceInput,
   ) => Promise<void>;
   /** Load an experiment by ID. Returns payloads for the editor to consume. */
   loadExperiment: (id: string) => Promise<LoadedExperiment | null>;
@@ -106,6 +108,7 @@ export function useExperiment(): UseExperimentReturn {
       circuit: CircuitModel,
       runSettingsJson?: Record<string, unknown> | null,
       latestResultJson?: Record<string, unknown> | null,
+      aiProvenance?: AiProvenanceInput,
     ) => {
       setState((s) => ({ ...s, saving: true, error: null, isConflict: false }));
 
@@ -121,6 +124,7 @@ export function useExperiment(): UseExperimentReturn {
             schemaVersion: circuit.schemaVersion,
             runSettingsJson: runSettingsJson ?? undefined,
             latestResultJson: latestResultJson ?? undefined,
+            aiProvenance,
           };
 
           const resp = await updateExperiment(state.experimentId, input, state.rowVersion);
@@ -132,6 +136,7 @@ export function useExperiment(): UseExperimentReturn {
             circuitJson,
             runSettingsJson: runSettingsJson ?? undefined,
             latestResultJson: latestResultJson ?? undefined,
+            aiProvenance,
           };
 
           const resp = await createExperiment(input);

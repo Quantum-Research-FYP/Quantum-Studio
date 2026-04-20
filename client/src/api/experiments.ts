@@ -2,6 +2,17 @@
 // Experiments API client
 // ---------------------------------------------------------------------------
 
+export interface AiProvenanceInput {
+  aiAssisted: boolean;
+  aiProvider?: string;
+  aiModel?: string;
+  aiGeneratedAt?: string;
+  aiCodeHash?: string;
+  aiPrompt?: string;
+  aiExplanation?: string;
+  aiGeneratedCode?: string;
+}
+
 export interface ExperimentResponse {
   id: string;
   name: string;
@@ -14,6 +25,15 @@ export interface ExperimentResponse {
   createdAt: string;
   updatedAt: string;
   rowVersion: number;
+  aiAssisted: boolean;
+  aiProvider: string | null;
+  aiModel: string | null;
+  aiGeneratedAt: string | null;
+  aiCodeHash: string | null;
+  aiPrompt: string | null;
+  aiExplanation: string | null;
+  aiGeneratedCode: string | null;
+  aiShareProvenance: boolean;
 }
 
 export interface ExperimentListItem {
@@ -43,6 +63,7 @@ export interface CreateExperimentInput {
   tags?: string[];
   runSettingsJson?: Record<string, unknown>;
   latestResultJson?: Record<string, unknown>;
+  aiProvenance?: AiProvenanceInput;
 }
 
 export interface UpdateExperimentInput {
@@ -53,6 +74,7 @@ export interface UpdateExperimentInput {
   schemaVersion?: number;
   runSettingsJson?: Record<string, unknown> | null;
   latestResultJson?: Record<string, unknown> | null;
+  aiProvenance?: AiProvenanceInput;
 }
 
 export interface ExperimentListOptions {

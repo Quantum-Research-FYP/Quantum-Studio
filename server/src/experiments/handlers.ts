@@ -77,6 +77,15 @@ function formatExperiment(exp: {
   createdAt: string;
   updatedAt: string;
   rowVersion: number;
+  aiAssisted: boolean;
+  aiProvider: string | null;
+  aiModel: string | null;
+  aiGeneratedAt: string | null;
+  aiCodeHash: string | null;
+  aiPrompt: string | null;
+  aiExplanation: string | null;
+  aiGeneratedCode: string | null;
+  aiShareProvenance: boolean;
 }) {
   return {
     id: exp.id,
@@ -90,6 +99,15 @@ function formatExperiment(exp: {
     createdAt: exp.createdAt,
     updatedAt: exp.updatedAt,
     rowVersion: exp.rowVersion,
+    aiAssisted: exp.aiAssisted,
+    aiProvider: exp.aiProvider,
+    aiModel: exp.aiModel,
+    aiGeneratedAt: exp.aiGeneratedAt,
+    aiCodeHash: exp.aiCodeHash,
+    aiPrompt: exp.aiPrompt,
+    aiExplanation: exp.aiExplanation,
+    aiGeneratedCode: exp.aiGeneratedCode,
+    aiShareProvenance: exp.aiShareProvenance,
   };
 }
 
@@ -105,7 +123,7 @@ export function createExperimentHandlers(pool: pg.Pool) {
     async createExperiment(req: Request, res: Response): Promise<void> {
       try {
         const userId = req.user!.id;
-        const { name, circuitJson, description, tags, runSettingsJson, latestResultJson } =
+        const { name, circuitJson, description, tags, runSettingsJson, latestResultJson, aiProvenance } =
           req.body ?? {};
 
         const nameError = validateName(name);
@@ -140,6 +158,8 @@ export function createExperimentHandlers(pool: pg.Pool) {
             runSettingsJson && typeof runSettingsJson === 'object' ? runSettingsJson : undefined,
           latestResultJson:
             latestResultJson && typeof latestResultJson === 'object' ? latestResultJson : undefined,
+          aiProvenance:
+            aiProvenance && typeof aiProvenance === 'object' ? aiProvenance : undefined,
         });
 
         console.log(
@@ -255,6 +275,7 @@ export function createExperimentHandlers(pool: pg.Pool) {
           schemaVersion,
           runSettingsJson,
           latestResultJson,
+          aiProvenance,
         } = req.body ?? {};
 
         const nameError = validateName(name);
@@ -290,6 +311,8 @@ export function createExperimentHandlers(pool: pg.Pool) {
           schemaVersion: typeof schemaVersion === 'number' ? schemaVersion : undefined,
           runSettingsJson: runSettingsJson !== undefined ? runSettingsJson : undefined,
           latestResultJson: latestResultJson !== undefined ? latestResultJson : undefined,
+          aiProvenance:
+            aiProvenance && typeof aiProvenance === 'object' ? aiProvenance : undefined,
         });
 
         if (!updated) {
@@ -438,6 +461,14 @@ export function createExperimentHandlers(pool: pg.Pool) {
           createdAt: experiment.createdAt,
           updatedAt: experiment.updatedAt,
           rowVersion: experiment.rowVersion,
+          aiAssisted: experiment.aiAssisted,
+          aiProvider: experiment.aiProvider,
+          aiModel: experiment.aiModel,
+          aiGeneratedAt: experiment.aiGeneratedAt,
+          aiCodeHash: experiment.aiCodeHash,
+          aiPrompt: experiment.aiPrompt,
+          aiExplanation: experiment.aiExplanation,
+          aiGeneratedCode: experiment.aiGeneratedCode,
         });
       } catch (err) {
         console.error('Export experiment error:', err);

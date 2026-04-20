@@ -26,6 +26,14 @@ export interface SharedExperimentView {
   visibility: Visibility;
   createdAt: string;
   updatedAt: string;
+  aiAssisted: boolean;
+  aiProvider: string | null;
+  aiModel: string | null;
+  aiGeneratedAt: string | null;
+  aiPrompt: string | null;
+  aiExplanation: string | null;
+  aiGeneratedCode: string | null;
+  aiShareProvenance: boolean;
 }
 
 export interface ExperimentOwnershipInfo {
@@ -80,7 +88,9 @@ export function createSharingRepository(pool: pg.Pool) {
     async getExperimentForSharedView(experimentId: string): Promise<SharedExperimentView | null> {
       const result = await pool.query(
         `SELECT id, name, description, tags, schema_version, circuit_json,
-                latest_result_json, visibility, created_at, updated_at
+                latest_result_json, visibility, created_at, updated_at,
+                ai_assisted, ai_provider, ai_model, ai_generated_at,
+                ai_prompt, ai_explanation, ai_generated_code, ai_share_provenance
          FROM experiments
          WHERE id = $1 AND deleted_at IS NULL`,
         [experimentId],
@@ -98,6 +108,14 @@ export function createSharingRepository(pool: pg.Pool) {
         visibility: row.visibility as Visibility,
         createdAt: (row.created_at as Date).toISOString(),
         updatedAt: (row.updated_at as Date).toISOString(),
+        aiAssisted: (row.ai_assisted as boolean) ?? false,
+        aiProvider: (row.ai_provider as string) ?? null,
+        aiModel: (row.ai_model as string) ?? null,
+        aiGeneratedAt: row.ai_generated_at ? (row.ai_generated_at as Date).toISOString() : null,
+        aiPrompt: (row.ai_prompt as string) ?? null,
+        aiExplanation: (row.ai_explanation as string) ?? null,
+        aiGeneratedCode: (row.ai_generated_code as string) ?? null,
+        aiShareProvenance: (row.ai_share_provenance as boolean) ?? false,
       };
     },
 
