@@ -8,6 +8,7 @@ const NAV_ITEMS = [
   { to: '/results', label: 'Results' },
   { to: '/experiments', label: 'Experiments' },
   { to: '/templates', label: 'Templates' },
+  { to: '/settings', label: 'Settings' },
 ] as const;
 
 export default function Header() {
