@@ -1,6 +1,7 @@
-import type pg from 'pg';
 import crypto from 'node:crypto';
+import type { Db } from 'mongodb';
 import type { AuditLogEntry, CreateAuditEntryInput } from './types.js';
+import { COLLECTIONS, type AppDocument } from '../db/collections.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -29,16 +30,16 @@ function sanitizeMetadata(metadata: Record<string, unknown>): Record<string, unk
   return sanitized;
 }
 
-function rowToEntry(row: Record<string, unknown>): AuditLogEntry {
+function docToEntry(doc: Record<string, unknown>): AuditLogEntry {
   return {
-    id: row.id as string,
-    actorUserId: row.actor_user_id as string,
-    action: row.action as AuditLogEntry['action'],
-    entityType: row.entity_type as AuditLogEntry['entityType'],
-    entityId: row.entity_id as string,
-    correlationId: row.correlation_id as string,
-    metadata: row.metadata as Record<string, unknown>,
-    createdAt: (row.created_at as Date).toISOString(),
+    id: doc._id as string,
+    actorUserId: doc.actorUserId as string,
+    action: doc.action as AuditLogEntry['action'],
+    entityType: doc.entityType as AuditLogEntry['entityType'],
+    entityId: doc.entityId as string,
+    correlationId: doc.correlationId as string,
+    metadata: (doc.metadata as Record<string, unknown>) ?? {},
+    createdAt: (doc.createdAt as Date).toISOString(),
   };
 }
 
@@ -46,63 +47,52 @@ function rowToEntry(row: Record<string, unknown>): AuditLogEntry {
 // Repository
 // ---------------------------------------------------------------------------
 
-export function createAuditRepository(pool: pg.Pool) {
+export function createAuditRepository(pool: Db) {
+  const auditLog = pool.collection<AppDocument>(COLLECTIONS.AUDIT_LOG);
+
   return {
-    /**
-     * Append an audit log entry. Metadata is sanitized to prevent secret leakage.
-     * Returns the created entry.
-     */
     async log(input: CreateAuditEntryInput): Promise<AuditLogEntry> {
       const correlationId = input.correlationId ?? crypto.randomUUID();
       const metadata = input.metadata ? sanitizeMetadata(input.metadata) : {};
+      const now = new Date();
 
-      const result = await pool.query(
-        `INSERT INTO audit_log (actor_user_id, action, entity_type, entity_id, correlation_id, metadata)
-         VALUES ($1, $2, $3, $4, $5, $6)
-         RETURNING *`,
-        [
-          input.actorUserId,
-          input.action,
-          input.entityType,
-          input.entityId,
-          correlationId,
-          JSON.stringify(metadata),
-        ],
-      );
+      const doc = {
+        _id: crypto.randomUUID(),
+        actorUserId: input.actorUserId,
+        action: input.action,
+        entityType: input.entityType,
+        entityId: input.entityId,
+        correlationId,
+        metadata,
+        schemaVersion: 1,
+        createdAt: now,
+        updatedAt: now,
+      };
 
-      return rowToEntry(result.rows[0]);
+      await auditLog.insertOne(doc);
+      return docToEntry(doc as unknown as Record<string, unknown>);
     },
 
-    /**
-     * Retrieve audit entries for a specific entity, ordered by most recent first.
-     */
     async getByEntity(
       entityType: string,
       entityId: string,
       limit = 50,
     ): Promise<AuditLogEntry[]> {
-      const result = await pool.query(
-        `SELECT * FROM audit_log
-         WHERE entity_type = $1 AND entity_id = $2
-         ORDER BY created_at DESC
-         LIMIT $3`,
-        [entityType, entityId, limit],
-      );
-      return result.rows.map(rowToEntry);
+      const docs = await auditLog
+        .find({ entityType, entityId })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
+      return docs.map((d) => docToEntry(d as unknown as Record<string, unknown>));
     },
 
-    /**
-     * Retrieve recent audit entries for a specific user, ordered by most recent first.
-     */
     async getByActor(actorUserId: string, limit = 50): Promise<AuditLogEntry[]> {
-      const result = await pool.query(
-        `SELECT * FROM audit_log
-         WHERE actor_user_id = $1
-         ORDER BY created_at DESC
-         LIMIT $2`,
-        [actorUserId, limit],
-      );
-      return result.rows.map(rowToEntry);
+      const docs = await auditLog
+        .find({ actorUserId })
+        .sort({ createdAt: -1 })
+        .limit(limit)
+        .toArray();
+      return docs.map((d) => docToEntry(d as unknown as Record<string, unknown>));
     },
   };
 }

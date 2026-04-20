@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type pg from 'pg';
+import type { Db } from 'mongodb';
 import { requireAuth } from '../middleware/authenticate.js';
 import { createSharingHandlers } from './handlers.js';
 
@@ -7,7 +7,7 @@ import { createSharingHandlers } from './handlers.js';
  * Public shared-viewer router.
  * Mounted at /api/shared — no authentication required.
  */
-export function createSharedRouter(pool: pg.Pool): Router {
+export function createSharedRouter(pool: Db): Router {
   const router = Router();
   const handlers = createSharingHandlers(pool);
 
@@ -20,7 +20,7 @@ export function createSharedRouter(pool: pg.Pool): Router {
  * Owner-only share-management routes.
  * Mounted under /api/experiments — requires authentication.
  */
-export function createShareManagementRouter(pool: pg.Pool): Router {
+export function createShareManagementRouter(pool: Db): Router {
   const router = Router();
   const handlers = createSharingHandlers(pool);
 

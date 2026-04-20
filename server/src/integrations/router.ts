@@ -1,9 +1,9 @@
 import { Router } from 'express';
-import type pg from 'pg';
+import type { Db } from 'mongodb';
 import { requireAuth } from '../middleware/authenticate.js';
 import { createIntegrationsHandlers } from './handlers.js';
 
-export function createIntegrationsRouter(pool: pg.Pool): Router {
+export function createIntegrationsRouter(pool: Db): Router {
   const router = Router();
   const handlers = createIntegrationsHandlers(pool);
 

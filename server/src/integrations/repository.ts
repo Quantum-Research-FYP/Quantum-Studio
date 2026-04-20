@@ -1,5 +1,7 @@
-import type pg from 'pg';
+import type { Db } from 'mongodb';
+import { v4 as uuid } from 'uuid';
 import { encrypt, decrypt, type EncryptedPayload } from '../execution/encryption.js';
+import { COLLECTIONS, type AppDocument } from '../db/collections.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -20,36 +22,21 @@ export interface IntegrationSettingsMasked {
   updatedAt: string;
 }
 
-/** Internal record with encrypted token fields (for decryption). */
-interface IntegrationSettingsRow {
-  id: string;
-  user_id: string;
-  provider: string;
-  encrypted_token: string;
-  token_iv: string;
-  token_auth_tag: string;
-  validation_status: ValidationStatus;
-  validation_error_code: string | null;
-  last_validated_at: Date | null;
-  created_at: Date;
-  updated_at: Date;
-}
-
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function rowToMasked(row: IntegrationSettingsRow): IntegrationSettingsMasked {
+function docToMasked(doc: Record<string, unknown>): IntegrationSettingsMasked {
   return {
-    id: row.id,
-    userId: row.user_id,
-    provider: row.provider,
-    hasToken: Boolean(row.encrypted_token),
-    validationStatus: row.validation_status,
-    validationErrorCode: row.validation_error_code ?? null,
-    lastValidatedAt: row.last_validated_at ? row.last_validated_at.toISOString() : null,
-    createdAt: row.created_at.toISOString(),
-    updatedAt: row.updated_at.toISOString(),
+    id: doc._id as string,
+    userId: doc.userId as string,
+    provider: doc.provider as string,
+    hasToken: Boolean(doc.encryptedToken),
+    validationStatus: doc.validationStatus as ValidationStatus,
+    validationErrorCode: (doc.validationErrorCode as string) ?? null,
+    lastValidatedAt: doc.lastValidatedAt ? (doc.lastValidatedAt as Date).toISOString() : null,
+    createdAt: (doc.createdAt as Date).toISOString(),
+    updatedAt: (doc.updatedAt as Date).toISOString(),
   };
 }
 
@@ -57,122 +44,97 @@ function rowToMasked(row: IntegrationSettingsRow): IntegrationSettingsMasked {
 // Repository
 // ---------------------------------------------------------------------------
 
-export function createIntegrationsRepository(pool: pg.Pool) {
+export function createIntegrationsRepository(pool: Db) {
+  const settings = pool.collection<AppDocument>(COLLECTIONS.USER_INTEGRATION_SETTINGS);
+
   return {
-    /**
-     * Create or update integration settings for a user+provider.
-     * The raw token is encrypted before storage.
-     * Returns the masked settings (never the token).
-     */
     async upsertSettings(
       userId: string,
       provider: string,
       rawToken: string,
     ): Promise<IntegrationSettingsMasked> {
       const { ciphertext, iv, authTag } = encrypt(rawToken);
+      const now = new Date();
 
-      const result = await pool.query(
-        `INSERT INTO user_integration_settings
-           (user_id, provider, encrypted_token, token_iv, token_auth_tag, validation_status)
-         VALUES ($1, $2, $3, $4, $5, 'pending')
-         ON CONFLICT (user_id, provider)
-         DO UPDATE SET
-           encrypted_token = EXCLUDED.encrypted_token,
-           token_iv = EXCLUDED.token_iv,
-           token_auth_tag = EXCLUDED.token_auth_tag,
-           validation_status = 'pending',
-           validation_error_code = NULL,
-           last_validated_at = NULL,
-           updated_at = now()
-         RETURNING *`,
-        [userId, provider, ciphertext, iv, authTag],
+      const result = await settings.findOneAndUpdate(
+        { userId, provider },
+        {
+          $set: {
+            encryptedToken: ciphertext,
+            tokenIv: iv,
+            tokenAuthTag: authTag,
+            validationStatus: 'pending',
+            validationErrorCode: null,
+            lastValidatedAt: null,
+            updatedAt: now,
+          },
+          $setOnInsert: {
+            _id: uuid(),
+            userId,
+            provider,
+            schemaVersion: 1,
+            createdAt: now,
+          },
+        },
+        { upsert: true, returnDocument: 'after' },
       );
 
-      return rowToMasked(result.rows[0] as IntegrationSettingsRow);
+      return docToMasked(result as unknown as Record<string, unknown>);
     },
 
-    /**
-     * Fetch masked settings for a user+provider.
-     * Returns null if no settings exist.
-     */
     async getSettings(
       userId: string,
       provider: string,
     ): Promise<IntegrationSettingsMasked | null> {
-      const result = await pool.query(
-        `SELECT * FROM user_integration_settings
-         WHERE user_id = $1 AND provider = $2`,
-        [userId, provider],
-      );
-
-      if (result.rows.length === 0) return null;
-      return rowToMasked(result.rows[0] as IntegrationSettingsRow);
+      const doc = await settings.findOne({ userId, provider });
+      if (!doc) return null;
+      return docToMasked(doc as unknown as Record<string, unknown>);
     },
 
-    /**
-     * Decrypt and return the raw token for internal use (e.g., calling IBM APIs).
-     * Returns null if no settings exist.
-     * NEVER expose this value in API responses or logs.
-     */
     async getDecryptedToken(userId: string, provider: string): Promise<string | null> {
-      const result = await pool.query(
-        `SELECT encrypted_token, token_iv, token_auth_tag
-         FROM user_integration_settings
-         WHERE user_id = $1 AND provider = $2`,
-        [userId, provider],
+      const doc = await settings.findOne(
+        { userId, provider },
+        { projection: { encryptedToken: 1, tokenIv: 1, tokenAuthTag: 1 } },
       );
 
-      if (result.rows.length === 0) return null;
-
-      const row = result.rows[0] as Pick<
-        IntegrationSettingsRow,
-        'encrypted_token' | 'token_iv' | 'token_auth_tag'
-      >;
+      if (!doc) return null;
 
       const payload: EncryptedPayload = {
-        ciphertext: row.encrypted_token,
-        iv: row.token_iv,
-        authTag: row.token_auth_tag,
+        ciphertext: doc.encryptedToken as string,
+        iv: doc.tokenIv as string,
+        authTag: doc.tokenAuthTag as string,
       };
 
       return decrypt(payload);
     },
 
-    /**
-     * Delete integration settings for a user+provider.
-     * Returns true if a row was deleted, false if nothing existed.
-     */
     async deleteSettings(userId: string, provider: string): Promise<boolean> {
-      const result = await pool.query(
-        `DELETE FROM user_integration_settings
-         WHERE user_id = $1 AND provider = $2`,
-        [userId, provider],
-      );
-      return (result.rowCount ?? 0) > 0;
+      const result = await settings.deleteOne({ userId, provider });
+      return result.deletedCount > 0;
     },
 
-    /**
-     * Update validation status after an IBM API check.
-     */
     async updateValidationStatus(
       userId: string,
       provider: string,
       status: ValidationStatus,
       errorCode?: string,
     ): Promise<IntegrationSettingsMasked | null> {
-      const result = await pool.query(
-        `UPDATE user_integration_settings
-         SET validation_status = $3,
-             validation_error_code = $4,
-             last_validated_at = now(),
-             updated_at = now()
-         WHERE user_id = $1 AND provider = $2
-         RETURNING *`,
-        [userId, provider, status, errorCode ?? null],
+      const now = new Date();
+      const result = await settings.findOneAndUpdate(
+        { userId, provider },
+        {
+          $set: {
+            validationStatus: status,
+            validationErrorCode: errorCode ?? null,
+            lastValidatedAt: now,
+            updatedAt: now,
+          },
+        },
+        { returnDocument: 'after' },
       );
 
-      if (result.rows.length === 0) return null;
-      return rowToMasked(result.rows[0] as IntegrationSettingsRow);
+      if (!result) return null;
+      return docToMasked(result as unknown as Record<string, unknown>);
     },
   };
 }

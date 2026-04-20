@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import type pg from 'pg';
+import type { Db } from 'mongodb';
 import crypto from 'node:crypto';
 import { createSimulationRepository } from '../simulations/repository.js';
 import { createIntegrationsRepository } from '../integrations/repository.js';
@@ -8,6 +8,7 @@ import { createIbmClient } from './ibm-client.js';
 import { checkPollRateLimit } from './poll-rate-limiter.js';
 import { normalizeIbmStatus, isValidTransition } from './types.js';
 import type { ExecutionJobStatus } from './types.js';
+import { COLLECTIONS, type AppDocument } from '../db/collections.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -63,7 +64,7 @@ function shouldRefreshFromProvider(job: { status: string; updatedAt: string }): 
 // Handler Factory
 // ---------------------------------------------------------------------------
 
-export function createExecutionHandlers(pool: pg.Pool, onSimulatorJobCreated?: () => void) {
+export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => void) {
   const jobRepo = createSimulationRepository(pool);
   const integrationsRepo = createIntegrationsRepository(pool);
   const audit = createAuditRepository(pool);
@@ -409,9 +410,10 @@ export function createExecutionHandlers(pool: pg.Pool, onSimulatorJobCreated?: (
     // Only apply valid forward transitions
     if (newStatus === currentStatus || !isValidTransition(currentStatus, newStatus)) {
       // Still update the timestamp to reset backoff clock
-      await pool.query(
-        `UPDATE simulation_jobs SET updated_at = now(), status_detail = $2 WHERE id = $1`,
-        [jobId, result.data.status],
+      const jobsCol = pool.collection<AppDocument>(COLLECTIONS.SIMULATION_JOBS);
+      await jobsCol.updateOne(
+        { _id: jobId },
+        { $set: { updatedAt: new Date(), statusDetail: result.data.status } },
       );
       return;
     }

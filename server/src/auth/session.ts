@@ -1,5 +1,7 @@
 import type { Request, Response } from 'express';
-import type pg from 'pg';
+import type { Db } from 'mongodb';
+import { v4 as uuid } from 'uuid';
+import { COLLECTIONS, type AppDocument } from '../db/collections.js';
 
 const SESSION_COOKIE_NAME = 'sid';
 const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -11,9 +13,9 @@ export interface SessionRow {
   revoked_at: Date | null;
 }
 
-/** Create a new session row and set the session cookie on the response. */
+/** Create a new session document and set the session cookie on the response. */
 export async function createSession(
-  pool: pg.Pool,
+  pool: Db,
   userId: string,
   req: Request,
   res: Response,
@@ -23,14 +25,21 @@ export async function createSession(
   const ip = req.ip || req.socket.remoteAddress || null;
   const userAgent = req.get('user-agent') || null;
 
-  const result = await pool.query<{ id: string }>(
-    `INSERT INTO sessions (user_id, expires_at, ip, user_agent)
-     VALUES ($1, $2, $3, $4)
-     RETURNING id`,
-    [userId, expiresAt, ip, userAgent],
-  );
+  const sessionId = uuid();
+  const sessions = pool.collection<AppDocument>(COLLECTIONS.SESSIONS);
 
-  const sessionId = result.rows[0].id;
+  await sessions.insertOne({
+    _id: sessionId,
+    userId,
+    expiresAt,
+    revokedAt: null,
+    ip,
+    userAgent,
+    schemaVersion: 1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+
   const isProduction = process.env.NODE_ENV === 'production';
 
   res.cookie(SESSION_COOKIE_NAME, sessionId, {
@@ -46,22 +55,31 @@ export async function createSession(
 
 /** Look up a valid (non-expired, non-revoked) session by its cookie ID. */
 export async function getValidSession(
-  pool: pg.Pool,
+  pool: Db,
   sessionId: string,
 ): Promise<SessionRow | null> {
-  const result = await pool.query<SessionRow>(
-    `SELECT id, user_id, expires_at, revoked_at
-     FROM sessions
-     WHERE id = $1 AND revoked_at IS NULL AND expires_at > now()`,
-    [sessionId],
-  );
+  const sessions = pool.collection<AppDocument>(COLLECTIONS.SESSIONS);
 
-  return result.rows[0] ?? null;
+  const doc = await sessions.findOne({
+    _id: sessionId,
+    revokedAt: null,
+    expiresAt: { $gt: new Date() },
+  });
+
+  if (!doc) return null;
+
+  return {
+    id: doc._id as string,
+    user_id: doc.userId as string,
+    expires_at: doc.expiresAt as Date,
+    revoked_at: null,
+  };
 }
 
 /** Revoke a session (server-side logout). */
-export async function revokeSession(pool: pg.Pool, sessionId: string): Promise<void> {
-  await pool.query('UPDATE sessions SET revoked_at = now() WHERE id = $1', [sessionId]);
+export async function revokeSession(pool: Db, sessionId: string): Promise<void> {
+  const sessions = pool.collection<AppDocument>(COLLECTIONS.SESSIONS);
+  await sessions.updateOne({ _id: sessionId }, { $set: { revokedAt: new Date(), updatedAt: new Date() } });
 }
 
 /** Clear the session cookie from the response. */

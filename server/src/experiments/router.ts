@@ -1,10 +1,10 @@
 import { Router } from 'express';
+import type { Db } from 'mongodb';
 import express from 'express';
-import type pg from 'pg';
 import { requireAuth } from '../middleware/authenticate.js';
 import { createExperimentHandlers } from './handlers.js';
 
-export function createExperimentsRouter(pool: pg.Pool): Router {
+export function createExperimentsRouter(pool: Db): Router {
   const router = Router();
   const handlers = createExperimentHandlers(pool);
 

@@ -1,4 +1,6 @@
-import type pg from 'pg';
+import type { Db, UpdateFilter } from 'mongodb';
+import { v4 as uuid } from 'uuid';
+import { COLLECTIONS, type AppDocument } from '../db/collections.js';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -39,7 +41,6 @@ export interface ExperimentListItem {
   createdAt: string;
   updatedAt: string;
   rowVersion: number;
-  /** Extracted from latest_result_json for display without loading the full payload. */
   lastRunStatus: string | null;
   lastRunAt: string | null;
 }
@@ -99,58 +100,58 @@ export interface PaginatedResult<T> {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Map a snake_case DB row to a camelCase Experiment. */
-function rowToExperiment(row: Record<string, unknown>): Experiment {
+/** Map a MongoDB document to a camelCase Experiment. */
+function docToExperiment(doc: Record<string, unknown>): Experiment {
   return {
-    id: row.id as string,
-    ownerUserId: row.owner_user_id as string,
-    name: row.name as string,
-    description: (row.description as string) ?? null,
-    tags: (row.tags as string[]) ?? null,
-    schemaVersion: row.schema_version as number,
-    circuitJson: row.circuit_json as Record<string, unknown>,
-    runSettingsJson: (row.run_settings_json as Record<string, unknown>) ?? null,
-    latestResultJson: (row.latest_result_json as Record<string, unknown>) ?? null,
-    createdAt: (row.created_at as Date).toISOString(),
-    updatedAt: (row.updated_at as Date).toISOString(),
-    deletedAt: row.deleted_at ? (row.deleted_at as Date).toISOString() : null,
-    rowVersion: row.row_version as number,
-    aiAssisted: (row.ai_assisted as boolean) ?? false,
-    aiProvider: (row.ai_provider as string) ?? null,
-    aiModel: (row.ai_model as string) ?? null,
-    aiGeneratedAt: row.ai_generated_at ? (row.ai_generated_at as Date).toISOString() : null,
-    aiCodeHash: (row.ai_code_hash as string) ?? null,
-    aiPrompt: (row.ai_prompt as string) ?? null,
-    aiExplanation: (row.ai_explanation as string) ?? null,
-    aiGeneratedCode: (row.ai_generated_code as string) ?? null,
-    aiShareProvenance: (row.ai_share_provenance as boolean) ?? false,
+    id: doc._id as string,
+    ownerUserId: doc.ownerId as string,
+    name: doc.name as string,
+    description: (doc.description as string) ?? null,
+    tags: (doc.tags as string[]) ?? null,
+    schemaVersion: doc.schemaVersion as number,
+    circuitJson: doc.circuitJson as Record<string, unknown>,
+    runSettingsJson: (doc.runSettingsJson as Record<string, unknown>) ?? null,
+    latestResultJson: (doc.latestResultJson as Record<string, unknown>) ?? null,
+    createdAt: (doc.createdAt as Date).toISOString(),
+    updatedAt: (doc.updatedAt as Date).toISOString(),
+    deletedAt: doc.deletedAt ? (doc.deletedAt as Date).toISOString() : null,
+    rowVersion: doc.rowVersion as number,
+    aiAssisted: (doc.aiAssisted as boolean) ?? false,
+    aiProvider: (doc.aiProvider as string) ?? null,
+    aiModel: (doc.aiModel as string) ?? null,
+    aiGeneratedAt: doc.aiGeneratedAt ? (doc.aiGeneratedAt as Date).toISOString() : null,
+    aiCodeHash: (doc.aiCodeHash as string) ?? null,
+    aiPrompt: (doc.aiPrompt as string) ?? null,
+    aiExplanation: (doc.aiExplanation as string) ?? null,
+    aiGeneratedCode: (doc.aiGeneratedCode as string) ?? null,
+    aiShareProvenance: (doc.aiShareProvenance as boolean) ?? false,
   };
 }
 
-/** Map a snake_case DB row to a camelCase ExperimentListItem. */
-function rowToListItem(row: Record<string, unknown>): ExperimentListItem {
-  const latestResult = row.latest_result_json as Record<string, unknown> | null;
+/** Map a MongoDB document to a camelCase ExperimentListItem. */
+function docToListItem(doc: Record<string, unknown>): ExperimentListItem {
+  const latestResult = doc.latestResultJson as Record<string, unknown> | null;
   return {
-    id: row.id as string,
-    name: row.name as string,
-    description: (row.description as string) ?? null,
-    tags: (row.tags as string[]) ?? null,
-    schemaVersion: row.schema_version as number,
-    createdAt: (row.created_at as Date).toISOString(),
-    updatedAt: (row.updated_at as Date).toISOString(),
-    rowVersion: row.row_version as number,
+    id: doc._id as string,
+    name: doc.name as string,
+    description: (doc.description as string) ?? null,
+    tags: (doc.tags as string[]) ?? null,
+    schemaVersion: doc.schemaVersion as number,
+    createdAt: (doc.createdAt as Date).toISOString(),
+    updatedAt: (doc.updatedAt as Date).toISOString(),
+    rowVersion: doc.rowVersion as number,
     lastRunStatus: (latestResult?.status as string) ?? null,
     lastRunAt: (latestResult?.runAt as string) ?? null,
   };
 }
 
 // ---------------------------------------------------------------------------
-// Allowed sort columns (whitelist to prevent SQL injection)
+// Sort field mapping
 // ---------------------------------------------------------------------------
 
-const ALLOWED_SORT_COLUMNS: Record<string, string> = {
-  updated_at: 'updated_at',
-  created_at: 'created_at',
+const SORT_FIELD_MAP: Record<string, string> = {
+  updated_at: 'updatedAt',
+  created_at: 'createdAt',
   name: 'name',
 };
 
@@ -158,11 +159,10 @@ const ALLOWED_SORT_COLUMNS: Record<string, string> = {
 // Repository
 // ---------------------------------------------------------------------------
 
-export function createExperimentRepository(pool: pg.Pool) {
+export function createExperimentRepository(pool: Db) {
+  const experiments = pool.collection<AppDocument>(COLLECTIONS.EXPERIMENTS);
+
   return {
-    /**
-     * Create a new experiment owned by the given user.
-     */
     async create(input: CreateExperimentInput): Promise<Experiment> {
       const {
         userId,
@@ -178,56 +178,47 @@ export function createExperimentRepository(pool: pg.Pool) {
 
       const retainPrompts = process.env.AI_RETAIN_PROMPTS === 'true';
       const ai = aiProvenance;
+      const now = new Date();
 
-      const result = await pool.query(
-        `INSERT INTO experiments
-           (owner_user_id, name, description, tags, schema_version,
-            circuit_json, run_settings_json, latest_result_json,
-            ai_assisted, ai_provider, ai_model, ai_generated_at,
-            ai_code_hash, ai_prompt, ai_explanation, ai_generated_code)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-                 $9, $10, $11, $12, $13, $14, $15, $16)
-         RETURNING *`,
-        [
-          userId,
-          name,
-          description ?? null,
-          tags ? JSON.stringify(tags) : null,
-          schemaVersion,
-          JSON.stringify(circuitJson),
-          runSettingsJson ? JSON.stringify(runSettingsJson) : null,
-          latestResultJson ? JSON.stringify(latestResultJson) : null,
-          ai?.aiAssisted ?? false,
-          ai?.aiProvider ?? null,
-          ai?.aiModel ?? null,
-          ai?.aiGeneratedAt ?? null,
-          ai?.aiCodeHash ?? null,
-          retainPrompts ? (ai?.aiPrompt ?? null) : null,
-          retainPrompts ? (ai?.aiExplanation ?? null) : null,
-          retainPrompts ? (ai?.aiGeneratedCode ?? null) : null,
-        ],
-      );
+      const doc = {
+        _id: uuid(),
+        ownerId: userId,
+        name,
+        description: description ?? null,
+        tags: tags ?? null,
+        schemaVersion,
+        circuitJson,
+        runSettingsJson: runSettingsJson ?? null,
+        latestResultJson: latestResultJson ?? null,
+        visibility: 'private',
+        deletedAt: null,
+        rowVersion: 1,
+        aiAssisted: ai?.aiAssisted ?? false,
+        aiProvider: ai?.aiProvider ?? null,
+        aiModel: ai?.aiModel ?? null,
+        aiGeneratedAt: ai?.aiGeneratedAt ? new Date(ai.aiGeneratedAt) : null,
+        aiCodeHash: ai?.aiCodeHash ?? null,
+        aiPrompt: retainPrompts ? (ai?.aiPrompt ?? null) : null,
+        aiExplanation: retainPrompts ? (ai?.aiExplanation ?? null) : null,
+        aiGeneratedCode: retainPrompts ? (ai?.aiGeneratedCode ?? null) : null,
+        aiShareProvenance: false,
+        createdAt: now,
+        updatedAt: now,
+      };
 
-      return rowToExperiment(result.rows[0]);
+      await experiments.insertOne(doc);
+      return docToExperiment(doc as unknown as Record<string, unknown>);
     },
 
-    /**
-     * Fetch an experiment by ID, scoped to the owning user.
-     * Returns null if not found, soft-deleted, or owned by another user.
-     */
     async getById(id: string, userId: string): Promise<Experiment | null> {
-      const result = await pool.query(
-        `SELECT * FROM experiments
-         WHERE id = $1 AND owner_user_id = $2 AND deleted_at IS NULL`,
-        [id, userId],
-      );
-      return result.rows.length > 0 ? rowToExperiment(result.rows[0]) : null;
+      const doc = await experiments.findOne({
+        _id: id,
+        ownerId: userId,
+        deletedAt: null,
+      });
+      return doc ? docToExperiment(doc as unknown as Record<string, unknown>) : null;
     },
 
-    /**
-     * List experiments for a user with pagination and sorting.
-     * Uses a window function for total count to avoid a second query.
-     */
     async listByUser(
       userId: string,
       options: ExperimentListOptions = {},
@@ -239,35 +230,30 @@ export function createExperimentRepository(pool: pg.Pool) {
         sortOrder = 'desc',
       } = options;
 
-      const column = ALLOWED_SORT_COLUMNS[sortBy] ?? 'updated_at';
-      const direction = sortOrder === 'asc' ? 'ASC' : 'DESC';
+      const field = SORT_FIELD_MAP[sortBy] ?? 'updatedAt';
+      const direction = sortOrder === 'asc' ? 1 : -1;
       const offset = (page - 1) * pageSize;
 
-      const result = await pool.query(
-        `SELECT *, COUNT(*) OVER() AS total_count
-         FROM experiments
-         WHERE owner_user_id = $1 AND deleted_at IS NULL
-         ORDER BY ${column} ${direction}, id ASC
-         LIMIT $2 OFFSET $3`,
-        [userId, pageSize, offset],
-      );
+      const filter = { ownerId: userId, deletedAt: null };
 
-      const total = result.rows.length > 0 ? parseInt(result.rows[0].total_count as string, 10) : 0;
+      const [items, total] = await Promise.all([
+        experiments
+          .find(filter)
+          .sort({ [field]: direction, _id: 1 })
+          .skip(offset)
+          .limit(pageSize)
+          .toArray(),
+        experiments.countDocuments(filter),
+      ]);
 
       return {
-        items: result.rows.map(rowToListItem),
+        items: items.map((d) => docToListItem(d as unknown as Record<string, unknown>)),
         total,
         page,
         pageSize,
       };
     },
 
-    /**
-     * Update an experiment with optimistic concurrency control.
-     * The row_version in the WHERE clause ensures no silent overwrites.
-     * Returns null if the experiment was not found, not owned, deleted,
-     * or the row version has changed since the caller last read it.
-     */
     async update(input: UpdateExperimentInput): Promise<Experiment | null> {
       const {
         id,
@@ -285,125 +271,85 @@ export function createExperimentRepository(pool: pg.Pool) {
 
       const retainPrompts = process.env.AI_RETAIN_PROMPTS === 'true';
       const ai = aiProvenance;
+      const now = new Date();
 
-      const result = await pool.query(
-        `UPDATE experiments
-         SET name = $3,
-             description = $4,
-             tags = $5,
-             schema_version = $6,
-             circuit_json = $7,
-             run_settings_json = $8,
-             latest_result_json = $9,
-             ai_assisted = $11,
-             ai_provider = $12,
-             ai_model = $13,
-             ai_generated_at = $14,
-             ai_code_hash = $15,
-             ai_prompt = $16,
-             ai_explanation = $17,
-             ai_generated_code = $18,
-             updated_at = now(),
-             row_version = row_version + 1
-         WHERE id = $1
-           AND owner_user_id = $2
-           AND deleted_at IS NULL
-           AND row_version = $10
-         RETURNING *`,
-        [
-          id,
-          userId,
-          name,
-          description ?? null,
-          tags ? JSON.stringify(tags) : null,
-          schemaVersion,
-          JSON.stringify(circuitJson),
-          runSettingsJson ? JSON.stringify(runSettingsJson) : null,
-          latestResultJson ? JSON.stringify(latestResultJson) : null,
-          expectedRowVersion,
-          ai?.aiAssisted ?? false,
-          ai?.aiProvider ?? null,
-          ai?.aiModel ?? null,
-          ai?.aiGeneratedAt ?? null,
-          ai?.aiCodeHash ?? null,
-          retainPrompts ? (ai?.aiPrompt ?? null) : null,
-          retainPrompts ? (ai?.aiExplanation ?? null) : null,
-          retainPrompts ? (ai?.aiGeneratedCode ?? null) : null,
-        ],
+      const result = await experiments.findOneAndUpdate(
+        {
+          _id: id,
+          ownerId: userId,
+          deletedAt: null,
+          rowVersion: expectedRowVersion,
+        },
+        {
+          $set: {
+            name,
+            description: description ?? null,
+            tags: tags ?? null,
+            schemaVersion,
+            circuitJson,
+            runSettingsJson: runSettingsJson ?? null,
+            latestResultJson: latestResultJson ?? null,
+            aiAssisted: ai?.aiAssisted ?? false,
+            aiProvider: ai?.aiProvider ?? null,
+            aiModel: ai?.aiModel ?? null,
+            aiGeneratedAt: ai?.aiGeneratedAt ? new Date(ai.aiGeneratedAt) : null,
+            aiCodeHash: ai?.aiCodeHash ?? null,
+            aiPrompt: retainPrompts ? (ai?.aiPrompt ?? null) : null,
+            aiExplanation: retainPrompts ? (ai?.aiExplanation ?? null) : null,
+            aiGeneratedCode: retainPrompts ? (ai?.aiGeneratedCode ?? null) : null,
+            updatedAt: now,
+          },
+          $inc: { rowVersion: 1 },
+        } as unknown as UpdateFilter<AppDocument>,
+        { returnDocument: 'after' },
       );
 
-      return result.rows.length > 0 ? rowToExperiment(result.rows[0]) : null;
+      return result ? docToExperiment(result as unknown as Record<string, unknown>) : null;
     },
 
-    /**
-     * Rename an experiment (metadata-only update) with optimistic concurrency.
-     * Returns null if not found, not owned, deleted, or version mismatch.
-     */
     async rename(
       id: string,
       userId: string,
       newName: string,
       expectedRowVersion: number,
     ): Promise<Experiment | null> {
-      const result = await pool.query(
-        `UPDATE experiments
-         SET name = $3,
-             updated_at = now(),
-             row_version = row_version + 1
-         WHERE id = $1
-           AND owner_user_id = $2
-           AND deleted_at IS NULL
-           AND row_version = $4
-         RETURNING *`,
-        [id, userId, newName, expectedRowVersion],
+      const result = await experiments.findOneAndUpdate(
+        {
+          _id: id,
+          ownerId: userId,
+          deletedAt: null,
+          rowVersion: expectedRowVersion,
+        },
+        {
+          $set: { name: newName, updatedAt: new Date() },
+          $inc: { rowVersion: 1 },
+        } as unknown as UpdateFilter<AppDocument>,
+        { returnDocument: 'after' },
       );
 
-      return result.rows.length > 0 ? rowToExperiment(result.rows[0]) : null;
+      return result ? docToExperiment(result as unknown as Record<string, unknown>) : null;
     },
 
-    /**
-     * Soft-delete an experiment. Sets deleted_at so it no longer appears
-     * in list or get queries. Returns true if the experiment was found and deleted.
-     */
     async softDelete(id: string, userId: string): Promise<boolean> {
-      const result = await pool.query(
-        `UPDATE experiments
-         SET deleted_at = now(),
-             updated_at = now()
-         WHERE id = $1
-           AND owner_user_id = $2
-           AND deleted_at IS NULL`,
-        [id, userId],
+      const now = new Date();
+      const result = await experiments.updateOne(
+        { _id: id, ownerId: userId, deletedAt: null },
+        { $set: { deletedAt: now, updatedAt: now } },
       );
-
-      return (result.rowCount ?? 0) > 0;
+      return result.modifiedCount > 0;
     },
 
-    /**
-     * Fetch the raw experiment row by ID for the owning user, including
-     * soft-deleted records. Used for JSON export/recovery when a schema
-     * version is unsupported.
-     */
     async getRawById(id: string, userId: string): Promise<Experiment | null> {
-      const result = await pool.query(
-        `SELECT * FROM experiments
-         WHERE id = $1 AND owner_user_id = $2`,
-        [id, userId],
-      );
-      return result.rows.length > 0 ? rowToExperiment(result.rows[0]) : null;
+      const doc = await experiments.findOne({ _id: id, ownerId: userId });
+      return doc ? docToExperiment(doc as unknown as Record<string, unknown>) : null;
     },
 
-    /**
-     * Check whether a non-deleted experiment exists for the given user.
-     * Used to distinguish 404 (not found) from 409 (version conflict) in handlers.
-     */
     async exists(id: string, userId: string): Promise<boolean> {
-      const result = await pool.query(
-        `SELECT 1 FROM experiments
-         WHERE id = $1 AND owner_user_id = $2 AND deleted_at IS NULL`,
-        [id, userId],
+      const count = await experiments.countDocuments(
+        { _id: id, ownerId: userId, deletedAt: null },
+        { limit: 1 },
       );
-      return result.rows.length > 0;
+      return count > 0;
     },
   };
 }

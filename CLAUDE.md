@@ -23,12 +23,14 @@ npm run test:client  # Client circuit domain tests only
 - **Monorepo**: npm workspaces (no Nx/Turbo)
 - **Client**: React 18, Vite, TypeScript. Vite proxies `/api` to the server in dev.
 - **Server**: Express, TypeScript, `tsx watch` for dev hot-reload.
-- **Database**: PostgreSQL (connection via `DATABASE_URL` env var)
+- **Database**: MongoDB (connection via `MONGODB_URI` env var, database name via `MONGODB_DB_NAME`)
 - **Auth**: Cookie-based sessions (HttpOnly + Secure + SameSite)
 
 ## Server Structure
 
-- `server/src/db/` — PostgreSQL pool, migration runner, SQL migration files
+- `server/src/db/` — MongoDB client module (`mongo.ts`), SQL migration files (legacy, being removed)
+  - `mongo.ts`: `connectMongo()`, `getDb()`, `getClient()`, `closeMongo()` helpers
+  - Credentials masked in logs; fail-fast on missing/invalid connection
 - `server/src/auth/` — Auth handlers, router, password hashing (Argon2id), session management
 - `server/src/simulations/` — Simulation job API: repository, handlers, router, validation, runner, and Python execution script
   - Job runner polls queue with concurrency limit, spawns Python subprocess per job
@@ -37,7 +39,7 @@ npm run test:client  # Client circuit domain tests only
   - Results endpoint returns server-computed probabilities (counts/shots, 4dp); export endpoint supports JSON and CSV download with stable sort order
 - `server/src/experiments/` — Experiment persistence: repository with ownership-scoped CRUD, soft-delete, optimistic concurrency (rowVersion), paginated listing, raw export, and schema versioning with in-memory migration on load (defer-save)
   - AI provenance: `ai_assisted`, `ai_provider`, `ai_model`, `ai_generated_at`, `ai_code_hash` (always stored), `ai_prompt`/`ai_explanation`/`ai_generated_code` (stored only when `AI_RETAIN_PROMPTS=true`), `ai_share_provenance` (owner opt-in for sharing details)
-  - Sharing: `visibility` column (private/unlisted/public, default private), `experiment_share_tokens` table (hashed tokens, at most one active per experiment via partial unique index), `share_audit_events` table for tracking visibility and token lifecycle changes
+  - Sharing: `visibility` field (private/unlisted/public, default private), share tokens (hashed, at most one active per experiment), audit events for tracking visibility and token lifecycle changes
 - `server/src/sharing/` — Experiment sharing APIs: repository (token CRUD, visibility updates, audit events), handlers, and router
   - Public endpoint: `GET /api/shared/experiments/:id?token=...` (no auth, non-disclosure 404s)
   - Owner endpoints: `PATCH /:id/visibility`, `GET /:id/share-link`, `POST /:id/share-token/rotate`, `DELETE /:id/share-token`
@@ -59,9 +61,6 @@ npm run test:client  # Client circuit domain tests only
   - `handlers.ts` + `router.ts`: Execution API at `/api/execution` — `GET /providers`, `GET /ibm/backends`, `POST /jobs`, `GET /jobs/:jobId`, `POST /jobs/:jobId/cancel`
   - Status refresh with caching/backoff (5s running, 30s queued); results stored on completion
   - Feature flag: `ENABLE_IBM_QUANTUM` (disabled by default); encryption key via `IBM_QUANTUM_ENCRYPTION_KEY`
-  - DB migration 008: extends `simulation_jobs` with `provider`, `provider_job_id`, `status_detail`, `cancelled_at`; expands status CHECK
-  - DB migration 009: creates `audit_log` table (actor, action, entity_type, entity_id, correlation_id, metadata JSONB)
-  - DB migration 010: creates `user_integration_settings` table (encrypted token, validation status, unique per user+provider)
 - `server/src/integrations/` — Per-user IBM Quantum credential management
   - `POST /api/integrations/ibm-quantum/settings` — save token (encrypted at rest), validate against IBM, audit
   - `GET /api/integrations/ibm-quantum/settings` — masked response (never returns raw token)
@@ -70,7 +69,6 @@ npm run test:client  # Client circuit domain tests only
   - Stable error codes: `IBM_QUANTUM_DISABLED`, `INVALID_TOKEN`, `NETWORK_ERROR`, `PROVIDER_UNAVAILABLE`, `PROVIDER_RATE_LIMITED`
 - `server/src/middleware/` — Express middleware (auth session validation, route-level `requireAuth` guard)
 - `server/src/types/` — TypeScript declaration files (Express augmentation)
-- Tests use `embedded-postgres` for real PostgreSQL integration tests
 
 ## Client Structure
 

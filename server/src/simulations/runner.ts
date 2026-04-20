@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import path from 'node:path';
+import type { Db } from 'mongodb';
 import { fileURLToPath } from 'node:url';
-import type pg from 'pg';
 import { createSimulationRepository } from './repository.js';
 import { getResourceLimits } from './validation.js';
 
@@ -25,7 +25,7 @@ interface RunnerOptions {
  * Create an in-process job runner that polls for queued simulation jobs,
  * executes them via a Python subprocess, and stores results.
  */
-export function createJobRunner(pool: pg.Pool, options?: RunnerOptions) {
+export function createJobRunner(pool: Db, options?: RunnerOptions) {
   const repo = createSimulationRepository(pool);
   const maxConcurrent =
     parseInt(process.env.SIM_MAX_CONCURRENT_JOBS || '', 10) || options?.maxConcurrent || 2;

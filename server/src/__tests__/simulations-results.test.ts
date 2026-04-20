@@ -1,45 +1,37 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
-import EmbeddedPostgres from 'embedded-postgres';
-import pg from 'pg';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoClient, type Db } from 'mongodb';
+import { v4 as uuid } from 'uuid';
 import { createApp } from '../index.js';
-import { runMigrations } from '../db/migrate.js';
+import { ensureIndexes, COLLECTIONS, type AppDocument } from '../db/collections.js';
 
-let embeddedPg: EmbeddedPostgres;
-let pool: pg.Pool;
+let mongod: MongoMemoryServer;
+let client: MongoClient;
+let db: Db;
 let app: Express;
 
 beforeAll(async () => {
-  embeddedPg = new EmbeddedPostgres({
-    databaseDir: './test-pg-results',
-    port: 5598,
-    user: 'postgres',
-    password: 'password',
-    persistent: false,
-  });
-  await embeddedPg.initialise();
-  await embeddedPg.start();
-  await embeddedPg.createDatabase('test_results');
-
-  pool = new pg.Pool({
-    connectionString: 'postgresql://postgres:password@localhost:5598/test_results',
-  });
-
-  await runMigrations(pool);
-  app = createApp(pool);
+  mongod = await MongoMemoryServer.create();
+  const uri = mongod.getUri();
+  client = new MongoClient(uri);
+  await client.connect();
+  db = client.db('test_results');
+  await ensureIndexes(db);
+  app = createApp(db);
 }, 60_000);
 
 afterAll(async () => {
-  await pool.end();
-  await embeddedPg.stop();
+  await client.close();
+  await mongod.stop();
 }, 30_000);
 
 beforeEach(async () => {
-  await pool.query('DELETE FROM simulation_job_results');
-  await pool.query('DELETE FROM simulation_jobs');
-  await pool.query('DELETE FROM sessions');
-  await pool.query('DELETE FROM users');
+  await db.collection(COLLECTIONS.SIMULATION_JOB_RESULTS).deleteMany({});
+  await db.collection(COLLECTIONS.SIMULATION_JOBS).deleteMany({});
+  await db.collection(COLLECTIONS.SESSIONS).deleteMany({});
+  await db.collection(COLLECTIONS.USERS).deleteMany({});
 });
 
 // ---------------------------------------------------------------------------
@@ -59,7 +51,7 @@ async function createUserSession(
   return { cookie: cookies[0], userId: res.body.user.id };
 }
 
-/** Insert a simulation job directly in the DB. */
+/** Insert a simulation job directly in MongoDB. */
 async function insertJob(
   userId: string,
   overrides: Partial<{
@@ -71,16 +63,33 @@ async function insertJob(
 ): Promise<string> {
   const status = overrides.status ?? 'completed';
   const shots = overrides.shots ?? 100;
-  const result = await pool.query(
-    `INSERT INTO simulation_jobs
-       (created_by_user_id, shots, qasm_input, backend, limits_snapshot, status,
-        error_code, error_message_safe, completed_at)
-     VALUES ($1, $2, 'OPENQASM 2.0;', 'aer_simulator', '{}', $3, $4, $5,
-        CASE WHEN $3 = 'completed' THEN now() ELSE NULL END)
-     RETURNING id`,
-    [userId, shots, status, overrides.errorCode ?? null, overrides.errorMessageSafe ?? null],
-  );
-  return result.rows[0].id;
+  const now = new Date();
+  const jobId = uuid();
+
+  await db.collection<AppDocument>(COLLECTIONS.SIMULATION_JOBS).insertOne({
+    _id: jobId,
+    userId,
+    shots,
+    qasmInput: 'OPENQASM 2.0;',
+    backend: 'aer_simulator',
+    provider: 'simulator',
+    providerJobId: null,
+    status,
+    statusDetail: null,
+    limitsSnapshot: {},
+    requestHash: null,
+    idempotencyKey: null,
+    errorCode: overrides.errorCode ?? null,
+    errorMessageSafe: overrides.errorMessageSafe ?? null,
+    startedAt: status === 'running' || status === 'completed' ? now : null,
+    completedAt: status === 'completed' ? now : null,
+    cancelledAt: null,
+    schemaVersion: 1,
+    createdAt: now,
+    updatedAt: now,
+  });
+
+  return jobId;
 }
 
 /** Insert results for a completed job. */
@@ -88,11 +97,20 @@ async function insertResult(
   jobId: string,
   counts: Record<string, number>,
 ): Promise<void> {
-  await pool.query(
-    `INSERT INTO simulation_job_results (job_id, counts_json, metadata_json)
-     VALUES ($1, $2, '{"backend":"aer_simulator"}')`,
-    [jobId, JSON.stringify(counts)],
-  );
+  const now = new Date();
+  const retentionUntil = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
+
+  await db.collection<AppDocument>(COLLECTIONS.SIMULATION_JOB_RESULTS).insertOne({
+    _id: uuid(),
+    jobId,
+    countsJson: counts,
+    metadataJson: { backend: 'aer_simulator' },
+    rawResultJson: null,
+    schemaVersion: 1,
+    createdAt: now,
+    updatedAt: now,
+    retentionUntil,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -139,7 +157,7 @@ describe('GET /api/v1/simulations/jobs/:jobId/result', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns 404 for another user\'s job', async () => {
+  it("returns 404 for another user's job", async () => {
     const { userId } = await createUserSession('owner@example.com');
     const { cookie: otherCookie } = await createUserSession('other@example.com');
     const jobId = await insertJob(userId, { shots: 100 });
@@ -175,7 +193,6 @@ describe('GET /api/v1/simulations/jobs/:jobId/result/export (JSON)', () => {
     expect(res.body.counts).toEqual({ '00': 70, '11': 30 });
     expect(res.body.probabilities).toEqual({ '00': 0.7, '11': 0.3 });
     expect(res.body.exportedAt).toBeDefined();
-    // exportedAt should be valid ISO-8601
     expect(new Date(res.body.exportedAt).toISOString()).toBe(res.body.exportedAt);
   });
 
@@ -213,17 +230,13 @@ describe('GET /api/v1/simulations/jobs/:jobId/result/export (CSV)', () => {
     expect(res.headers['content-disposition']).toContain(`results-${jobId}.csv`);
 
     const lines = res.text.split('\n');
-    // Metadata comment lines
     expect(lines[0]).toBe(`# jobId: ${jobId}`);
     expect(lines[1]).toBe('# shots: 1000');
     expect(lines[2]).toMatch(/^# exportedAt: \d{4}-\d{2}-\d{2}T/);
-    // Header
     expect(lines[3]).toBe('outcome,counts,probability');
-    // Data rows sorted by probability descending
     expect(lines[4]).toBe('00,700,0.7000');
     expect(lines[5]).toBe('11,200,0.2000');
     expect(lines[6]).toBe('01,100,0.1000');
-    // Trailing newline produces an empty last element
     expect(lines[7]).toBe('');
   });
 
@@ -249,11 +262,12 @@ describe('GET /api/v1/simulations/jobs/:jobId/result/export (CSV)', () => {
       .get(`/api/v1/simulations/jobs/${jobId}/result/export?format=csv`)
       .set('Cookie', cookie);
 
-    const dataLines = res.text.split('\n').filter((l: string) => !l.startsWith('#') && l.includes(','));
+    const dataLines = res.text
+      .split('\n')
+      .filter((l: string) => !l.startsWith('#') && l.includes(','));
     for (const line of dataLines) {
       const parts = line.split(',');
       if (parts.length === 3 && parts[0] !== 'outcome') {
-        // probability should contain dot, not comma
         expect(parts[2]).toMatch(/^\d+\.\d{4}$/);
       }
     }
@@ -278,7 +292,7 @@ describe('GET /api/v1/simulations/jobs/:jobId/result/export — error cases', ()
     expect(res.status).toBe(404);
   });
 
-  it('returns 404 for another user\'s job', async () => {
+  it("returns 404 for another user's job", async () => {
     const { userId } = await createUserSession('owner@example.com');
     const { cookie: otherCookie } = await createUserSession('other@example.com');
     const jobId = await insertJob(userId, { shots: 100 });
@@ -366,7 +380,6 @@ describe('export sort determinism', () => {
   it('sorts by probability descending then bitstring ascending for ties', async () => {
     const { cookie, userId } = await createUserSession();
     const jobId = await insertJob(userId, { shots: 100 });
-    // All equal probabilities — should fall back to bitstring ascending
     await insertResult(jobId, { '10': 25, '00': 25, '11': 25, '01': 25 });
 
     const res = await request(app)
