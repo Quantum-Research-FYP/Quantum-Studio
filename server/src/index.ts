@@ -8,6 +8,7 @@ import { runMigrations } from './db/migrate.js';
 import { createAuthRouter } from './auth/router.js';
 import { createSimulationsRouter } from './simulations/router.js';
 import { createExperimentsRouter } from './experiments/router.js';
+import { createSharedRouter, createShareManagementRouter } from './sharing/router.js';
 import { createJobRunner } from './simulations/runner.js';
 import { createAuthMiddleware } from './middleware/authenticate.js';
 
@@ -43,6 +44,8 @@ app.use(
   createSimulationsRouter(pool, () => jobRunner.nudge()),
 );
 app.use('/api/experiments', createExperimentsRouter(pool));
+app.use('/api/experiments', createShareManagementRouter(pool));
+app.use('/api/shared', createSharedRouter(pool));
 
 /** Create the Express app (used by tests to get the app without starting the listener). */
 export function createApp(testPool?: import('pg').Pool) {
@@ -60,6 +63,8 @@ export function createApp(testPool?: import('pg').Pool) {
   testApp.use('/api/auth', createAuthRouter(p));
   testApp.use('/api/v1/simulations', createSimulationsRouter(p));
   testApp.use('/api/experiments', createExperimentsRouter(p));
+  testApp.use('/api/experiments', createShareManagementRouter(p));
+  testApp.use('/api/shared', createSharedRouter(p));
 
   return testApp;
 }
