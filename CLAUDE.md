@@ -41,6 +41,12 @@ npm run test:client  # Client circuit domain tests only
   - Public endpoint: `GET /api/shared/experiments/:id?token=...` (no auth, non-disclosure 404s)
   - Owner endpoints: `PATCH /:id/visibility`, `GET /:id/share-link`, `POST /:id/share-token/rotate`, `DELETE /:id/share-token`
   - Tokens: 192-bit base64url, stored as SHA-256 hash only; public sharing gated by `ENABLE_PUBLIC_SHARING` env var
+- `server/src/ai/` — AI draft generation: provider abstraction, handlers, router, rate limiter
+  - `POST /api/ai/draft` — accepts `{ prompt }`, returns structured circuit JSON + explanation + code + provider metadata + requestId
+  - Provider abstraction: config-driven (`AI_PROVIDER` env var) with mock and anthropic implementations
+  - Per-user sliding-window rate limiter (`AI_RATE_LIMIT_MAX_REQUESTS` / `AI_RATE_LIMIT_WINDOW_MS`)
+  - Feature flag: `ENABLE_AI_DRAFTS` (disabled by default); timeout via `AI_TIMEOUT_MS` (default 30s)
+  - All responses include `requestId` for correlation; logs structured as `[ai] action=... userId=... requestId=...`
 - `server/src/middleware/` — Express middleware (auth session validation, route-level `requireAuth` guard)
 - `server/src/types/` — TypeScript declaration files (Express augmentation)
 - Tests use `embedded-postgres` for real PostgreSQL integration tests
