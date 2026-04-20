@@ -36,6 +36,7 @@ npm run test:client  # Client circuit domain tests only
   - Resource limits configurable via `SIM_MAX_*` env vars (shots, qubits, depth, execution time, concurrent jobs)
   - Results endpoint returns server-computed probabilities (counts/shots, 4dp); export endpoint supports JSON and CSV download with stable sort order
 - `server/src/experiments/` — Experiment persistence: repository with ownership-scoped CRUD, soft-delete, optimistic concurrency (rowVersion), paginated listing, raw export, and schema versioning with in-memory migration on load (defer-save)
+  - Sharing: `visibility` column (private/unlisted/public, default private), `experiment_share_tokens` table (hashed tokens, at most one active per experiment via partial unique index), `share_audit_events` table for tracking visibility and token lifecycle changes
 - `server/src/middleware/` — Express middleware (auth session validation, route-level `requireAuth` guard)
 - `server/src/types/` — TypeScript declaration files (Express augmentation)
 - Tests use `embedded-postgres` for real PostgreSQL integration tests
