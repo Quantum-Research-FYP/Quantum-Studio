@@ -53,9 +53,17 @@ npm run test:client  # Client circuit domain tests only
 - `server/src/execution/` — Multi-provider execution domain (IBM Quantum + simulator)
   - `types.ts`: `ExecutionProvider` (`simulator`|`ibm_quantum`), `ExecutionJobStatus` (submitted/queued/running/completed/failed/cancelled), IBM status mapping, valid transitions, audit types
   - `audit.ts`: Append-only audit log repository with metadata sanitization (strips secret keys); supports queries by entity or actor
+  - `encryption.ts`: AES-256-GCM encrypt/decrypt using `IBM_QUANTUM_ENCRYPTION_KEY` (64-char hex env var)
   - Feature flag: `ENABLE_IBM_QUANTUM` (disabled by default); encryption key via `IBM_QUANTUM_ENCRYPTION_KEY`
   - DB migration 008: extends `simulation_jobs` with `provider`, `provider_job_id`, `status_detail`, `cancelled_at`; expands status CHECK
   - DB migration 009: creates `audit_log` table (actor, action, entity_type, entity_id, correlation_id, metadata JSONB)
+  - DB migration 010: creates `user_integration_settings` table (encrypted token, validation status, unique per user+provider)
+- `server/src/integrations/` — Per-user IBM Quantum credential management
+  - `POST /api/integrations/ibm-quantum/settings` — save token (encrypted at rest), validate against IBM, audit
+  - `GET /api/integrations/ibm-quantum/settings` — masked response (never returns raw token)
+  - `DELETE /api/integrations/ibm-quantum/settings` — remove credentials, audit
+  - Token validation: dev mock (prefix `valid-`) or real IBM API call with timeout
+  - Stable error codes: `IBM_QUANTUM_DISABLED`, `INVALID_TOKEN`, `NETWORK_ERROR`, `PROVIDER_UNAVAILABLE`, `PROVIDER_RATE_LIMITED`
 - `server/src/middleware/` — Express middleware (auth session validation, route-level `requireAuth` guard)
 - `server/src/types/` — TypeScript declaration files (Express augmentation)
 - Tests use `embedded-postgres` for real PostgreSQL integration tests
