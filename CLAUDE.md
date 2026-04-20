@@ -53,7 +53,8 @@ npm run test:client  # Client circuit domain tests only
 - `client/src/hooks/` — React hooks (useAuth, useCircuitHistory, useSimulation, useExperiment)
 - `client/src/api/` — API client modules (auth, simulations, experiments, sharing)
 - `client/src/circuit/` — Pure TypeScript circuit domain layer (no React dependencies): types, model operations, serialization, validation, codegen, qasm-codegen
-- Routes: `/create` (landing), `/builder` (circuit builder), `/run`, `/results`, `/experiments` (protected), `/shared/:experimentId` (public read-only viewer), `/templates`, `/login`, `/signup`
+- `client/src/templates/` — Static starter template definitions (Bell state, Grover-2q) with `loadTemplateCircuit()` to produce editor-compatible CircuitModel instances
+- Routes: `/create` (landing), `/builder` (circuit builder), `/run`, `/results`, `/experiments` (protected), `/shared/:experimentId` (public read-only viewer), `/templates` (protected), `/login`, `/signup`
 
 ## Conventions
 

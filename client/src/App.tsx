@@ -27,9 +27,9 @@ export default function App() {
             <Route path="results" element={<ResultsPage />} />
             <Route element={<ProtectedRoute />}>
               <Route path="experiments" element={<ExperimentsPage />} />
+              <Route path="templates" element={<TemplatesPage />} />
             </Route>
             <Route path="shared/:experimentId" element={<SharedExperimentPage />} />
-            <Route path="templates" element={<TemplatesPage />} />
             <Route path="login" element={<LoginPage />} />
             <Route path="signup" element={<SignupPage />} />
             <Route path="*" element={<NotFoundPage />} />
