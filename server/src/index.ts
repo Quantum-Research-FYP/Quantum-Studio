@@ -4,7 +4,7 @@ import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import cors from 'cors';
 import { type Db } from 'mongodb';
-import { connectMongo, getDb, closeMongo } from './db/mongo.js';
+import { connectMongo, closeMongo } from './db/mongo.js';
 import { ensureIndexes } from './db/collections.js';
 import { createAuthRouter } from './auth/router.js';
 import { createSimulationsRouter } from './simulations/router.js';
@@ -16,60 +16,29 @@ import { createAiRouter } from './ai/router.js';
 import { createIntegrationsRouter } from './integrations/router.js';
 import { createExecutionRouter } from './execution/router.js';
 
-const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
 
-// Security headers
-app.use(helmet());
+/** Create the Express app wired to the given MongoDB Db instance. */
+export function createApp(database: Db, onJobCreated?: () => void) {
+  const app = express();
 
-// CORS — allow the Vite dev server origin in development
-if (process.env.NODE_ENV !== 'production') {
-  app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
-}
+  // Security headers
+  app.use(helmet());
 
-// Body parsing and cookies
-app.use(express.json());
-app.use(cookieParser());
-
-// Attach authenticated user to request (non-blocking)
-app.use(createAuthMiddleware(getDb()));
-
-// Job runner (started when the server boots)
-const jobRunner = createJobRunner(getDb());
-
-// Routes
-app.get('/api/health', async (_req, res) => {
-  try {
-    await getDb().command({ ping: 1 });
-    res.json({ status: 'ok', database: 'connected' });
-  } catch {
-    res.status(503).json({ status: 'error', database: 'disconnected' });
+  // CORS — allow the Vite dev server origin in development
+  if (process.env.NODE_ENV !== 'production') {
+    app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
   }
-});
 
-app.use('/api/auth', createAuthRouter(getDb()));
-app.use(
-  '/api/v1/simulations',
-  createSimulationsRouter(getDb(), () => jobRunner.nudge()),
-);
-app.use('/api/experiments', createExperimentsRouter(getDb()));
-app.use('/api/experiments', createShareManagementRouter(getDb()));
-app.use('/api/shared', createSharedRouter(getDb()));
-app.use('/api/ai', createAiRouter());
-app.use('/api/integrations/ibm-quantum', createIntegrationsRouter(getDb()));
-app.use('/api/execution', createExecutionRouter(getDb(), () => jobRunner.nudge()));
+  // Body parsing and cookies
+  app.use(express.json());
+  app.use(cookieParser());
 
-/** Create the Express app (used by tests to get the app without starting the listener). */
-export function createApp(testDb?: Db) {
-  const database = testDb ?? getDb();
-  const testApp = express();
+  // Attach authenticated user to request (non-blocking)
+  app.use(createAuthMiddleware(database));
 
-  testApp.use(helmet());
-  testApp.use(express.json());
-  testApp.use(cookieParser());
-  testApp.use(createAuthMiddleware(database));
-
-  testApp.get('/api/health', async (_req, res) => {
+  // Routes
+  app.get('/api/health', async (_req, res) => {
     try {
       await database.command({ ping: 1 });
       res.json({ status: 'ok', database: 'connected' });
@@ -77,16 +46,20 @@ export function createApp(testDb?: Db) {
       res.status(503).json({ status: 'error', database: 'disconnected' });
     }
   });
-  testApp.use('/api/auth', createAuthRouter(database));
-  testApp.use('/api/v1/simulations', createSimulationsRouter(database));
-  testApp.use('/api/experiments', createExperimentsRouter(database));
-  testApp.use('/api/experiments', createShareManagementRouter(database));
-  testApp.use('/api/shared', createSharedRouter(database));
-  testApp.use('/api/ai', createAiRouter());
-  testApp.use('/api/integrations/ibm-quantum', createIntegrationsRouter(database));
-  testApp.use('/api/execution', createExecutionRouter(database));
 
-  return testApp;
+  app.use('/api/auth', createAuthRouter(database));
+  app.use(
+    '/api/v1/simulations',
+    createSimulationsRouter(database, onJobCreated),
+  );
+  app.use('/api/experiments', createExperimentsRouter(database));
+  app.use('/api/experiments', createShareManagementRouter(database));
+  app.use('/api/shared', createSharedRouter(database));
+  app.use('/api/ai', createAiRouter());
+  app.use('/api/integrations/ibm-quantum', createIntegrationsRouter(database));
+  app.use('/api/execution', createExecutionRouter(database, onJobCreated));
+
+  return app;
 }
 
 // Start server (skipped when imported as a module for testing)
@@ -96,6 +69,8 @@ if (isMainModule || process.env.START_SERVER === 'true') {
   connectMongo()
     .then(async (database) => {
       await ensureIndexes(database);
+      const jobRunner = createJobRunner(database);
+      const app = createApp(database, () => jobRunner.nudge());
       jobRunner.start();
       app.listen(PORT, () => {
         console.log(`Server listening on http://localhost:${PORT}`);
@@ -119,4 +94,5 @@ if (isMainModule || process.env.START_SERVER === 'true') {
   });
 }
 
-export default app;
+// Default export for backwards compatibility
+export default { createApp };

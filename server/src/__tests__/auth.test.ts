@@ -1,44 +1,35 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
-import EmbeddedPostgres from 'embedded-postgres';
-import pg from 'pg';
+import { MongoMemoryServer } from 'mongodb-memory-server';
+import { MongoClient, type Db } from 'mongodb';
 import { createApp } from '../index.js';
-import { runMigrations } from '../db/migrate.js';
+import { ensureIndexes, COLLECTIONS } from '../db/collections.js';
 import { validatePassword, hashPassword, verifyPassword } from '../auth/password.js';
 
-let embeddedPg: EmbeddedPostgres;
-let pool: pg.Pool;
+let mongod: MongoMemoryServer;
+let client: MongoClient;
+let db: Db;
 let app: Express;
 
 beforeAll(async () => {
-  embeddedPg = new EmbeddedPostgres({
-    databaseDir: './test-pg-data',
-    port: 5599,
-    user: 'postgres',
-    password: 'password',
-    persistent: false,
-  });
-  await embeddedPg.initialise();
-  await embeddedPg.start();
-  await embeddedPg.createDatabase('test_quantum');
-
-  pool = new pg.Pool({
-    connectionString: 'postgresql://postgres:password@localhost:5599/test_quantum',
-  });
-
-  await runMigrations(pool);
-  app = createApp(pool);
+  mongod = await MongoMemoryServer.create();
+  const uri = mongod.getUri();
+  client = new MongoClient(uri);
+  await client.connect();
+  db = client.db('test_quantum');
+  await ensureIndexes(db);
+  app = createApp(db);
 }, 60_000);
 
 afterAll(async () => {
-  await pool.end();
-  await embeddedPg.stop();
+  await client.close();
+  await mongod.stop();
 }, 30_000);
 
 beforeEach(async () => {
-  await pool.query('DELETE FROM sessions');
-  await pool.query('DELETE FROM users');
+  await db.collection(COLLECTIONS.SESSIONS).deleteMany({});
+  await db.collection(COLLECTIONS.USERS).deleteMany({});
 });
 
 // ---------------------------------------------------------------------------
@@ -220,9 +211,10 @@ describe('GET /api/auth/me', () => {
 });
 
 describe('GET /api/health', () => {
-  it('returns ok', async () => {
+  it('returns ok with database status', async () => {
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
     expect(res.body.status).toBe('ok');
+    expect(res.body.database).toBe('connected');
   });
 });
