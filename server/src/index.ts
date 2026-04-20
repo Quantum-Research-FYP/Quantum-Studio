@@ -12,6 +12,7 @@ import { createSharedRouter, createShareManagementRouter } from './sharing/route
 import { createJobRunner } from './simulations/runner.js';
 import { createAuthMiddleware } from './middleware/authenticate.js';
 import { createAiRouter } from './ai/router.js';
+import { createIntegrationsRouter } from './integrations/router.js';
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -48,6 +49,7 @@ app.use('/api/experiments', createExperimentsRouter(pool));
 app.use('/api/experiments', createShareManagementRouter(pool));
 app.use('/api/shared', createSharedRouter(pool));
 app.use('/api/ai', createAiRouter());
+app.use('/api/integrations/ibm-quantum', createIntegrationsRouter(pool));
 
 /** Create the Express app (used by tests to get the app without starting the listener). */
 export function createApp(testPool?: import('pg').Pool) {
@@ -68,6 +70,7 @@ export function createApp(testPool?: import('pg').Pool) {
   testApp.use('/api/experiments', createShareManagementRouter(p));
   testApp.use('/api/shared', createSharedRouter(p));
   testApp.use('/api/ai', createAiRouter());
+  testApp.use('/api/integrations/ibm-quantum', createIntegrationsRouter(p));
 
   return testApp;
 }
