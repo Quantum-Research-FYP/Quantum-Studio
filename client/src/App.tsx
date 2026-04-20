@@ -10,6 +10,7 @@ import TemplatesPage from './pages/TemplatesPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import CircuitBuilderPage from './pages/CircuitBuilderPage';
+import SharedExperimentPage from './pages/SharedExperimentPage';
 import NotFoundPage from './pages/NotFoundPage';
 import './App.css';
 
@@ -27,6 +28,7 @@ export default function App() {
             <Route element={<ProtectedRoute />}>
               <Route path="experiments" element={<ExperimentsPage />} />
             </Route>
+            <Route path="shared/:experimentId" element={<SharedExperimentPage />} />
             <Route path="templates" element={<TemplatesPage />} />
             <Route path="login" element={<LoginPage />} />
             <Route path="signup" element={<SignupPage />} />
