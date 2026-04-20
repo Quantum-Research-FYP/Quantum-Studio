@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import type { AiConfig, AiDraftResponse, AiProvider } from './types.js';
 import type { RateLimiter } from './rate-limiter.js';
+import { validateAiCircuit } from './validation.js';
 
 /** Maximum prompt length in characters. */
 const MAX_PROMPT_LENGTH = 2000;
@@ -143,6 +144,45 @@ export function createAiHandlers(
             requestId,
           });
         }
+      }
+    },
+
+    /**
+     * POST /api/ai/validate — Validate an AI-generated circuit JSON and return
+     * an import-ready result without executing any code.
+     */
+    async validateDraft(req: Request, res: Response): Promise<void> {
+      const requestId = crypto.randomUUID();
+      const userId = req.user!.id;
+
+      try {
+        const { circuitJson } = req.body ?? {};
+
+        if (circuitJson === undefined || circuitJson === null) {
+          res.status(400).json({
+            error: 'Request body must include a "circuitJson" object.',
+            errorCode: 'VALIDATION_MISSING_INPUT',
+            requestId,
+          });
+          return;
+        }
+
+        const result = validateAiCircuit(circuitJson);
+
+        console.log(
+          `[ai] action=validate userId=${userId} requestId=${requestId} status=${result.status} importable=${result.importableCircuit?.operations.length ?? 0} omitted=${result.omittedOperations.length}`,
+        );
+
+        res.status(200).json({ requestId, ...result });
+      } catch (err) {
+        console.error(
+          `[ai] action=validate-error userId=${userId} requestId=${requestId} error="${err instanceof Error ? err.message : 'Unknown'}"`,
+        );
+        res.status(500).json({
+          error: 'An unexpected error occurred during validation. Please try again.',
+          errorCode: 'VALIDATION_INTERNAL_ERROR',
+          requestId,
+        });
       }
     },
   };

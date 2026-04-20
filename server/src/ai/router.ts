@@ -20,6 +20,7 @@ export function createAiRouter(): Router {
   router.use(requireAuth);
 
   router.post('/draft', handlers.generateDraft);
+  router.post('/validate', handlers.validateDraft);
 
   return router;
 }
