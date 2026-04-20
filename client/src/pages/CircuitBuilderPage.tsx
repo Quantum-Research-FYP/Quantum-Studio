@@ -20,6 +20,7 @@ import ValidationSummaryPanel from '../components/circuit-builder/ValidationSumm
 import ExportControls from '../components/circuit-builder/ExportControls';
 import { useCircuitHistory } from '../hooks/useCircuitHistory';
 import { useExperiment } from '../hooks/useExperiment';
+import { getTemplateById, loadTemplateCircuit } from '../templates';
 
 /**
  * CircuitBuilderPage is the top-level page for the visual quantum circuit editor.
@@ -57,6 +58,33 @@ export default function CircuitBuilderPage() {
     // Only run when experimentId changes, not on every render
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experimentId]);
+
+  // Load template from URL params on mount (mutually exclusive with experimentId)
+  const templateId = searchParams.get('templateId');
+  const loadedTemplateRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (experimentId || !templateId || loadedTemplateRef.current === templateId) return;
+    loadedTemplateRef.current = templateId;
+
+    const template = getTemplateById(templateId);
+    if (!template) return;
+
+    // Confirm discard if user has unsaved edits (canUndo means history exists beyond initial)
+    if (canUndo) {
+      const confirmed = window.confirm(
+        'You have unsaved changes. Discard them and load the template?',
+      );
+      if (!confirmed) return;
+    }
+
+    const circuitModel = loadTemplateCircuit(template);
+    push(circuitModel);
+
+    // Reset experiment state so saving creates a new experiment
+    experiment.reset();
+    experiment.setName(template.name);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateId]);
 
   // Save handler — prompts for name on first save
   const handleSave = useCallback(async () => {
