@@ -103,6 +103,10 @@ export default function CircuitBuilderPage() {
       const input = window.prompt('Experiment name:', name || 'Untitled Experiment');
       if (!input || input.trim().length === 0) return;
       name = input.trim();
+      if (name.length > 120) {
+        window.alert('Experiment name must be 120 characters or fewer.');
+        return;
+      }
     }
 
     await experiment.save(name || 'Untitled Experiment', circuit, loadedRunSettings, loadedLatestResult);
@@ -111,12 +115,17 @@ export default function CircuitBuilderPage() {
   // Save-as handler (prompt for name)
   const handleSaveAs = useCallback(async () => {
     const defaultName = experiment.experimentName || 'Untitled Experiment';
-    const name = window.prompt('Experiment name:', defaultName);
-    if (!name || name.trim().length === 0) return;
+    const input = window.prompt('Experiment name:', defaultName);
+    if (!input || input.trim().length === 0) return;
+    const name = input.trim();
+    if (name.length > 120) {
+      window.alert('Experiment name must be 120 characters or fewer.');
+      return;
+    }
 
     // Reset experiment state so save() creates a new experiment
     experiment.reset();
-    await experiment.save(name.trim(), circuit, loadedRunSettings, loadedLatestResult);
+    await experiment.save(name, circuit, loadedRunSettings, loadedLatestResult);
   }, [experiment, circuit, loadedRunSettings, loadedLatestResult]);
 
   // Run handler — generates QASM and submits to the simulator
