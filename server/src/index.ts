@@ -5,6 +5,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import { type Db } from 'mongodb';
 import { connectMongo, getDb, closeMongo } from './db/mongo.js';
+import { ensureIndexes } from './db/collections.js';
 import { createAuthRouter } from './auth/router.js';
 import { createSimulationsRouter } from './simulations/router.js';
 import { createExperimentsRouter } from './experiments/router.js';
@@ -93,7 +94,8 @@ const isMainModule =
   process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
 if (isMainModule || process.env.START_SERVER === 'true') {
   connectMongo()
-    .then(() => {
+    .then(async (database) => {
+      await ensureIndexes(database);
       jobRunner.start();
       app.listen(PORT, () => {
         console.log(`Server listening on http://localhost:${PORT}`);
