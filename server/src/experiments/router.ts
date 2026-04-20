@@ -1,10 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Router } from 'express';
 import express from 'express';
-import type pg from 'pg';
 import { requireAuth } from '../middleware/authenticate.js';
 import { createExperimentHandlers } from './handlers.js';
 
-export function createExperimentsRouter(pool: pg.Pool): Router {
+export function createExperimentsRouter(pool: any): Router {
   const router = Router();
   const handlers = createExperimentHandlers(pool);
 

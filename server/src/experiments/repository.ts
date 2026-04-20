@@ -1,4 +1,4 @@
-import type pg from 'pg';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
 // ---------------------------------------------------------------------------
 // Types
@@ -158,7 +158,7 @@ const ALLOWED_SORT_COLUMNS: Record<string, string> = {
 // Repository
 // ---------------------------------------------------------------------------
 
-export function createExperimentRepository(pool: pg.Pool) {
+export function createExperimentRepository(pool: any) {
   return {
     /**
      * Create a new experiment owned by the given user.

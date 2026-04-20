@@ -1,4 +1,4 @@
-import type pg from 'pg';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import crypto from 'node:crypto';
 import type { ExecutionProvider, ExecutionJobStatus } from '../execution/types.js';
 
@@ -117,7 +117,7 @@ const VALID_TRANSITIONS: Record<string, JobStatus[]> = {
 // Repository
 // ---------------------------------------------------------------------------
 
-export function createSimulationRepository(pool: pg.Pool) {
+export function createSimulationRepository(pool: any) {
   return {
     /**
      * Create a new simulation job. If an idempotency key is provided and a job

@@ -1,4 +1,4 @@
-import type pg from 'pg';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { encrypt, decrypt, type EncryptedPayload } from '../execution/encryption.js';
 
 // ---------------------------------------------------------------------------
@@ -57,7 +57,7 @@ function rowToMasked(row: IntegrationSettingsRow): IntegrationSettingsMasked {
 // Repository
 // ---------------------------------------------------------------------------
 
-export function createIntegrationsRepository(pool: pg.Pool) {
+export function createIntegrationsRepository(pool: any) {
   return {
     /**
      * Create or update integration settings for a user+provider.

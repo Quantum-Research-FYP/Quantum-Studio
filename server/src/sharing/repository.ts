@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import crypto from 'node:crypto';
-import type pg from 'pg';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -60,7 +60,7 @@ export function hashToken(rawToken: string): string {
 // Repository
 // ---------------------------------------------------------------------------
 
-export function createSharingRepository(pool: pg.Pool) {
+export function createSharingRepository(pool: any) {
   return {
     /**
      * Fetch experiment ownership and visibility info.

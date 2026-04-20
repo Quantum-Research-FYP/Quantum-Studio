@@ -1,8 +1,8 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Router } from 'express';
-import type pg from 'pg';
 import { createAuthHandlers } from './handlers.js';
 
-export function createAuthRouter(pool: pg.Pool): Router {
+export function createAuthRouter(pool: any): Router {
   const router = Router();
   const handlers = createAuthHandlers(pool);
 

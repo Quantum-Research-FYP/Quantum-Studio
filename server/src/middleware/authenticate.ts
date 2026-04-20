@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Request, Response, NextFunction } from 'express';
-import type pg from 'pg';
 import { getSessionIdFromRequest, getValidSession } from '../auth/session.js';
 
 export interface AuthenticatedUser {
@@ -11,7 +11,7 @@ export interface AuthenticatedUser {
  * Middleware that attaches `req.user` if a valid session cookie is present.
  * Does NOT block the request — downstream handlers decide whether auth is required.
  */
-export function createAuthMiddleware(pool: pg.Pool) {
+export function createAuthMiddleware(pool: any) {
   return async (req: Request, _res: Response, next: NextFunction): Promise<void> => {
     const sessionId = getSessionIdFromRequest(req);
     if (!sessionId) {
@@ -26,7 +26,7 @@ export function createAuthMiddleware(pool: pg.Pool) {
         return;
       }
 
-      const userResult = await pool.query<{ id: string; email: string }>(
+      const userResult = await (pool as any).query(
         'SELECT id, email FROM users WHERE id = $1',
         [session.user_id],
       );

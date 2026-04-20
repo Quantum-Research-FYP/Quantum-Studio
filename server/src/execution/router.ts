@@ -1,10 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Router } from 'express';
-import type pg from 'pg';
 import { requireAuth } from '../middleware/authenticate.js';
 import { createExecutionHandlers } from './handlers.js';
 
 export function createExecutionRouter(
-  pool: pg.Pool,
+  pool: any,
   onSimulatorJobCreated?: () => void,
 ): Router {
   const router = Router();

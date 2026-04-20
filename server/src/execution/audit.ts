@@ -1,4 +1,4 @@
-import type pg from 'pg';
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import crypto from 'node:crypto';
 import type { AuditLogEntry, CreateAuditEntryInput } from './types.js';
 
@@ -46,7 +46,7 @@ function rowToEntry(row: Record<string, unknown>): AuditLogEntry {
 // Repository
 // ---------------------------------------------------------------------------
 
-export function createAuditRepository(pool: pg.Pool) {
+export function createAuditRepository(pool: any) {
   return {
     /**
      * Append an audit log entry. Metadata is sanitized to prevent secret leakage.

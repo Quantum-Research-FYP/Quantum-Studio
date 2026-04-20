@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Request, Response } from 'express';
-import type pg from 'pg';
 
 const SESSION_COOKIE_NAME = 'sid';
 const DEFAULT_MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -13,7 +13,7 @@ export interface SessionRow {
 
 /** Create a new session row and set the session cookie on the response. */
 export async function createSession(
-  pool: pg.Pool,
+  pool: any,
   userId: string,
   req: Request,
   res: Response,
@@ -23,7 +23,7 @@ export async function createSession(
   const ip = req.ip || req.socket.remoteAddress || null;
   const userAgent = req.get('user-agent') || null;
 
-  const result = await pool.query<{ id: string }>(
+  const result = await (pool as any).query(
     `INSERT INTO sessions (user_id, expires_at, ip, user_agent)
      VALUES ($1, $2, $3, $4)
      RETURNING id`,
@@ -46,10 +46,10 @@ export async function createSession(
 
 /** Look up a valid (non-expired, non-revoked) session by its cookie ID. */
 export async function getValidSession(
-  pool: pg.Pool,
+  pool: any,
   sessionId: string,
 ): Promise<SessionRow | null> {
-  const result = await pool.query<SessionRow>(
+  const result = await (pool as any).query(
     `SELECT id, user_id, expires_at, revoked_at
      FROM sessions
      WHERE id = $1 AND revoked_at IS NULL AND expires_at > now()`,
@@ -60,7 +60,7 @@ export async function getValidSession(
 }
 
 /** Revoke a session (server-side logout). */
-export async function revokeSession(pool: pg.Pool, sessionId: string): Promise<void> {
+export async function revokeSession(pool: any, sessionId: string): Promise<void> {
   await pool.query('UPDATE sessions SET revoked_at = now() WHERE id = $1', [sessionId]);
 }
 

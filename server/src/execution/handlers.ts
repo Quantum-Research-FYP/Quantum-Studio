@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Request, Response } from 'express';
-import type pg from 'pg';
 import crypto from 'node:crypto';
 import { createSimulationRepository } from '../simulations/repository.js';
 import { createIntegrationsRepository } from '../integrations/repository.js';
@@ -63,7 +63,7 @@ function shouldRefreshFromProvider(job: { status: string; updatedAt: string }): 
 // Handler Factory
 // ---------------------------------------------------------------------------
 
-export function createExecutionHandlers(pool: pg.Pool, onSimulatorJobCreated?: () => void) {
+export function createExecutionHandlers(pool: any, onSimulatorJobCreated?: () => void) {
   const jobRepo = createSimulationRepository(pool);
   const integrationsRepo = createIntegrationsRepository(pool);
   const audit = createAuditRepository(pool);

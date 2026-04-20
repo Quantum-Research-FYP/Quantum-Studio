@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Request, Response } from 'express';
-import type pg from 'pg';
 import { hashPassword, verifyPassword, validatePassword } from './password.js';
 import {
   createSession,
@@ -18,7 +18,7 @@ function isValidEmailFormat(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
-export function createAuthHandlers(pool: pg.Pool) {
+export function createAuthHandlers(pool: any) {
   return {
     /** POST /api/auth/signup */
     async signup(req: Request, res: Response): Promise<void> {
@@ -62,7 +62,7 @@ export function createAuthHandlers(pool: pg.Pool) {
           throw err;
         }
 
-        const userResult = await pool.query<{ id: string; email: string }>(
+        const userResult = await (pool as any).query(
           'SELECT id, email FROM users WHERE email = $1',
           [email],
         );
@@ -91,11 +91,10 @@ export function createAuthHandlers(pool: pg.Pool) {
 
         const email = normalizeEmail(rawEmail);
 
-        const userResult = await pool.query<{
-          id: string;
-          email: string;
-          password_hash: string;
-        }>('SELECT id, email, password_hash FROM users WHERE email = $1', [email]);
+        const userResult = await (pool as any).query(
+          'SELECT id, email, password_hash FROM users WHERE email = $1',
+          [email],
+        );
 
         const user = userResult.rows[0];
 

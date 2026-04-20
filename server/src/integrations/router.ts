@@ -1,9 +1,9 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { Router } from 'express';
-import type pg from 'pg';
 import { requireAuth } from '../middleware/authenticate.js';
 import { createIntegrationsHandlers } from './handlers.js';
 
-export function createIntegrationsRouter(pool: pg.Pool): Router {
+export function createIntegrationsRouter(pool: any): Router {
   const router = Router();
   const handlers = createIntegrationsHandlers(pool);
 

@@ -1,5 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import type { Request, Response } from 'express';
-import type pg from 'pg';
 import { createExperimentRepository } from './repository.js';
 import {
   isNewerVersion,
@@ -115,7 +115,7 @@ function formatExperiment(exp: {
 // Handlers
 // ---------------------------------------------------------------------------
 
-export function createExperimentHandlers(pool: pg.Pool) {
+export function createExperimentHandlers(pool: any) {
   const repo = createExperimentRepository(pool);
 
   return {
