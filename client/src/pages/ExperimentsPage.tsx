@@ -9,6 +9,7 @@ import {
 } from '../api/experiments';
 import RenameDialog from '../components/RenameDialog';
 import DeleteConfirmDialog from '../components/DeleteConfirmDialog';
+import ShareSettingsDialog from '../components/ShareSettingsDialog';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -46,6 +47,7 @@ export default function ExperimentsPage() {
   // Dialog state
   const [renameTarget, setRenameTarget] = useState<ExperimentListItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ExperimentListItem | null>(null);
+  const [shareTarget, setShareTarget] = useState<ExperimentListItem | null>(null);
 
   // Ref for returning focus after dialog closes
   const actionTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -101,6 +103,17 @@ export default function ExperimentsPage() {
   const handleRenameCancel = useCallback(() => {
     setRenameTarget(null);
     requestAnimationFrame(() => actionTriggerRef.current?.focus());
+  }, []);
+
+  const handleShareClick = useCallback(
+    (experiment: ExperimentListItem) => {
+      setShareTarget(experiment);
+    },
+    [],
+  );
+
+  const handleShareClose = useCallback(() => {
+    setShareTarget(null);
   }, []);
 
   const handleDeleteClick = useCallback(
@@ -223,6 +236,13 @@ export default function ExperimentsPage() {
                     </button>
                     <button
                       className="btn btn--ghost btn--sm"
+                      onClick={() => handleShareClick(experiment)}
+                      aria-label={`Share ${experiment.name}`}
+                    >
+                      Share
+                    </button>
+                    <button
+                      className="btn btn--ghost btn--sm"
                       onClick={(e) =>
                         handleRenameClick(experiment, e.currentTarget)
                       }
@@ -284,6 +304,12 @@ export default function ExperimentsPage() {
         experimentName={deleteTarget?.name ?? ''}
         onConfirm={handleDeleteConfirm}
         onCancel={handleDeleteCancel}
+      />
+      <ShareSettingsDialog
+        open={shareTarget !== null}
+        experimentId={shareTarget?.id ?? ''}
+        experimentName={shareTarget?.name ?? ''}
+        onClose={handleShareClose}
       />
     </div>
   );
