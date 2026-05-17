@@ -1,3 +1,4 @@
+]\
 # Quantum Experiment Studio
 
 ## Project Overview
