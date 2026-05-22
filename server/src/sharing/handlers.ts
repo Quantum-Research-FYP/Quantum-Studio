@@ -375,9 +375,12 @@ export function createSharingHandlers(pool: Db) {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Build a full share URL from the request's origin. */
+/** Build a full share URL pointing at the frontend app.
+ *  Prefers APP_URL env var so dev (port 5173) and prod origins are correct.
+ *  Falls back to deriving the origin from the request (works behind a reverse proxy). */
 function buildShareUrl(req: Request, experimentId: string, rawToken: string): string {
-  const proto = req.get('x-forwarded-proto') || req.protocol;
-  const host = req.get('x-forwarded-host') || req.get('host') || 'localhost';
-  return `${proto}://${host}/shared/${encodeURIComponent(experimentId)}?token=${encodeURIComponent(rawToken)}`;
+  const base = process.env.APP_URL
+    ? process.env.APP_URL.replace(/\/$/, '')
+    : `${req.get('x-forwarded-proto') || req.protocol}://${req.get('x-forwarded-host') || req.get('host') || 'localhost'}`;
+  return `${base}/shared/${encodeURIComponent(experimentId)}?token=${encodeURIComponent(rawToken)}`;
 }

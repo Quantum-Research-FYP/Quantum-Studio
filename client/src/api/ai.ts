@@ -63,6 +63,16 @@ export interface AiErrorResponse {
   retryAfterSeconds?: number;
 }
 
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatResponse {
+  reply: string;
+  requestId: string;
+}
+
 // ---------------------------------------------------------------------------
 // API functions
 // ---------------------------------------------------------------------------
@@ -99,6 +109,40 @@ export async function generateDraft(
   }
 
   return body as AiDraftResponse;
+}
+
+/**
+ * Send a chat message with the current circuit code as context.
+ */
+export async function chat(
+  messages: ChatMessage[],
+  circuitCode: string,
+  signal?: AbortSignal,
+): Promise<ChatResponse> {
+  const res = await fetch('/api/ai/chat', {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages, circuitCode }),
+    signal,
+  });
+
+  const body = await res.json();
+
+  if (!res.ok) {
+    const apiErr = body as AiErrorResponse;
+    const err = new Error(apiErr.error || 'An error occurred.') as Error & {
+      status: number;
+      errorCode?: string;
+      retryAfterSeconds?: number;
+    };
+    err.status = res.status;
+    err.errorCode = apiErr.errorCode;
+    err.retryAfterSeconds = apiErr.retryAfterSeconds;
+    throw err;
+  }
+
+  return body as ChatResponse;
 }
 
 /**

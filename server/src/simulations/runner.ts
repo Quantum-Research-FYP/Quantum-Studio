@@ -1,18 +1,7 @@
-import { spawn } from 'node:child_process';
-import path from 'node:path';
 import type { Db } from 'mongodb';
-import { fileURLToPath } from 'node:url';
 import { createSimulationRepository } from './repository.js';
+import type { CodeType } from './repository.js';
 import { getResourceLimits } from './validation.js';
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const SIMULATE_SCRIPT = path.join(__dirname, 'simulate.py');
-
-/** Resolve the Python binary inside the project venv, or fall back to system python3. */
-function getPythonPath(): string {
-  const venvPython = path.resolve(__dirname, '..', '..', '.venv', 'bin', 'python3');
-  return venvPython;
-}
 
 interface RunnerOptions {
   /** Max concurrent simulation processes (default: 2). */
@@ -45,7 +34,7 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
 
       activeJobs++;
       // Run asynchronously — don't await, so we can dequeue multiple jobs
-      executeJob(job.id, job.qasmInput, job.shots).finally(() => {
+      executeJob(job.id, job.qasmInput, job.shots, job.codeType ?? 'qasm').finally(() => {
         activeJobs--;
         // After a job finishes, immediately check for more work
         if (!stopped) tryProcessQueue().catch(logError);
@@ -54,12 +43,12 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
   }
 
   /** Execute a single simulation job via Python subprocess. */
-  async function executeJob(jobId: string, qasmInput: string, shots: number): Promise<void> {
+  async function executeJob(jobId: string, qasmInput: string, shots: number, codeType: CodeType = 'qasm'): Promise<void> {
     const limits = getResourceLimits();
     const timeoutMs = limits.maxExecutionTimeSeconds * 1000;
 
     try {
-      const result = await runPythonSimulation(qasmInput, shots, timeoutMs);
+      const result = await runPythonSimulation(qasmInput, shots, timeoutMs, codeType);
 
       if (result.error) {
         await repo.transitionStatus(jobId, 'failed', {
@@ -131,7 +120,7 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
 }
 
 // ---------------------------------------------------------------------------
-// Python subprocess execution
+// HTTP simulation service client
 // ---------------------------------------------------------------------------
 
 interface SimulationSuccess {
@@ -148,88 +137,51 @@ interface SimulationError {
 
 type SimulationResult = SimulationSuccess | SimulationError;
 
-/**
- * Spawn the Python simulation script with the given QASM input and shots.
- * Enforces a hard timeout by killing the process.
- */
-function runPythonSimulation(
+/** Call the FastAPI simulation microservice via HTTP. */
+async function runPythonSimulation(
   qasmInput: string,
   shots: number,
   timeoutMs: number,
+  codeType: CodeType = 'qasm',
 ): Promise<SimulationResult> {
-  return new Promise((resolve, reject) => {
-    const pythonPath = getPythonPath();
-    const child = spawn(pythonPath, [SIMULATE_SCRIPT, '--shots', String(shots)], {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      timeout: 0, // We handle timeout manually for cleaner error reporting
+  const serviceUrl = (process.env.SIM_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(`${serviceUrl}/simulate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ qasm: qasmInput, shots, mode: codeType }),
+      signal: controller.signal,
     });
 
-    let stdout = '';
-    let stderr = '';
-    let killed = false;
+    const data = (await response.json()) as Record<string, unknown>;
 
-    const timer = setTimeout(() => {
-      killed = true;
-      child.kill('SIGKILL');
-    }, timeoutMs);
-
-    child.stdout.on('data', (data: Buffer) => {
-      stdout += data.toString();
-    });
-
-    child.stderr.on('data', (data: Buffer) => {
-      stderr += data.toString();
-    });
-
-    // Write QASM to stdin and close it
-    child.stdin.write(qasmInput);
-    child.stdin.end();
-
-    child.on('close', (code) => {
-      clearTimeout(timer);
-
-      if (killed) {
-        reject(new Error('EXECUTION_TIMEOUT'));
-        return;
-      }
-
-      if (code !== 0 && !stdout.trim()) {
-        // Process crashed without producing output
-        console.error(
-          `Simulation process exited with code ${code}. stderr (redacted):`,
-          stderr.slice(0, 200),
-        );
-        resolve({
-          error: true,
-          errorCode: 'EXECUTION_RUNTIME_ERROR',
-          message: 'The simulation process terminated unexpectedly.',
-        });
-        return;
-      }
-
-      try {
-        const parsed = JSON.parse(stdout);
-        resolve(parsed as SimulationResult);
-      } catch {
-        console.error('Failed to parse simulation output:', stdout.slice(0, 200));
-        resolve({
-          error: true,
-          errorCode: 'EXECUTION_RUNTIME_ERROR',
-          message: 'The simulation produced invalid output.',
-        });
-      }
-    });
-
-    child.on('error', (err) => {
-      clearTimeout(timer);
-      console.error('Failed to spawn simulation process:', err.message);
-      resolve({
+    if (!response.ok) {
+      const detail = (data.detail ?? {}) as Record<string, unknown>;
+      return {
         error: true,
-        errorCode: 'EXECUTION_RUNTIME_ERROR',
-        message: 'Failed to start the simulation process.',
-      });
-    });
-  });
+        errorCode: typeof detail.errorCode === 'string' ? detail.errorCode : 'EXECUTION_RUNTIME_ERROR',
+        message: typeof detail.message === 'string' ? detail.message : 'Simulation service returned an error.',
+      };
+    }
+
+    return data as unknown as SimulationSuccess;
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error('EXECUTION_TIMEOUT');
+    }
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('Simulation service unreachable:', msg);
+    return {
+      error: true,
+      errorCode: 'EXECUTION_RUNTIME_ERROR',
+      message: 'Cannot reach the simulation service. Is it running?',
+    };
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function logError(err: unknown): void {

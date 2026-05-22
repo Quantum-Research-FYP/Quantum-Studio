@@ -43,6 +43,7 @@ export interface ExperimentListItem {
   rowVersion: number;
   lastRunStatus: string | null;
   lastRunAt: string | null;
+  visibility: 'private' | 'unlisted' | 'public';
 }
 
 export interface AiProvenanceInput {
@@ -142,6 +143,7 @@ function docToListItem(doc: Record<string, unknown>): ExperimentListItem {
     rowVersion: doc.rowVersion as number,
     lastRunStatus: (latestResult?.status as string) ?? null,
     lastRunAt: (latestResult?.runAt as string) ?? null,
+    visibility: ((doc.visibility as string) ?? 'private') as 'private' | 'unlisted' | 'public',
   };
 }
 

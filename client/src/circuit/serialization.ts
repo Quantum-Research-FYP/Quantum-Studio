@@ -167,7 +167,7 @@ function validateOperation(
     if (typeof obj.params !== 'object' || obj.params === null || Array.isArray(obj.params)) {
       throw new Error(`Operation [${index}] params must be a plain object`);
     }
-    operation.params = obj.params as Record<string, unknown>;
+    operation.params = obj.params as Record<string, number>;
   }
 
   return operation;

@@ -88,6 +88,27 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
 
   return {
     /**
+     * GET /api/execution/jobs
+     * List recent jobs for the authenticated user (max 50).
+     */
+    async listJobs(req: Request, res: Response): Promise<void> {
+      const userId = req.user!.id;
+      const limit = Math.min(parseInt((req.query.limit as string) || '20', 10), 50);
+      const jobs = await jobRepo.getJobsByUser(userId, limit);
+      res.status(200).json({
+        jobs: jobs.map((job) => ({
+          jobId: job.id,
+          provider: job.provider,
+          status: job.status,
+          backend: job.backend,
+          shots: job.shots,
+          createdAt: job.createdAt,
+          completedAt: job.completedAt,
+        })),
+      });
+    },
+
+    /**
      * GET /api/execution/providers
      * List available execution providers and their capabilities.
      */
@@ -129,11 +150,13 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
      */
     async submitJob(req: Request, res: Response): Promise<void> {
       const userId = req.user!.id;
-      const { provider, backend, qasm, shots, idempotencyKey } = req.body ?? {};
+      const { provider, backend, qasm, shots, idempotencyKey, codeType } = req.body ?? {};
+      const resolvedCodeType: 'qasm' | 'python' = codeType === 'python' ? 'python' : 'qasm';
 
       // Validate common fields
       if (!qasm || typeof qasm !== 'string' || qasm.trim().length === 0) {
-        res.status(400).json({ error: 'A non-empty qasm string is required.', errorCode: 'INVALID_INPUT' });
+        const label = resolvedCodeType === 'python' ? 'Python code' : 'QASM string';
+        res.status(400).json({ error: `A non-empty ${label} is required.`, errorCode: 'INVALID_INPUT' });
         return;
       }
       if (!shots || typeof shots !== 'number' || shots < 1 || shots > 100000) {
@@ -146,6 +169,7 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
         const job = await jobRepo.createJob({
           userId,
           qasmInput: qasm,
+          codeType: resolvedCodeType,
           shots,
           backend: backend || 'aer_simulator',
           provider: 'simulator',

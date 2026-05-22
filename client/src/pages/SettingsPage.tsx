@@ -9,12 +9,20 @@ import {
 
 type ViewState = 'loading' | 'no-settings' | 'has-settings' | 'error';
 
+const STATUS_CONFIG = {
+  valid: { label: 'Connected', className: 'settings-status--valid' },
+  invalid: { label: 'Invalid token', className: 'settings-status--invalid' },
+  error: { label: 'Validation error', className: 'settings-status--error' },
+  pending: { label: 'Pending validation', className: 'settings-status--pending' },
+} as const;
+
 export default function SettingsPage() {
   const { user } = useAuth();
 
   const [viewState, setViewState] = useState<ViewState>('loading');
   const [settings, setSettings] = useState<IbmSettingsResponse | null>(null);
   const [token, setToken] = useState('');
+  const [showToken, setShowToken] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -39,9 +47,7 @@ export default function SettingsPage() {
   }, []);
 
   useEffect(() => {
-    if (user) {
-      loadSettings();
-    }
+    if (user) loadSettings();
   }, [user, loadSettings]);
 
   async function handleSave(e: React.FormEvent) {
@@ -55,6 +61,7 @@ export default function SettingsPage() {
       const data = await saveIbmSettings(token.trim());
       setSettings(data);
       setToken('');
+      setShowToken(false);
       setViewState('has-settings');
 
       if (data.validationStatus === 'valid') {
@@ -73,7 +80,7 @@ export default function SettingsPage() {
   }
 
   async function handleDelete() {
-    if (!confirm('Are you sure you want to remove your IBM Quantum credentials?')) return;
+    if (!confirm('Remove your IBM Quantum credentials? This cannot be undone.')) return;
 
     setDeleting(true);
     setMessage(null);
@@ -82,7 +89,7 @@ export default function SettingsPage() {
       await deleteIbmSettings();
       setSettings(null);
       setViewState('no-settings');
-      setMessage({ type: 'success', text: 'Credentials removed.' });
+      setMessage({ type: 'success', text: 'Credentials removed successfully.' });
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to delete settings.';
       setMessage({ type: 'error', text: msg });
@@ -93,26 +100,21 @@ export default function SettingsPage() {
 
   function formatDate(iso: string | null): string {
     if (!iso) return 'Never';
-    return new Date(iso).toLocaleString();
+    return new Date(iso).toLocaleString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   }
 
-  function validationBadge(status: string): { label: string; className: string } {
-    switch (status) {
-      case 'valid':
-        return { label: 'Valid', className: 'badge badge--success' };
-      case 'invalid':
-        return { label: 'Invalid', className: 'badge badge--error' };
-      case 'error':
-        return { label: 'Validation Error', className: 'badge badge--warning' };
-      default:
-        return { label: 'Pending', className: 'badge badge--neutral' };
-    }
-  }
+  const statusKey = (settings?.validationStatus ?? 'pending') as keyof typeof STATUS_CONFIG;
+  const statusCfg = STATUS_CONFIG[statusKey] ?? STATUS_CONFIG.pending;
 
   if (!user) {
     return (
       <div className="settings-page">
-        <h1>Settings</h1>
         <div className="alert alert--error" role="alert">
           You must be logged in to access settings.
         </div>
@@ -122,122 +124,189 @@ export default function SettingsPage() {
 
   return (
     <div className="settings-page">
-      <h1 className="settings-page__title">Settings</h1>
+      <div className="settings-page__header">
+        <h1 className="settings-page__title">Settings</h1>
+        <p className="settings-page__subtitle">Manage your account integrations and preferences.</p>
+      </div>
 
-      <section className="settings-section" aria-labelledby="ibm-quantum-heading">
-        <h2 id="ibm-quantum-heading" className="settings-section__heading">
-          IBM Quantum Integration
-        </h2>
+      <div className="settings-layout">
+        <nav className="settings-nav" aria-label="Settings navigation">
+          <button className="settings-nav__item settings-nav__item--active" type="button">
+            <span className="settings-nav__icon" aria-hidden="true">⚛</span>
+            IBM Quantum
+          </button>
+        </nav>
 
-        {featureDisabled && (
-          <div className="alert alert--warning" role="alert">
-            IBM Quantum integration is not currently enabled on this server.
-          </div>
-        )}
-
-        {message && (
-          <div className={`alert alert--${message.type}`} role="alert">
-            {message.text}
-          </div>
-        )}
-
-        {viewState === 'loading' && <p>Loading settings...</p>}
-
-        {viewState === 'error' && (
-          <div className="alert alert--error" role="alert">
-            Failed to load integration settings. Please try again.
-          </div>
-        )}
-
-        {viewState === 'has-settings' && settings && (
-          <div className="settings-card">
-            <div className="settings-card__row">
-              <span className="settings-card__label">Token Status</span>
-              <span className="settings-card__value">
-                <span className={validationBadge(settings.validationStatus).className}>
-                  {validationBadge(settings.validationStatus).label}
-                </span>
-              </span>
+        <div className="settings-content">
+          {message && (
+            <div className={`alert alert--${message.type}`} role="alert">
+              {message.text}
             </div>
-            <div className="settings-card__row">
-              <span className="settings-card__label">Last Validated</span>
-              <span className="settings-card__value">
-                {formatDate(settings.lastValidatedAt)}
-              </span>
-            </div>
-            <div className="settings-card__row">
-              <span className="settings-card__label">Saved</span>
-              <span className="settings-card__value">
-                {formatDate(settings.updatedAt)}
-              </span>
+          )}
+
+          <div className="settings-panel">
+            <div className="settings-panel__header">
+              <div className="settings-panel__title-row">
+                <h2 className="settings-panel__title">IBM Quantum Integration</h2>
+                {featureDisabled && (
+                  <span className="settings-badge settings-badge--disabled">Server disabled</span>
+                )}
+              </div>
+              <p className="settings-panel__desc">
+                Connect your IBM Quantum account to run experiments on real quantum hardware backends.
+              </p>
             </div>
 
-            {settings.validationErrorCode && (
-              <div className="alert alert--error alert--compact" role="status">
-                Error code: {settings.validationErrorCode}
+            {featureDisabled && (
+              <div className="settings-panel__body">
+                <div className="alert alert--warning" role="alert">
+                  IBM Quantum integration is not currently enabled on this server.
+                </div>
               </div>
             )}
 
-            <div className="settings-card__actions">
-              <button
-                type="button"
-                className="btn btn--danger"
-                onClick={handleDelete}
-                disabled={deleting}
-              >
-                {deleting ? 'Removing...' : 'Remove Credentials'}
-              </button>
-            </div>
-          </div>
-        )}
+            {viewState === 'loading' && (
+              <div className="settings-panel__loading">
+                <span className="settings-spinner" aria-hidden="true" />
+                Loading integration settings…
+              </div>
+            )}
 
-        {!featureDisabled && (
-          <form
-            className="settings-form"
-            onSubmit={handleSave}
-            aria-label="Save IBM Quantum token"
-          >
-            <p className="settings-form__hint">
-              {viewState === 'has-settings'
-                ? 'Enter a new token to update your credentials.'
-                : 'Enter your IBM Quantum API token to enable hardware execution.'}
-            </p>
-            <div className="form-field">
-              <label className="form-field__label" htmlFor="ibm-token-input">
-                API Token
-              </label>
-              <input
-                id="ibm-token-input"
-                className="form-field__input"
-                type="password"
-                value={token}
-                onChange={(e) => setToken(e.target.value)}
-                placeholder="Paste your IBM Quantum API token"
-                autoComplete="off"
-                required
-                minLength={10}
-              />
-              <p className="form-field__hint">
-                Find your token at{' '}
-                <a
-                  href="https://quantum.ibm.com/account"
-                  target="_blank"
-                  rel="noopener noreferrer"
+            {viewState === 'error' && (
+              <div className="settings-panel__body">
+                <div className="alert alert--error" role="alert">
+                  Failed to load integration settings. Please refresh to try again.
+                </div>
+              </div>
+            )}
+
+            {viewState === 'has-settings' && settings && (
+              <div className="settings-connection-card">
+                <div className="settings-connection-card__status-row">
+                  <span
+                    className={`settings-status-dot ${statusCfg.className}`}
+                    aria-hidden="true"
+                  />
+                  <span className="settings-connection-card__status-label">{statusCfg.label}</span>
+                  {settings.validationErrorCode && (
+                    <span className="settings-connection-card__error-code">
+                      {settings.validationErrorCode}
+                    </span>
+                  )}
+                </div>
+                <div className="settings-meta-grid">
+                  <span className="settings-meta-grid__label">Last validated</span>
+                  <span className="settings-meta-grid__value">{formatDate(settings.lastValidatedAt)}</span>
+                  <span className="settings-meta-grid__label">Credentials saved</span>
+                  <span className="settings-meta-grid__value">{formatDate(settings.updatedAt)}</span>
+                </div>
+              </div>
+            )}
+
+            {!featureDisabled && (
+              <form
+                className="settings-token-form"
+                onSubmit={handleSave}
+                aria-label="Save IBM Quantum token"
+              >
+                <div className="settings-token-form__header">
+                  <h3 className="settings-token-form__title">
+                    {viewState === 'has-settings' ? 'Update API Token' : 'Connect Your Account'}
+                  </h3>
+                  <p className="settings-token-form__desc">
+                    {viewState === 'has-settings'
+                      ? 'Paste a new token below to replace your existing credentials.'
+                      : 'Enter your IBM Quantum API token to enable hardware execution.'}
+                  </p>
+                </div>
+
+                <div className="form-field">
+                  <label className="form-field__label" htmlFor="ibm-token-input">
+                    API Token
+                  </label>
+                  <div className="form-field__input-wrap">
+                    <input
+                      id="ibm-token-input"
+                      className="form-field__input form-field__input--with-addon"
+                      type={showToken ? 'text' : 'password'}
+                      value={token}
+                      onChange={(e) => setToken(e.target.value)}
+                      placeholder="Paste your IBM Quantum API token"
+                      autoComplete="off"
+                      required
+                      minLength={10}
+                    />
+                    <button
+                      type="button"
+                      className="form-field__eye-btn"
+                      onClick={() => setShowToken((v) => !v)}
+                      aria-label={showToken ? 'Hide token' : 'Show token'}
+                    >
+                      {showToken ? (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                          <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                          <line x1="1" y1="1" x2="23" y2="23" />
+                        </svg>
+                      ) : (
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
+                  <p className="form-field__hint">
+                    Find your token at{' '}
+                    <a
+                      href="https://quantum.ibm.com/account"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      quantum.ibm.com/account
+                    </a>
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  className="btn btn--primary"
+                  disabled={saving || token.trim().length < 10}
                 >
-                  quantum.ibm.com/account
-                </a>
-              </p>
-            </div>
-            <button
-              type="submit"
-              className="btn btn--primary"
-              disabled={saving || token.trim().length < 10}
-            >
-              {saving ? 'Saving...' : viewState === 'has-settings' ? 'Update Token' : 'Save Token'}
-            </button>
-          </form>
-        )}
-      </section>
+                  {saving
+                    ? 'Saving…'
+                    : viewState === 'has-settings'
+                      ? 'Update Token'
+                      : 'Connect Account'}
+                </button>
+              </form>
+            )}
+
+            {viewState === 'has-settings' && (
+              <div className="settings-danger-zone">
+                <p className="settings-danger-zone__label">Danger Zone</p>
+                <div className="settings-danger-zone__row">
+                  <div className="settings-danger-zone__text">
+                    <p className="settings-danger-zone__name">Remove credentials</p>
+                    <p className="settings-danger-zone__desc">
+                      Permanently removes your IBM Quantum API token. You won't be able to run
+                      experiments on IBM hardware until you reconnect.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn--danger"
+                    onClick={handleDelete}
+                    disabled={deleting}
+                  >
+                    {deleting ? 'Removing…' : 'Remove'}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

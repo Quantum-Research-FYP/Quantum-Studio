@@ -173,7 +173,7 @@ export default function CircuitBuilderPage() {
   // Navigate to results page once a job is created and submission is complete
   useEffect(() => {
     if (simulation.job && !simulation.loading) {
-      navigate(`/results?jobId=${simulation.job.jobId}`, { replace: true });
+      navigate(`/results?jobId=${simulation.job.jobId}&source=sim`, { replace: true });
     }
   }, [simulation.job, simulation.loading, navigate]);
 
@@ -245,9 +245,9 @@ export default function CircuitBuilderPage() {
   }, [circuit, push]);
 
   const handlePlaceGate = useCallback(
-    (type: GateType, targets: OperationTargets, time: number) => {
+    (type: GateType, targets: OperationTargets, time: number, params?: Record<string, number>) => {
       try {
-        const { circuit: updated } = placeGate(circuit, type, targets, time);
+        const { circuit: updated } = placeGate(circuit, type, targets, time, params);
         push(updated);
       } catch {
         // Validation error — gate can't be placed here
@@ -281,13 +281,14 @@ export default function CircuitBuilderPage() {
           hasGates={circuit.operations.length > 0}
         />
         <button
-          className="btn btn--ghost btn--sm"
+          className={`ai-chat-trigger${showAiPanel ? ' ai-chat-trigger--active' : ''}`}
           onClick={() => setShowAiPanel((prev) => !prev)}
-          aria-label={showAiPanel ? 'Hide AI Draft panel' : 'Show AI Draft panel'}
+          aria-label={showAiPanel ? 'Hide AI chat' : 'Open AI chat'}
           aria-expanded={showAiPanel}
           aria-controls="ai-draft-panel"
         >
-          {showAiPanel ? 'Hide AI Draft' : 'AI Draft'}
+          <span className="ai-chat-trigger__spark">✦</span>
+          AI Chat
         </button>
 
         {/* Experiment save controls */}
@@ -388,14 +389,16 @@ export default function CircuitBuilderPage() {
           </div>
 
           <div className="builder__sidebar">
-            {showAiPanel && (
-              <div id="ai-draft-panel">
-                <AiDraftPanel onImport={handleAiImport} />
-              </div>
-            )}
             <CodePanel code={code} />
             <ValidationSummaryPanel errors={errors} />
           </div>
+        </div>
+      )}
+
+      {/* AI chat — floating popup, rendered outside the workspace grid */}
+      {showAiPanel && (
+        <div className="ai-chat-popup" id="ai-draft-panel" role="dialog" aria-label="AI Chat">
+          <AiDraftPanel circuitCode={code} onClose={() => setShowAiPanel(false)} />
         </div>
       )}
     </div>

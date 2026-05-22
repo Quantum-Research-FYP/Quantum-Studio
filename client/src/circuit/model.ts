@@ -122,12 +122,14 @@ function generateId(): string {
 /**
  * Place a gate on the circuit at the specified time column.
  * Returns the updated circuit and the newly created operation.
+ * For parameterized gates pass angle values via `params` (keys match GateParamSpec.key).
  */
 export function placeGate(
   circuit: CircuitModel,
   type: GateType,
   targets: OperationTargets,
   time: number,
+  params?: Record<string, number>,
 ): { circuit: CircuitModel; operation: Operation } {
   validateGateTargets(circuit, type, targets);
 
@@ -143,6 +145,7 @@ export function placeGate(
       clbits: targets.clbits ? [...targets.clbits] : undefined,
     },
     time,
+    ...(params ? { params } : {}),
   };
 
   return {
@@ -180,10 +183,7 @@ export function deleteGate(circuit: CircuitModel, operationId: string): CircuitM
     throw new Error(`Operation ${operationId} not found`);
   }
 
-  return {
-    ...circuit,
-    operations: circuit.operations.filter((op) => op.id !== operationId),
-  };
+  return { ...circuit, operations: circuit.operations.filter((op) => op.id !== operationId) };
 }
 
 /** Validate that gate targets are consistent with the gate type and circuit dimensions. */
@@ -206,8 +206,17 @@ function validateGateTargets(
     }
   }
 
-  if (type === 'CX' && targets.qubits[0] === targets.qubits[1]) {
-    throw new Error('CX requires two distinct qubit indices');
+  // All 2-qubit gates require distinct qubit indices
+  if (requiredQubits === 2 && targets.qubits[0] === targets.qubits[1]) {
+    throw new Error(`${type} requires two distinct qubit indices`);
+  }
+
+  // All 3-qubit gates require 3 distinct qubit indices
+  if (requiredQubits === 3) {
+    const [q0, q1, q2] = targets.qubits;
+    if (q0 === q1 || q0 === q2 || q1 === q2) {
+      throw new Error(`${type} requires three distinct qubit indices`);
+    }
   }
 
   if (GATE_REQUIRES_CLBITS[type]) {

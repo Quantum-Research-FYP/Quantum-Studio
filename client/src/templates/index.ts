@@ -2,11 +2,22 @@ import type { CircuitModel } from '../circuit';
 import type { TemplateDefinition } from './types';
 import { bellStateTemplate } from './bell-state';
 import { groverTemplate } from './grover';
+import { ghzStateTemplate } from './ghz-state';
+import { superpositionTemplate } from './superposition';
+import { deutschJozsaTemplate } from './deutsch-jozsa';
+import { bernsteinVaziraniTemplate } from './bernstein-vazirani';
 
 export type { TemplateDefinition, TemplateCircuit, ExecutionConfig, TemplateOperation } from './types';
 
 /** All available starter templates, ordered for display. */
-const TEMPLATES: readonly TemplateDefinition[] = [bellStateTemplate, groverTemplate];
+const TEMPLATES: readonly TemplateDefinition[] = [
+  superpositionTemplate,
+  bellStateTemplate,
+  ghzStateTemplate,
+  groverTemplate,
+  deutschJozsaTemplate,
+  bernsteinVaziraniTemplate,
+];
 
 /** Get all available templates. */
 export function getTemplates(): readonly TemplateDefinition[] {

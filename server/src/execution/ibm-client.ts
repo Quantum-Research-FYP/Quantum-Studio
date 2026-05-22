@@ -1,10 +1,16 @@
 /**
  * IBM Quantum Runtime client abstraction.
  *
- * Provides a consistent interface for listing backends, submitting jobs,
- * checking status, and cancelling jobs. Uses a mock implementation in
- * development when no real API URL is configured.
+ * IBM Quantum now uses IBM Cloud API keys. Every real API call requires an IAM
+ * access token obtained by exchanging the stored API key at the IBM Cloud IAM
+ * token endpoint. Tokens are cached in memory (keyed by a hash of the API key)
+ * and reused until they are within 5 minutes of expiry.
+ *
+ * Mock mode activates when ENABLE_IBM_QUANTUM !== 'true', allowing dev/test
+ * workflows without real credentials.
  */
+
+import { createHash } from 'node:crypto';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,11 +48,65 @@ export type IbmClientResult<T> =
 // Configuration
 // ---------------------------------------------------------------------------
 
-const IBM_API_URL = process.env.IBM_QUANTUM_API_URL || '';
+const IBM_API_URL = process.env.IBM_QUANTUM_API_URL || 'https://us-east.quantum-computing.ibm.com/runtime';
 const IBM_TIMEOUT_MS = parseInt(process.env.IBM_QUANTUM_TIMEOUT_MS || '15000', 10);
+const IAM_TOKEN_URL = 'https://iam.cloud.ibm.com/identity/token';
 
 function isRealMode(): boolean {
-  return Boolean(IBM_API_URL);
+  return process.env.ENABLE_IBM_QUANTUM === 'true';
+}
+
+// ---------------------------------------------------------------------------
+// IAM Token Cache
+// ---------------------------------------------------------------------------
+
+interface IamCacheEntry {
+  accessToken: string;
+  expiresAt: number; // ms epoch
+}
+
+const iamCache = new Map<string, IamCacheEntry>();
+
+/** Exchange an IBM Cloud API key for a short-lived IAM access token. Cached until near-expiry. */
+async function resolveIamToken(apiKey: string): Promise<string | null> {
+  // Cache key is a truncated hash of the API key — never store the raw key
+  const cacheKey = createHash('sha256').update(apiKey).digest('hex').slice(0, 16);
+  const cached = iamCache.get(cacheKey);
+
+  if (cached && cached.expiresAt - Date.now() > 5 * 60 * 1000) {
+    return cached.accessToken;
+  }
+
+  try {
+    const response = await fetch(IAM_TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Accept: 'application/json',
+      },
+      body: `grant_type=urn%3Aibm%3Aparams%3Aoauth%3Agrant-type%3Aapikey&apikey=${encodeURIComponent(apiKey)}`,
+    });
+
+    if (!response.ok) {
+      console.warn(`[ibm-client] IAM token exchange failed → HTTP ${response.status}`);
+      return null;
+    }
+
+    const body = (await response.json()) as Record<string, unknown>;
+    if (typeof body.access_token !== 'string') return null;
+
+    const expiresIn = typeof body.expires_in === 'number' ? body.expires_in : 3600;
+    iamCache.set(cacheKey, {
+      accessToken: body.access_token,
+      expiresAt: Date.now() + expiresIn * 1000,
+    });
+
+    console.log(`[ibm-client] IAM token obtained, expires in ${expiresIn}s. Will call: ${IBM_API_URL}`);
+    return body.access_token;
+  } catch (err) {
+    console.error('[ibm-client] IAM token exchange threw:', err instanceof Error ? err.message : err);
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -59,15 +119,12 @@ const MOCK_BACKENDS: IbmBackend[] = [
   { name: 'ibm_kyoto', status: 'maintenance', qubits: 127, pendingJobs: 0 },
 ];
 
-/** Simulates job lifecycle: transitions through states over time. */
 const mockJobStates = new Map<string, { status: string; createdAt: number }>();
 
 function getMockJobStatus(providerJobId: string): string {
   const entry = mockJobStates.get(providerJobId);
   if (!entry) return 'ERROR';
-
   const elapsedMs = Date.now() - entry.createdAt;
-
   if (entry.status === 'CANCELLED') return 'CANCELLED';
   if (elapsedMs < 2000) return 'INITIALIZING';
   if (elapsedMs < 5000) return 'QUEUED';
@@ -81,34 +138,38 @@ function getMockJobStatus(providerJobId: string): string {
 
 export function createIbmClient() {
   return {
-    async listBackends(token: string): Promise<IbmClientResult<IbmBackend[]>> {
+    async listBackends(apiKey: string): Promise<IbmClientResult<IbmBackend[]>> {
       if (!isRealMode()) {
-        // Mock: validate token prefix
-        if (!token.startsWith('valid-')) {
+        if (!apiKey.startsWith('valid-')) {
           return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Invalid token.' } };
         }
         return { ok: true, data: MOCK_BACKENDS };
       }
 
-      return callIbmApi<IbmBackend[]>(token, 'GET', '/backends', null, (body) => {
-        const backends = (body as Array<Record<string, unknown>>).map((b) => ({
+      const iamToken = await resolveIamToken(apiKey);
+      if (!iamToken) {
+        return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Failed to obtain IAM access token. Check your IBM Cloud API key.' } };
+      }
+
+      return callIbmApi<IbmBackend[]>(iamToken, 'GET', '/backends', null, (body) => {
+        const arr = Array.isArray(body) ? body : ((body as Record<string, unknown>).backends as unknown[]) ?? [];
+        return (arr as Array<Record<string, unknown>>).map((b) => ({
           name: (b.name as string) || 'unknown',
           status: mapBackendStatus(b.status as string),
-          qubits: (b.num_qubits as number) || 0,
+          qubits: (b.num_qubits as number) || (b.qubits as number) || 0,
           pendingJobs: (b.pending_jobs as number) || 0,
         }));
-        return backends;
       });
     },
 
     async submitJob(
-      token: string,
+      apiKey: string,
       backend: string,
       qasm: string,
       shots: number,
     ): Promise<IbmClientResult<IbmJobSubmission>> {
       if (!isRealMode()) {
-        if (!token.startsWith('valid-')) {
+        if (!apiKey.startsWith('valid-')) {
           return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Invalid token.' } };
         }
         const providerJobId = `mock-ibm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -116,21 +177,26 @@ export function createIbmClient() {
         return { ok: true, data: { providerJobId } };
       }
 
+      const iamToken = await resolveIamToken(apiKey);
+      if (!iamToken) {
+        return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Failed to obtain IAM access token.' } };
+      }
+
       return callIbmApi<IbmJobSubmission>(
-        token,
+        iamToken,
         'POST',
         '/jobs',
-        { backend, qasm, shots },
+        { program_id: 'sampler', backend, params: { pubs: [[qasm]], shots } },
         (body) => ({ providerJobId: (body as Record<string, unknown>).id as string }),
       );
     },
 
     async getJobStatus(
-      token: string,
+      apiKey: string,
       providerJobId: string,
     ): Promise<IbmClientResult<IbmJobStatusResponse>> {
       if (!isRealMode()) {
-        if (!token.startsWith('valid-')) {
+        if (!apiKey.startsWith('valid-')) {
           return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Invalid token.' } };
         }
         if (!mockJobStates.has(providerJobId)) {
@@ -150,8 +216,13 @@ export function createIbmClient() {
         };
       }
 
+      const iamToken = await resolveIamToken(apiKey);
+      if (!iamToken) {
+        return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Failed to obtain IAM access token.' } };
+      }
+
       return callIbmApi<IbmJobStatusResponse>(
-        token,
+        iamToken,
         'GET',
         `/jobs/${encodeURIComponent(providerJobId)}`,
         null,
@@ -169,11 +240,11 @@ export function createIbmClient() {
     },
 
     async cancelJob(
-      token: string,
+      apiKey: string,
       providerJobId: string,
     ): Promise<IbmClientResult<{ cancelled: boolean }>> {
       if (!isRealMode()) {
-        if (!token.startsWith('valid-')) {
+        if (!apiKey.startsWith('valid-')) {
           return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Invalid token.' } };
         }
         const entry = mockJobStates.get(providerJobId);
@@ -188,10 +259,16 @@ export function createIbmClient() {
         return { ok: true, data: { cancelled: true } };
       }
 
+      const iamToken = await resolveIamToken(apiKey);
+      if (!iamToken) {
+        return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Failed to obtain IAM access token.' } };
+      }
+
+      // IBM Quantum Runtime cancels jobs via DELETE
       return callIbmApi<{ cancelled: boolean }>(
-        token,
-        'POST',
-        `/jobs/${encodeURIComponent(providerJobId)}/cancel`,
+        iamToken,
+        'DELETE',
+        `/jobs/${encodeURIComponent(providerJobId)}`,
         null,
         () => ({ cancelled: true }),
       );
@@ -206,13 +283,13 @@ export function createIbmClient() {
 function mapBackendStatus(raw: string | undefined): IbmBackend['status'] {
   if (!raw) return 'offline';
   const upper = raw.toUpperCase();
-  if (upper === 'ONLINE' || upper === 'ACTIVE') return 'online';
-  if (upper === 'MAINTENANCE') return 'maintenance';
+  if (upper === 'ONLINE' || upper === 'ACTIVE' || upper === 'AVAILABLE') return 'online';
+  if (upper === 'MAINTENANCE' || upper === 'CALIBRATING') return 'maintenance';
   return 'offline';
 }
 
 async function callIbmApi<T>(
-  token: string,
+  iamToken: string,
   method: string,
   path: string,
   body: unknown | null,
@@ -223,7 +300,7 @@ async function callIbmApi<T>(
     const timeoutId = setTimeout(() => controller.abort(), IBM_TIMEOUT_MS);
 
     const headers: Record<string, string> = {
-      Authorization: `Bearer ${token}`,
+      Authorization: `Bearer ${iamToken}`,
       Accept: 'application/json',
     };
 
@@ -238,14 +315,20 @@ async function callIbmApi<T>(
     clearTimeout(timeoutId);
 
     if (response.ok) {
+      // DELETE /jobs returns 204 No Content on success
+      if (response.status === 204) {
+        return { ok: true, data: transform(null) };
+      }
       const json = await response.json();
       return { ok: true, data: transform(json) };
     }
 
     if (response.status === 401 || response.status === 403) {
+      console.warn(`[ibm-client] Auth rejected: ${method} ${path} → HTTP ${response.status}`);
       return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Authentication failed.' } };
     }
     if (response.status === 404) {
+      console.warn(`[ibm-client] Not found: ${method} ${path} → HTTP 404`);
       return { ok: false, error: { errorCode: 'JOB_NOT_FOUND', message: 'Resource not found.' } };
     }
     if (response.status === 429) {
@@ -254,6 +337,11 @@ async function callIbmApi<T>(
 
     return { ok: false, error: { errorCode: 'PROVIDER_UNAVAILABLE', message: `IBM returned status ${response.status}.` } };
   } catch (err: unknown) {
+    const cause = err instanceof Error && 'cause' in err ? (err as Error & { cause?: unknown }).cause : undefined;
+    console.error('[ibm-client] fetch threw for', method, IBM_API_URL + path,
+      err instanceof Error ? `${err.name}: ${err.message}` : err,
+      cause ? `| cause: ${cause}` : '',
+    );
     if (err instanceof Error && err.name === 'AbortError') {
       return { ok: false, error: { errorCode: 'NETWORK_ERROR', message: 'Request timed out.' } };
     }

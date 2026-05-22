@@ -20,6 +20,7 @@ export function createExecutionRouter(
   router.get('/ibm/backends', handlers.listBackends);
 
   // Job lifecycle
+  router.get('/jobs', handlers.listJobs);
   router.post('/jobs', handlers.submitJob);
   router.get('/jobs/:jobId', handlers.getJobStatus);
   router.post('/jobs/:jobId/cancel', handlers.cancelJob);

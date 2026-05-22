@@ -21,6 +21,7 @@ export function createAiRouter(): Router {
 
   router.post('/draft', handlers.generateDraft);
   router.post('/validate', handlers.validateDraft);
+  router.post('/chat', handlers.chat);
 
   return router;
 }

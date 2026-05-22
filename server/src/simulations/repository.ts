@@ -10,6 +10,8 @@ import { COLLECTIONS, type AppDocument } from '../db/collections.js';
 
 export type JobStatus = ExecutionJobStatus;
 
+export type CodeType = 'qasm' | 'python';
+
 export interface SimulationJob {
   id: string;
   createdByUserId: string;
@@ -17,6 +19,7 @@ export interface SimulationJob {
   status: JobStatus;
   shots: number;
   qasmInput: string;
+  codeType: CodeType;
   backend: string;
   providerJobId: string | null;
   statusDetail: string | null;
@@ -44,6 +47,7 @@ export interface SimulationJobResult {
 export interface CreateJobInput {
   userId: string;
   qasmInput: string;
+  codeType?: CodeType;
   shots: number;
   backend?: string;
   provider?: ExecutionProvider;
@@ -77,6 +81,7 @@ function docToJob(doc: Record<string, unknown>): SimulationJob {
     status: doc.status as JobStatus,
     shots: doc.shots as number,
     qasmInput: doc.qasmInput as string,
+    codeType: (doc.codeType as CodeType) ?? 'qasm',
     backend: doc.backend as string,
     providerJobId: (doc.providerJobId as string) ?? null,
     statusDetail: (doc.statusDetail as string) ?? null,
@@ -130,6 +135,7 @@ export function createSimulationRepository(pool: Db) {
       const {
         userId,
         qasmInput,
+        codeType = 'qasm',
         shots,
         backend = 'aer_simulator',
         provider = 'simulator',
@@ -156,6 +162,7 @@ export function createSimulationRepository(pool: Db) {
         userId,
         shots,
         qasmInput,
+        codeType,
         backend,
         provider,
         providerJobId: providerJobId ?? null,

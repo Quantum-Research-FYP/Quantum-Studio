@@ -1,0 +1,72 @@
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    environment:
+      MONGO_INITDB_DATABASE: quantum_studio
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  simulation:
+    build:
+      context: ./simulation-service
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+      simulation:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      MONGODB_URI: mongodb://mongo:27017/quantum_studio
+      MONGODB_DB_NAME: quantum_studio
+      SIM_SERVICE_URL: http://simulation:8000
+      SESSION_SECRET: ${SESSION_SECRET}
+      SESSION_MAX_AGE_MS: ${SESSION_MAX_AGE_MS:-86400000}
+      ENABLE_PUBLIC_SHARING: ${ENABLE_PUBLIC_SHARING:-false}
+      ENABLE_AI_DRAFTS: ${ENABLE_AI_DRAFTS:-false}
+      AI_PROVIDER: ${AI_PROVIDER:-mock}
+      AI_API_KEY: ${AI_API_KEY:-}
+      AI_API_URL: ${AI_API_URL:-}
+      AI_MODEL: ${AI_MODEL:-}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-30000}
+      AI_RATE_LIMIT_MAX_REQUESTS: ${AI_RATE_LIMIT_MAX_REQUESTS:-10}
+      AI_RATE_LIMIT_WINDOW_MS: ${AI_RATE_LIMIT_WINDOW_MS:-60000}
+      AI_RETAIN_PROMPTS: ${AI_RETAIN_PROMPTS:-false}
+      ENABLE_IBM_QUANTUM: ${ENABLE_IBM_QUANTUM:-false}
+      IBM_QUANTUM_ENCRYPTION_KEY: ${IBM_QUANTUM_ENCRYPTION_KEY:-}
+
+  client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-}
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - server
+
+volumes:
+  mongo_data:

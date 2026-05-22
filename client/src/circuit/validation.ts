@@ -3,46 +3,34 @@ import { GATE_QUBIT_COUNT, GATE_REQUIRES_CLBITS } from './types';
 
 /** A structured validation error with location context. */
 export interface ValidationError {
-  /** Human-readable error message. */
   message: string;
-  /** The operation that caused the error, if applicable. */
   operationId?: string;
-  /** Wire type involved in the error. */
   wireType?: WireType;
-  /** Wire index involved in the error. */
   wireIndex?: number;
-  /** Time column of the problematic operation. */
   time?: number;
 }
 
 /**
  * Validate a circuit model and return all errors.
  *
- * This function is pure, deterministic, and side-effect-free.
- * It checks all v1 rules:
- * - Qubit indices must exist (0 ≤ index < circuit.qubits)
- * - Classical bit indices must exist (0 ≤ index < circuit.clbits)
- * - MEASURE must map exactly 1 qubit to exactly 1 classical bit
- * - CX must target exactly 2 distinct qubits
- * - Gate qubit count must match the gate type's requirement
- * - Operation IDs must be unique
+ * Checks:
+ * - Unique operation IDs
+ * - Correct qubit count per gate type
+ * - Qubit indices within bounds
+ * - Classical bit indices within bounds (for MEASURE)
+ * - All 2-qubit gates target 2 distinct qubits
+ * - All 3-qubit gates target 3 distinct qubits
  */
 export function validateCircuit(circuit: CircuitModel): ValidationError[] {
   const errors: ValidationError[] = [];
   const seenIds = new Set<string>();
 
   for (const op of circuit.operations) {
-    // Duplicate ID check
     if (seenIds.has(op.id)) {
-      errors.push({
-        message: `Duplicate operation ID "${op.id}"`,
-        operationId: op.id,
-        time: op.time,
-      });
+      errors.push({ message: `Duplicate operation ID "${op.id}"`, operationId: op.id, time: op.time });
     }
     seenIds.add(op.id);
 
-    // Qubit count check
     const requiredQubits = GATE_QUBIT_COUNT[op.type];
     if (op.targets.qubits.length !== requiredQubits) {
       errors.push({
@@ -50,10 +38,9 @@ export function validateCircuit(circuit: CircuitModel): ValidationError[] {
         operationId: op.id,
         time: op.time,
       });
-      continue; // Skip further checks on this operation — target array is wrong shape
+      continue;
     }
 
-    // Qubit index range checks
     for (const q of op.targets.qubits) {
       if (q < 0 || q >= circuit.qubits) {
         errors.push({
@@ -66,16 +53,27 @@ export function validateCircuit(circuit: CircuitModel): ValidationError[] {
       }
     }
 
-    // CX distinct qubits check
-    if (op.type === 'CX' && op.targets.qubits[0] === op.targets.qubits[1]) {
+    // 2-qubit gates: distinct qubits
+    if (requiredQubits === 2 && op.targets.qubits[0] === op.targets.qubits[1]) {
       errors.push({
-        message: `CX at time ${op.time} must target two distinct qubits, both are qubit ${op.targets.qubits[0]}`,
+        message: `${op.type} at time ${op.time} must target two distinct qubits`,
         operationId: op.id,
         time: op.time,
       });
     }
 
-    // Classical bit checks for gates that require them
+    // 3-qubit gates: all three distinct
+    if (requiredQubits === 3) {
+      const [q0, q1, q2] = op.targets.qubits;
+      if (q0 === q1 || q0 === q2 || q1 === q2) {
+        errors.push({
+          message: `${op.type} at time ${op.time} must target three distinct qubits`,
+          operationId: op.id,
+          time: op.time,
+        });
+      }
+    }
+
     if (GATE_REQUIRES_CLBITS[op.type]) {
       const clbits = op.targets.clbits;
       if (!clbits || clbits.length !== 1) {

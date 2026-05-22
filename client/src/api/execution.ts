@@ -2,6 +2,16 @@
 // Execution API client
 // ---------------------------------------------------------------------------
 
+export interface ExecutionJobSummary {
+  jobId: string;
+  provider: string;
+  status: string;
+  backend: string;
+  shots: number;
+  createdAt: string;
+  completedAt?: string | null;
+}
+
 export interface ExecutionProvider {
   id: string;
   name: string;
@@ -39,6 +49,7 @@ export interface SubmitExecutionJobInput {
   qasm: string;
   shots: number;
   idempotencyKey?: string;
+  codeType?: 'qasm' | 'python';
 }
 
 export interface ApiError {
@@ -70,6 +81,10 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   }
 
   return body as T;
+}
+
+export function listJobs(limit = 20): Promise<{ jobs: ExecutionJobSummary[] }> {
+  return request(`/api/execution/jobs?limit=${limit}`);
 }
 
 export function getProviders(): Promise<{ providers: ExecutionProvider[] }> {

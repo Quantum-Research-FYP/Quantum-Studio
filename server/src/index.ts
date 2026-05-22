@@ -1,4 +1,9 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+dotenv.config({ path: path.resolve(process.cwd(), '../.env') });
+dotenv.config(); // Fallback if ran from root directly
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -64,7 +69,7 @@ export function createApp(database: Db, onJobCreated?: () => void) {
 
 // Start server (skipped when imported as a module for testing)
 const isMainModule =
-  process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, '/'));
+  process.argv[1] && import.meta.url.startsWith('file:') && fileURLToPath(import.meta.url) === process.argv[1];
 if (isMainModule || process.env.START_SERVER === 'true') {
   connectMongo()
     .then(async (database) => {

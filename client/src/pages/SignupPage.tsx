@@ -5,6 +5,63 @@ import { useAuth } from '../hooks/useAuth';
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 12;
 
+function EyeIcon({ visible }: { visible: boolean }) {
+  if (visible) {
+    return (
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+        <circle cx="12" cy="12" r="3" />
+      </svg>
+    );
+  }
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  );
+}
+
+function getPasswordStrength(pwd: string): 0 | 1 | 2 | 3 | 4 {
+  if (!pwd) return 0;
+  let score = 0;
+  if (pwd.length >= MIN_PASSWORD_LENGTH) score++;
+  if (/[A-Z]/.test(pwd)) score++;
+  if (/[0-9]/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+  return score as 0 | 1 | 2 | 3 | 4;
+}
+
+const STRENGTH_LABELS = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+const STRENGTH_COLORS = [
+  '',
+  'var(--color-error)',
+  'var(--color-warning)',
+  'var(--color-info)',
+  'var(--color-success)',
+];
+
 export default function SignupPage() {
   const { user, signup } = useAuth();
   const navigate = useNavigate();
@@ -14,10 +71,11 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Already authenticated — redirect away
   if (user) return <Navigate to={from} replace />;
 
   const emailValid = EMAIL_RE.test(email);
@@ -25,6 +83,8 @@ export default function SignupPage() {
   const passwordsMatch = password === confirmPassword;
   const canSubmit =
     emailValid && passwordLongEnough && passwordsMatch && confirmPassword.length > 0 && !submitting;
+
+  const strength = getPasswordStrength(password);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -51,8 +111,34 @@ export default function SignupPage() {
   return (
     <div className="auth-page">
       <form className="auth-form" onSubmit={handleSubmit} noValidate>
-        <h1 className="auth-form__title">Sign up</h1>
-        <p className="auth-form__subtitle">Create your Quantum Studio account.</p>
+        <div className="auth-form__brand">
+          <div className="auth-form__logo" aria-hidden="true">
+            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="20" cy="20" r="3.5" fill="currentColor" />
+              <ellipse cx="20" cy="20" rx="16" ry="5.5" stroke="currentColor" strokeWidth="1.5" />
+              <ellipse
+                cx="20"
+                cy="20"
+                rx="16"
+                ry="5.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                transform="rotate(60 20 20)"
+              />
+              <ellipse
+                cx="20"
+                cy="20"
+                rx="16"
+                ry="5.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                transform="rotate(120 20 20)"
+              />
+            </svg>
+          </div>
+          <h1 className="auth-form__title">Create account</h1>
+          <p className="auth-form__subtitle">Join Quantum Studio and start experimenting.</p>
+        </div>
 
         {error && (
           <div className="alert alert--error" role="alert">
@@ -75,8 +161,9 @@ export default function SignupPage() {
           <input
             id="signup-email"
             type="email"
-            className="form-field__input"
+            className={`form-field__input${email.length > 0 && !emailValid ? ' form-field__input--error' : ''}`}
             autoComplete="email"
+            placeholder="you@example.com"
             required
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -90,43 +177,99 @@ export default function SignupPage() {
           <label htmlFor="signup-password" className="form-field__label">
             Password
           </label>
-          <input
-            id="signup-password"
-            type="password"
-            className="form-field__input"
-            autoComplete="new-password"
-            required
-            minLength={MIN_PASSWORD_LENGTH}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-          <p
-            className={`form-field__hint${password.length > 0 && !passwordLongEnough ? ' form-field__hint--warn' : ''}`}
-          >
-            Must be at least {MIN_PASSWORD_LENGTH} characters.
-          </p>
+          <div className="form-field__input-wrap">
+            <input
+              id="signup-password"
+              type={showPassword ? 'text' : 'password'}
+              className="form-field__input form-field__input--with-addon"
+              autoComplete="new-password"
+              placeholder={`At least ${MIN_PASSWORD_LENGTH} characters`}
+              required
+              minLength={MIN_PASSWORD_LENGTH}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button
+              type="button"
+              className="form-field__eye-btn"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              tabIndex={-1}
+            >
+              <EyeIcon visible={showPassword} />
+            </button>
+          </div>
+          {password.length > 0 && (
+            <div className="password-strength">
+              <div className="password-strength__bars">
+                {([1, 2, 3, 4] as const).map((level) => (
+                  <div
+                    key={level}
+                    className="password-strength__bar"
+                    style={{ background: strength >= level ? STRENGTH_COLORS[strength] : undefined }}
+                  />
+                ))}
+              </div>
+              <span
+                className="password-strength__label"
+                style={{ color: STRENGTH_COLORS[strength] }}
+              >
+                {STRENGTH_LABELS[strength]}
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="form-field">
           <label htmlFor="signup-confirm" className="form-field__label">
             Confirm password
           </label>
-          <input
-            id="signup-confirm"
-            type="password"
-            className="form-field__input"
-            autoComplete="new-password"
-            required
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-          />
+          <div className="form-field__input-wrap">
+            <input
+              id="signup-confirm"
+              type={showConfirm ? 'text' : 'password'}
+              className={`form-field__input form-field__input--with-addon${confirmPassword.length > 0 && !passwordsMatch ? ' form-field__input--error' : ''}`}
+              autoComplete="new-password"
+              placeholder="Repeat your password"
+              required
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+            <button
+              type="button"
+              className="form-field__eye-btn"
+              onClick={() => setShowConfirm((v) => !v)}
+              aria-label={showConfirm ? 'Hide password' : 'Show password'}
+              tabIndex={-1}
+            >
+              <EyeIcon visible={showConfirm} />
+            </button>
+          </div>
           {confirmPassword.length > 0 && !passwordsMatch && (
             <p className="form-field__error">Passwords do not match.</p>
           )}
         </div>
 
-        <button type="submit" className="btn btn--primary btn--full" disabled={!canSubmit}>
-          {submitting ? 'Creating account\u2026' : 'Sign up'}
+        <ul className="password-reqs">
+          <li
+            className={`password-reqs__item${passwordLongEnough ? ' password-reqs__item--met' : ''}`}
+          >
+            {passwordLongEnough ? '✓' : '○'} At least {MIN_PASSWORD_LENGTH} characters
+          </li>
+          <li
+            className={`password-reqs__item${passwordsMatch && confirmPassword.length > 0 ? ' password-reqs__item--met' : ''}`}
+          >
+            {passwordsMatch && confirmPassword.length > 0 ? '✓' : '○'} Passwords match
+          </li>
+        </ul>
+
+        <button
+          type="submit"
+          className="btn btn--primary btn--full auth-submit-btn"
+          disabled={!canSubmit}
+        >
+          {submitting && <span className="btn-spinner" aria-hidden="true" />}
+          {submitting ? 'Creating account…' : 'Create account'}
         </button>
 
         <p className="auth-form__footer">

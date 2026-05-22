@@ -192,7 +192,7 @@ export default function ExperimentsPage() {
               <tr>
                 <th scope="col">Name</th>
                 <th scope="col">Updated</th>
-                <th scope="col">Status</th>
+                <th scope="col">Visibility</th>
                 <th scope="col">Last Run</th>
                 <th scope="col">
                   <span className="sr-only">Actions</span>
@@ -213,15 +213,9 @@ export default function ExperimentsPage() {
                   </td>
                   <td className="experiments-table__date">{formatDate(experiment.updatedAt)}</td>
                   <td>
-                    {experiment.lastRunStatus ? (
-                      <span
-                        className={`status-badge status-badge--${experiment.lastRunStatus}`}
-                      >
-                        {experiment.lastRunStatus}
-                      </span>
-                    ) : (
-                      <span className="experiments-table__muted">--</span>
-                    )}
+                    <span className={`visibility-badge visibility-badge--${experiment.visibility}`}>
+                      {experiment.visibility}
+                    </span>
                   </td>
                   <td className="experiments-table__date">
                     {experiment.lastRunAt ? formatDate(experiment.lastRunAt) : '--'}
@@ -309,6 +303,7 @@ export default function ExperimentsPage() {
         open={shareTarget !== null}
         experimentId={shareTarget?.id ?? ''}
         experimentName={shareTarget?.name ?? ''}
+        initialVisibility={shareTarget?.visibility ?? 'private'}
         onClose={handleShareClose}
       />
     </div>

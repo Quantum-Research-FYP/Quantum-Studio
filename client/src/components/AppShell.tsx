@@ -1,13 +1,13 @@
 import { Outlet } from 'react-router-dom';
-import Header from './Header';
+import Sidebar from './Header';
 
 export default function AppShell() {
   return (
-    <>
-      <Header />
+    <div className="app-shell">
+      <Sidebar />
       <main className="app-main">
         <Outlet />
       </main>
-    </>
+    </div>
   );
 }
