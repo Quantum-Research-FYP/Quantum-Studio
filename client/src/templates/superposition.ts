@@ -28,4 +28,10 @@ export const superpositionTemplate: TemplateDefinition = {
   defaultExecutionConfig: {
     shots: 1024,
   },
+  learnMore: {
+    imageSrc: '/images/algorithms/superposition.png',
+    longDescription: `Quantum superposition is a fundamental principle of quantum mechanics. It states that, much like waves in classical physics, any two (or more) quantum states can be added together ("superposed") and the result will be another valid quantum state. 
+
+In this template, we apply a Hadamard (H) gate to a qubit initially in the |0⟩ state. This puts the qubit into an equal superposition of |0⟩ and |1⟩. When measured, it has a 50% probability of collapsing to |0⟩ and a 50% probability of collapsing to |1⟩.`
+  }
 };

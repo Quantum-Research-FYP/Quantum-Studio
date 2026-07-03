@@ -3,13 +3,13 @@ import { AuthProvider } from './hooks/useAuth';
 import AppShell from './components/AppShell';
 import ProtectedRoute from './components/ProtectedRoute';
 import CreatePage from './pages/CreatePage';
-import RunPage from './pages/RunPage';
 import ResultsPage from './pages/ResultsPage';
 import ExperimentsPage from './pages/ExperimentsPage';
 import TemplatesPage from './pages/TemplatesPage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import CircuitBuilderPage from './pages/CircuitBuilderPage';
+import IdePage from './pages/IdePage';
 import SharedExperimentPage from './pages/SharedExperimentPage';
 import SettingsPage from './pages/SettingsPage';
 import NotFoundPage from './pages/NotFoundPage';
@@ -24,7 +24,7 @@ export default function App() {
             <Route index element={<Navigate to="/create" replace />} />
             <Route path="create" element={<CreatePage />} />
             <Route path="builder" element={<CircuitBuilderPage />} />
-            <Route path="run" element={<RunPage />} />
+            <Route path="ide" element={<IdePage />} />
             <Route path="results" element={<ResultsPage />} />
             <Route element={<ProtectedRoute />}>
               <Route path="experiments" element={<ExperimentsPage />} />

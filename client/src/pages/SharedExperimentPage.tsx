@@ -194,7 +194,7 @@ export default function SharedExperimentPage() {
       {code && (
         <section className="shared-viewer__section" aria-label="Generated code">
           <h2 className="shared-viewer__section-title">Qiskit Code</h2>
-          <CodePanel code={code} />
+          <CodePanel code={code} framework="qiskit" onFrameworkChange={() => {}} />
         </section>
       )}
 

@@ -33,6 +33,7 @@ export interface SimulationJob {
   errorMessageSafe: string | null;
   requestHash: string | null;
   idempotencyKey: string | null;
+  noiseConfig?: Record<string, any>;
 }
 
 export interface SimulationJobResult {
@@ -54,6 +55,7 @@ export interface CreateJobInput {
   providerJobId?: string;
   limitsSnapshot: Record<string, unknown>;
   idempotencyKey?: string;
+  noiseConfig?: Record<string, any>;
 }
 
 export interface StoreResultInput {
@@ -95,6 +97,7 @@ function docToJob(doc: Record<string, unknown>): SimulationJob {
     errorMessageSafe: (doc.errorMessageSafe as string) ?? null,
     requestHash: (doc.requestHash as string) ?? null,
     idempotencyKey: (doc.idempotencyKey as string) ?? null,
+    noiseConfig: doc.noiseConfig as Record<string, any> | undefined,
   };
 }
 
@@ -142,6 +145,7 @@ export function createSimulationRepository(pool: Db) {
         providerJobId,
         limitsSnapshot,
         idempotencyKey,
+        noiseConfig,
       } = input;
 
       const requestHash = computeRequestHash(userId, qasmInput, shots);
@@ -171,6 +175,7 @@ export function createSimulationRepository(pool: Db) {
         limitsSnapshot,
         requestHash,
         idempotencyKey: idempotencyKey ?? null,
+        noiseConfig: noiseConfig ?? null,
         errorCode: null,
         errorMessageSafe: null,
         startedAt: null,

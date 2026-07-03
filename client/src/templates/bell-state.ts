@@ -28,4 +28,10 @@ export const bellStateTemplate: TemplateDefinition = {
   defaultExecutionConfig: {
     shots: 1024,
   },
+  learnMore: {
+    imageSrc: '/images/algorithms/bell-state.png',
+    longDescription: `A Bell State represents the simplest and most elegant example of quantum entanglement. When two qubits are entangled, the quantum state of each particle cannot be described independently of the state of the other(s), even when the particles are separated by a large distance.
+
+In this template, an H gate places the first qubit in superposition, and a CNOT (CX) gate entangles it with the second qubit. This creates the |Φ+⟩ state. Measuring one qubit instantaneously determines the state of the other, resulting in outcomes of either both 00 or both 11.`
+  }
 };

@@ -27,6 +27,7 @@ interface CircuitCanvasProps {
   errorOperationIds: Set<string>;
   onPlaceGate: (type: GateType, targets: OperationTargets, time: number, params?: Record<string, number>) => void;
   onDeleteGate: (operationId: string) => void;
+  currentStep?: number;
 }
 
 // ── Placement state ──────────────────────────────────────────────────────────
@@ -124,6 +125,7 @@ export default function CircuitCanvas({
   errorOperationIds,
   onPlaceGate,
   onDeleteGate,
+  currentStep,
 }: CircuitCanvasProps) {
   const { qubits, clbits, operations } = circuit;
   const [ps, setPs] = useState<PlacementState>(IDLE);
@@ -279,6 +281,7 @@ export default function CircuitCanvas({
       'circuit-canvas__cell',
       canPlace ? 'circuit-canvas__cell--placeable' : '',
       chosen ? 'circuit-canvas__cell--pending' : '',
+      currentStep !== undefined && time === currentStep - 1 ? 'circuit-canvas__cell--current-step' : '',
     ].filter(Boolean).join(' ');
 
     return (
@@ -331,7 +334,12 @@ export default function CircuitCanvas({
             <tr>
               <th className="circuit-canvas__label-col" />
               {timeColumns.map((t) => (
-                <th key={t} className="circuit-canvas__time-header">{t}</th>
+                <th 
+                  key={t} 
+                  className={`circuit-canvas__time-header${currentStep !== undefined && t === currentStep - 1 ? ' circuit-canvas__time-header--current' : ''}`}
+                >
+                  {t}
+                </th>
               ))}
             </tr>
           </thead>

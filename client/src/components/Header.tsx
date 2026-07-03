@@ -28,6 +28,13 @@ const IconBuilder = () => (
   </svg>
 );
 
+const IconCode = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="16 18 22 12 16 6" />
+    <polyline points="8 6 2 12 8 18" />
+  </svg>
+);
+
 const IconRun = () => (
   <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="none">
     <path d="M8 5.14v14l11-7-11-7z" />
@@ -88,13 +95,13 @@ const NAV_GROUPS = [
     items: [
       { to: '/create', label: 'Create', Icon: IconCreate },
       { to: '/builder', label: 'Builder', Icon: IconBuilder },
+      { to: '/ide', label: 'IDE', Icon: IconCode },
     ],
   },
   {
     label: 'Execute',
     items: [
-      { to: '/run', label: 'Run', Icon: IconRun },
-      { to: '/results', label: 'Results', Icon: IconResults },
+      { to: '/results', label: 'Run History', Icon: IconResults },
     ],
   },
   {

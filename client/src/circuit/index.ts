@@ -35,9 +35,13 @@ export {
 
 export { deserialize, serialize } from './serialization';
 
-export { generateQiskitCode } from './codegen';
+export { generateQiskitCode, generateStepperQiskitCode } from './codegen';
 
 export { generateOpenQasm } from './qasm-codegen';
+export { generateCirqCode } from './codegen-cirq';
+export { generatePennyLaneCode } from './codegen-pennylane';
+export { generateBraketCode } from './codegen-braket';
+export { generateTketCode } from './codegen-tket';
 
 export type { ValidationError } from './validation';
 export { validateCircuit } from './validation';

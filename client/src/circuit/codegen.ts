@@ -49,6 +49,51 @@ export function generateQiskitCode(circuit: CircuitModel): string {
   return lines.join('\n');
 }
 
+/**
+ * Generate Qiskit Python code with statevector snapshots for each time step.
+ */
+export function generateStepperQiskitCode(circuit: CircuitModel): string {
+  if (circuit.qubits === 0) {
+    return '# Add qubits and gates to generate Qiskit code';
+  }
+
+  const lines: string[] = [];
+  const sorted = [...circuit.operations].sort(compareOperations);
+  const needsMath = sorted.some((op) => PARAMETERIZED_GATES.has(op.type));
+
+  lines.push('from qiskit import QuantumCircuit');
+  lines.push('import qiskit_aer');
+  if (needsMath) lines.push('import math');
+  lines.push('');
+
+  if (circuit.clbits > 0) {
+    lines.push(`qc = QuantumCircuit(${circuit.qubits}, ${circuit.clbits})`);
+  } else {
+    lines.push(`qc = QuantumCircuit(${circuit.qubits})`);
+  }
+
+  lines.push('');
+  lines.push('qc.save_statevector(label="step_0")');
+
+  if (sorted.length > 0) {
+    const maxTime = Math.max(...sorted.map(op => op.time));
+    
+    let opIndex = 0;
+    for (let t = 0; t <= maxTime; t++) {
+      let emitted = false;
+      while (opIndex < sorted.length && sorted[opIndex].time === t) {
+        lines.push(emitOperation(sorted[opIndex]));
+        opIndex++;
+        emitted = true;
+      }
+      lines.push(`qc.save_statevector(label="step_${t + 1}")`);
+    }
+  }
+
+  lines.push('');
+  return lines.join('\n');
+}
+
 function compareOperations(a: Operation, b: Operation): number {
   if (a.time !== b.time) return a.time - b.time;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;

@@ -10,6 +10,7 @@ interface ExportControlsProps {
   code: string;
   hasErrors: boolean;
   hasGates: boolean;
+  framework: string;
 }
 
 /** Format current date/time as yyyyMMdd-HHmmss for safe filenames. */
@@ -24,7 +25,7 @@ function formatTimestamp(): string {
 
 type CopyStatus = 'idle' | 'success' | 'error';
 
-export default function ExportControls({ code, hasErrors, hasGates }: ExportControlsProps) {
+export default function ExportControls({ code, hasErrors, hasGates, framework }: ExportControlsProps) {
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
   const isDisabled = hasErrors || !hasGates;
 
@@ -39,7 +40,8 @@ export default function ExportControls({ code, hasErrors, hasGates }: ExportCont
   }, [code]);
 
   const handleDownload = useCallback(() => {
-    const filename = `circuit-${formatTimestamp()}.py`;
+    const ext = framework === 'qasm' ? 'qasm' : 'py';
+    const filename = `circuit-${formatTimestamp()}.${ext}`;
     const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
     const url = URL.createObjectURL(blob);
 
@@ -53,7 +55,7 @@ export default function ExportControls({ code, hasErrors, hasGates }: ExportCont
     // Clean up
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  }, [code]);
+  }, [code, framework]);
 
   const copyTitle = isDisabled
     ? hasErrors
@@ -65,7 +67,7 @@ export default function ExportControls({ code, hasErrors, hasGates }: ExportCont
     ? hasErrors
       ? 'Fix validation errors to enable export'
       : 'Add gates to enable export'
-    : 'Download as .py file';
+    : `Download as .${framework === 'qasm' ? 'qasm' : 'py'} file`;
 
   return (
     <div className="export-controls" aria-label="Export controls">
@@ -98,7 +100,7 @@ export default function ExportControls({ code, hasErrors, hasGates }: ExportCont
         title={downloadTitle}
         onClick={handleDownload}
       >
-        Download .py
+        Download .{framework === 'qasm' ? 'qasm' : 'py'}
       </button>
     </div>
   );

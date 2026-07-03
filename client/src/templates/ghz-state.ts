@@ -33,4 +33,10 @@ export const ghzStateTemplate: TemplateDefinition = {
   defaultExecutionConfig: {
     shots: 1024,
   },
+  learnMore: {
+    imageSrc: '/images/algorithms/ghz-state.png',
+    longDescription: `The Greenberger-Horne-Zeilinger (GHZ) state is a type of entangled quantum state that involves at least three subsystems (qubits). It is an extreme example of multipartite entanglement.
+
+Unlike a Bell state, GHZ states exhibit non-local properties that contradict classical physics even more strongly. In this circuit, we use an H gate followed by two CNOT gates to entangle three qubits, resulting in an equal probability of measuring 000 or 111.`
+  }
 };

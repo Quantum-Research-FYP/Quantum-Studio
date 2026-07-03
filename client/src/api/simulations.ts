@@ -28,6 +28,20 @@ export interface JobResultResponse {
   createdAt: string;
 }
 
+export interface StepperResponse {
+  statevectors: Record<string, Record<string, { re: number; im: number }>>;
+  metadata: Record<string, unknown>;
+}
+
+export interface AnalyzeResponse {
+  idealCounts: Record<string, number>;
+  noisyCounts: Record<string, number>;
+  fidelity: number;
+  errorBudget: Record<string, number>;
+  monteCarloFidelity: Array<{ noiseScale: number; fidelity: number }>;
+  metadata: Record<string, unknown>;
+}
+
 /** A single measurement outcome, pre-sorted for display. */
 export interface Outcome {
   bitstring: string;
@@ -35,10 +49,27 @@ export interface Outcome {
   probability: number;
 }
 
+export interface NoiseConfig {
+  depolarizing?: number;
+  bitFlip?: number;
+  phaseFlip?: number;
+  amplitudeDamping?: number;
+  phaseDamping?: number;
+  readoutError?: number;
+  crosstalk?: number;
+  thermalRelaxation?: {
+    t1: number;
+    t2: number;
+    gateTime: number;
+  };
+}
+
 export interface SubmitJobInput {
   qasm: string;
   shots: number;
+  mode?: 'qasm' | 'python';
   idempotencyKey?: string;
+  noiseConfig?: NoiseConfig;
 }
 
 export interface ApiError {
@@ -90,4 +121,18 @@ export function getJobResult(jobId: string): Promise<JobResultResponse> {
 /** Build the URL for the server-side export endpoint (JSON or CSV). */
 export function getExportUrl(jobId: string, format: 'json' | 'csv'): string {
   return `/api/v1/simulations/jobs/${encodeURIComponent(jobId)}/result/export?format=${format}`;
+}
+
+export function runStepper(code: string): Promise<StepperResponse> {
+  return request<StepperResponse>('/api/v1/simulations/stepper', {
+    method: 'POST',
+    body: JSON.stringify({ code }),
+  });
+}
+
+export function analyzeCircuit(input: SubmitJobInput): Promise<AnalyzeResponse> {
+  return request<AnalyzeResponse>('/api/v1/simulations/analyze', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
 }
