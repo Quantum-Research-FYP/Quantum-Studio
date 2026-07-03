@@ -59,7 +59,7 @@ function AllRunsHistoryView() {
           <Link to="/builder" className="btn btn--ghost btn--sm">
             Builder
           </Link>
-          <Link to="/run" className="btn btn--primary btn--sm">
+          <Link to="/ide" className="btn btn--primary btn--sm">
             Run a circuit
           </Link>
         </div>
@@ -84,8 +84,8 @@ function AllRunsHistoryView() {
               Builder
             </Link>{' '}
             or the{' '}
-            <Link to="/run" className="results-link">
-              Run tab
+            <Link to="/ide" className="results-link">
+              IDE
             </Link>
             .
           </p>
@@ -253,7 +253,7 @@ function SimulationResultsView({ jobId }: { jobId: string }) {
 }
 
 // ---------------------------------------------------------------------------
-// ExecutionResultsView — for jobs submitted via the Run tab
+// ExecutionResultsView — for jobs submitted via the IDE
 // Uses /api/execution endpoints
 // ---------------------------------------------------------------------------
 
@@ -301,7 +301,7 @@ function ExecutionResultsView({ jobId }: { jobId: string }) {
         <div className="alert alert--error" role="alert">
           {error}
         </div>
-        <Link to="/run" className="btn btn--primary">
+        <Link to="/ide" className="btn btn--primary">
           Run a new circuit
         </Link>
       </div>
@@ -357,7 +357,7 @@ function ExecutionResultsView({ jobId }: { jobId: string }) {
       )}
 
       <div className="results-page__actions">
-        <Link to="/run" className="btn btn--primary">
+        <Link to="/ide" className="btn btn--primary">
           Run another circuit
         </Link>
       </div>
@@ -646,7 +646,7 @@ function CancelledBanner({ job }: { job: ExecutionJobResponse }) {
         {job.cancelledAt && <> Cancelled at {new Date(job.cancelledAt).toLocaleString()}.</>}
       </p>
       <p>
-        <Link to="/run">Run a new circuit</Link> to try again.
+        <Link to="/ide">Run a new circuit</Link> to try again.
       </p>
     </div>
   );

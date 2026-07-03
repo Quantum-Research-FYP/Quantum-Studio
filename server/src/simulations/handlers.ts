@@ -81,7 +81,7 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
     /** POST /api/v1/simulations/jobs — Submit a new simulation job. */
     async submitJob(req: Request, res: Response): Promise<void> {
       try {
-        const { qasm, shots, idempotencyKey } = req.body ?? {};
+        const { qasm, shots, mode, idempotencyKey, noiseConfig } = req.body ?? {};
         const userId = req.user!.id;
 
         // Validate input against resource limits
@@ -112,9 +112,11 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
         const job = await repo.createJob({
           userId,
           qasmInput: qasm,
+          codeType: mode === 'python' ? 'python' : 'qasm',
           shots,
           limitsSnapshot: { ...limits },
           idempotencyKey: idempotencyKey?.trim(),
+          noiseConfig,
         });
 
         // Idempotency hit: if the job is past 'queued', it predates this request
@@ -128,6 +130,110 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
       } catch (err) {
         console.error('Submit job error:', err);
         res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
+      }
+    },
+
+    /** POST /api/v1/simulations/stepper — Run a step-by-step simulation (synchronous). */
+    async runStepper(req: Request, res: Response): Promise<void> {
+      try {
+        const { code } = req.body ?? {};
+
+        if (!code || typeof code !== 'string') {
+          res.status(400).json({
+            error: 'Missing or invalid Python code for stepper.',
+            errorCode: 'VALIDATION_SYNTAX',
+          });
+          return;
+        }
+
+        const serviceUrl = (process.env.SIM_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000); // 10s timeout for stepper
+
+        try {
+          const response = await fetch(`${serviceUrl}/simulate-stepper`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code }),
+            signal: controller.signal,
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            res.status(response.status).json(data);
+            return;
+          }
+
+          res.status(200).json(data);
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') {
+            res.status(408).json({ error: 'Stepper simulation timed out.', errorCode: 'EXECUTION_TIMEOUT' });
+            return;
+          }
+          console.error('Simulation service unreachable:', err);
+          res.status(503).json({
+            error: 'Cannot reach the simulation service.',
+            errorCode: 'EXECUTION_RUNTIME_ERROR',
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+      } catch (err) {
+        console.error('Run stepper error:', err);
+        res.status(500).json({ error: 'An unexpected error occurred.' });
+      }
+    },
+
+    /** POST /api/v1/simulations/analyze — Run performance analysis. */
+    async analyzePerformance(req: Request, res: Response): Promise<void> {
+      try {
+        const { qasm, shots, mode, noiseConfig } = req.body ?? {};
+
+        if (!qasm || typeof qasm !== 'string') {
+          res.status(400).json({
+            error: 'Missing or invalid circuit code for analysis.',
+            errorCode: 'VALIDATION_SYNTAX',
+          });
+          return;
+        }
+
+        const serviceUrl = (process.env.SIM_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 15000); // 15s timeout for analysis
+
+        try {
+          const response = await fetch(`${serviceUrl}/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ qasm, shots: shots || 1000, mode: mode || 'qasm', noiseConfig }),
+            signal: controller.signal,
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            res.status(response.status).json(data);
+            return;
+          }
+
+          res.status(200).json(data);
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') {
+            res.status(408).json({ error: 'Analysis simulation timed out.', errorCode: 'EXECUTION_TIMEOUT' });
+            return;
+          }
+          console.error('Simulation service unreachable:', err);
+          res.status(503).json({
+            error: 'Cannot reach the simulation service.',
+            errorCode: 'EXECUTION_RUNTIME_ERROR',
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+      } catch (err) {
+        console.error('Analyze performance error:', err);
+        res.status(500).json({ error: 'An unexpected error occurred.' });
       }
     },
 

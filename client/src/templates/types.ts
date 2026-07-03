@@ -47,4 +47,9 @@ export interface TemplateDefinition {
   circuit: TemplateCircuit;
   /** Default execution settings for running on the simulator. */
   defaultExecutionConfig: ExecutionConfig;
+  /** Educational content to display in the "Learn More" modal. */
+  learnMore?: {
+    imageSrc: string;
+    longDescription: string;
+  };
 }

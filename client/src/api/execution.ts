@@ -1,6 +1,7 @@
 // ---------------------------------------------------------------------------
 // Execution API client
 // ---------------------------------------------------------------------------
+import type { NoiseConfig } from './simulations';
 
 export interface ExecutionJobSummary {
   jobId: string;
@@ -50,6 +51,7 @@ export interface SubmitExecutionJobInput {
   shots: number;
   idempotencyKey?: string;
   codeType?: 'qasm' | 'python';
+  noiseConfig?: NoiseConfig;
 }
 
 export interface ApiError {

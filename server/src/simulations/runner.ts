@@ -34,7 +34,7 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
 
       activeJobs++;
       // Run asynchronously — don't await, so we can dequeue multiple jobs
-      executeJob(job.id, job.qasmInput, job.shots, job.codeType ?? 'qasm').finally(() => {
+      executeJob(job.id, job.qasmInput, job.shots, job.codeType ?? 'qasm', job.noiseConfig).finally(() => {
         activeJobs--;
         // After a job finishes, immediately check for more work
         if (!stopped) tryProcessQueue().catch(logError);
@@ -43,12 +43,12 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
   }
 
   /** Execute a single simulation job via Python subprocess. */
-  async function executeJob(jobId: string, qasmInput: string, shots: number, codeType: CodeType = 'qasm'): Promise<void> {
+  async function executeJob(jobId: string, qasmInput: string, shots: number, codeType: CodeType = 'qasm', noiseConfig?: Record<string, any>): Promise<void> {
     const limits = getResourceLimits();
     const timeoutMs = limits.maxExecutionTimeSeconds * 1000;
 
     try {
-      const result = await runPythonSimulation(qasmInput, shots, timeoutMs, codeType);
+      const result = await runPythonSimulation(qasmInput, shots, timeoutMs, codeType, noiseConfig);
 
       if (result.error) {
         await repo.transitionStatus(jobId, 'failed', {
@@ -143,6 +143,7 @@ async function runPythonSimulation(
   shots: number,
   timeoutMs: number,
   codeType: CodeType = 'qasm',
+  noiseConfig?: Record<string, any>
 ): Promise<SimulationResult> {
   const serviceUrl = (process.env.SIM_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
   const controller = new AbortController();
@@ -152,7 +153,7 @@ async function runPythonSimulation(
     const response = await fetch(`${serviceUrl}/simulate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ qasm: qasmInput, shots, mode: codeType }),
+      body: JSON.stringify({ qasm: qasmInput, shots, mode: codeType, noiseConfig }),
       signal: controller.signal,
     });
 

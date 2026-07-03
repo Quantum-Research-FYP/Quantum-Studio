@@ -7,6 +7,10 @@ import {
   deleteGate,
   generateOpenQasm,
   generateQiskitCode,
+  generateCirqCode,
+  generatePennyLaneCode,
+  generateBraketCode,
+  generateTketCode,
   getDependentOperations,
   placeGate,
   removeWireWithDependents,
@@ -17,11 +21,15 @@ import GatePalette from '../components/circuit-builder/GatePalette';
 import WireList from '../components/circuit-builder/WireList';
 import UndoRedoControls from '../components/circuit-builder/UndoRedoControls';
 import CodePanel from '../components/circuit-builder/CodePanel';
+import type { Framework } from '../components/circuit-builder/CodePanel';
 import ValidationSummaryPanel from '../components/circuit-builder/ValidationSummaryPanel';
+import CircuitProfilerPanel from '../components/circuit-builder/CircuitProfilerPanel';
 import ExportControls from '../components/circuit-builder/ExportControls';
 import AiDraftPanel from '../components/circuit-builder/AiDraftPanel';
 import AiImportBanner from '../components/circuit-builder/AiImportBanner';
 import type { AiImportInfo } from '../components/circuit-builder/AiImportBanner';
+import StateVisualizer from '../components/circuit-builder/StateVisualizer';
+import { useStepSimulation } from '../hooks/useStepSimulation';
 import { useCircuitHistory } from '../hooks/useCircuitHistory';
 import { useExperiment } from '../hooks/useExperiment';
 import { useSimulation } from '../hooks/useSimulation';
@@ -64,6 +72,7 @@ async function buildAiProvenance(importInfo: AiImportInfo): Promise<AiProvenance
 export default function CircuitBuilderPage() {
   const { circuit, canUndo, canRedo, push, undo, redo } = useCircuitHistory();
   const [selectedGate, setSelectedGate] = useState<GateType | null>(null);
+  const [exportFramework, setExportFramework] = useState<Framework>('qiskit');
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
@@ -75,6 +84,9 @@ export default function CircuitBuilderPage() {
     null,
   );
   const [executionConfig, setExecutionConfig] = useState<ExecutionConfig>({ shots: DEFAULT_SHOTS });
+
+  // Stepper state
+  const stepSim = useStepSimulation(circuit);
 
   // Load experiment from URL params on mount
   const experimentId = searchParams.get('experimentId');
@@ -202,7 +214,17 @@ export default function CircuitBuilderPage() {
   }, []);
 
   // Code generation for export
-  const code = generateQiskitCode(circuit);
+  const code = useMemo(() => {
+    switch (exportFramework) {
+      case 'cirq': return generateCirqCode(circuit);
+      case 'pennylane': return generatePennyLaneCode(circuit);
+      case 'braket': return generateBraketCode(circuit);
+      case 'tket': return generateTketCode(circuit);
+      case 'qasm': return generateOpenQasm(circuit) || '# Add qubits and gates to generate OpenQASM code';
+      case 'qiskit':
+      default: return generateQiskitCode(circuit);
+    }
+  }, [circuit, exportFramework]);
 
   const handleAddQubit = useCallback(() => {
     push(addQubit(circuit));
@@ -279,6 +301,7 @@ export default function CircuitBuilderPage() {
           code={code}
           hasErrors={errors.length > 0}
           hasGates={circuit.operations.length > 0}
+          framework={exportFramework}
         />
         <button
           className={`ai-chat-trigger${showAiPanel ? ' ai-chat-trigger--active' : ''}`}
@@ -385,11 +408,28 @@ export default function CircuitBuilderPage() {
               errorOperationIds={errorOperationIds}
               onPlaceGate={handlePlaceGate}
               onDeleteGate={handleDeleteGate}
+              currentStep={stepSim.currentStep}
+            />
+            
+            <StateVisualizer
+              currentStep={stepSim.currentStep}
+              maxStep={stepSim.maxStep}
+              isPlaying={stepSim.isPlaying}
+              isLoading={stepSim.isLoading}
+              error={stepSim.error}
+              currentAmplitudes={stepSim.currentAmplitudes}
+              circuitQubits={circuit.qubits}
+              onPlay={stepSim.play}
+              onPause={stepSim.pause}
+              onStepForward={stepSim.stepForward}
+              onStepBack={stepSim.stepBack}
+              onSeek={stepSim.setCurrentStep}
             />
           </div>
 
           <div className="builder__sidebar">
-            <CodePanel code={code} />
+            <CircuitProfilerPanel circuit={circuit} />
+            <CodePanel code={code} framework={exportFramework} onFrameworkChange={setExportFramework} />
             <ValidationSummaryPanel errors={errors} />
           </div>
         </div>

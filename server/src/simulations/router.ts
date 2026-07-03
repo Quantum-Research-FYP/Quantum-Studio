@@ -15,5 +15,8 @@ export function createSimulationsRouter(pool: Db, onJobCreated?: () => void): Ro
   router.get('/jobs/:jobId/result', handlers.getJobResult);
   router.get('/jobs/:jobId/result/export', handlers.getJobResultExport);
 
+  router.post('/stepper', handlers.runStepper);
+  router.post('/analyze', handlers.analyzePerformance);
+
   return router;
 }
