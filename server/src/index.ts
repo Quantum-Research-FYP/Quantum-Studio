@@ -37,6 +37,7 @@ export function createApp(database: Db, onJobCreated?: () => void) {
 
   // Body parsing and cookies
   app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
 
   // Attach authenticated user to request (non-blocking)

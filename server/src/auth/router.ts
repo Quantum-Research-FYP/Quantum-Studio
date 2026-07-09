@@ -10,6 +10,7 @@ export function createAuthRouter(pool: Db): Router {
   router.post('/login', handlers.login);
   router.post('/logout', handlers.logout);
   router.get('/me', handlers.me);
+  router.post('/moodle/callback', handlers.moodleCallback);
 
   return router;
 }
