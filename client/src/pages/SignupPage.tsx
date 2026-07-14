@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { Button } from '../components/ui/Button';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 12;
@@ -263,14 +264,16 @@ export default function SignupPage() {
           </li>
         </ul>
 
-        <button
+        <Button
           type="submit"
-          className="btn btn--primary btn--full auth-submit-btn"
+          variant="primary"
+          size="full"
+          className="auth-submit-btn"
           disabled={!canSubmit}
+          isLoading={submitting}
         >
-          {submitting && <span className="btn-spinner" aria-hidden="true" />}
           {submitting ? 'Creating account…' : 'Create account'}
-        </button>
+        </Button>
 
         <p className="auth-form__footer">
           Already have an account?{' '}

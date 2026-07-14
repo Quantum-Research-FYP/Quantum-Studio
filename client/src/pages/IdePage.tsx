@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import EditorPanel from '../components/ide/EditorPanel';
+import FileExplorer, { type FileNode } from '../components/ide/FileExplorer';
 import { useExecution } from '../hooks/useExecution';
 import { useAuth } from '../hooks/useAuth';
+import { Button } from '../components/ui/Button';
 import {
   getProviders,
   listIbmBackends,
@@ -38,91 +40,6 @@ measure q[1] -> c[1];
 `;
 
 /* ------------------------------------------------------------------ */
-/* Explorer Sub-Components                                              */
-/* ------------------------------------------------------------------ */
-
-const PythonIcon = () => (
-  <svg viewBox="0 0 128 128" width="16" height="16" style={{ flexShrink: 0 }}>
-    <path fill="#4B8BBE" d="M64 6.7c-31.5 0-30.2 13.5-30.2 13.5l.1 14h30.8v4.4H33.3s-14.1-.7-14.1 13.9 14.1 14.7 14.1 14.7h9.5v-13.4s-.3-14.7 14.3-14.7h18.2s13.4.1 13.4-13.7V12.1S88.6 6.7 64 6.7zm-14.8 8.6c2.8 0 5 2.2 5 5s-2.2 5-5 5-5-2.2-5-5 2.2-5 5-5z"/>
-    <path fill="#FFD43B" d="M64 121.3c31.5 0 30.2-13.5 30.2-13.5l-.1-14H63.2v-4.4h31.4s14.1.7 14.1-13.9-14.1-14.7-14.1-14.7h-9.5v13.4s.3 14.7-14.3 14.7H52.5s-13.4-.1-13.4 13.7v13.3s.1 14.6 24.9 14.6zm14.8-8.6c-2.8 0-5-2.2-5-5s2.2-5 5-5 5 2.2 5 5-2.2 5-5 5z"/>
-  </svg>
-);
-
-const QasmIcon = () => (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-    <polyline points="16 18 22 12 16 6" />
-    <polyline points="8 6 2 12 8 18" />
-  </svg>
-);
-
-const FolderIcon = ({ open }: { open: boolean }) => (
-  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#fbbf24', flexShrink: 0 }}>
-    {open ? (
-      <path d="M3 5v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
-    ) : (
-      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-    )}
-  </svg>
-);
-
-const ChevronIcon = ({ open }: { open: boolean }) => (
-  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.1s', color: 'var(--color-text-subtle)', flexShrink: 0 }}>
-    <polyline points="9 18 15 12 9 6" />
-  </svg>
-);
-
-function FileItem({ name, active, onClick, icon }: { name: string, active: boolean, onClick: () => void, icon: React.ReactNode }) {
-  const [hover, setHover] = useState(false);
-  return (
-    <div 
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
-      onClick={onClick}
-      style={{ 
-        display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px 6px 36px', 
-        cursor: 'pointer', fontSize: '0.85rem', userSelect: 'none',
-        backgroundColor: active ? 'var(--color-primary-dim)' : hover ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-        color: active ? '#fff' : hover ? '#e2e8f0' : 'var(--color-text-muted)',
-        borderLeft: active ? '2px solid var(--color-primary)' : '2px solid transparent'
-      }}
-    >
-      {icon}
-      <span>{name}</span>
-    </div>
-  );
-}
-
-function FileExplorer({ activeFile, onSelect }: { activeFile: string, onSelect: (f: 'main.py' | 'main.qasm') => void }) {
-  const [srcOpen, setSrcOpen] = useState(true);
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', paddingBottom: '12px', borderBottom: '1px solid var(--color-border)' }}>
-      <div 
-        style={{ padding: '16px 16px 12px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-subtle)' }}
-      >
-        Explorer
-      </div>
-      
-      <div 
-        onClick={() => setSrcOpen(!srcOpen)}
-        style={{ 
-          display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 16px', cursor: 'pointer', 
-          color: 'var(--color-text-muted)', fontSize: '0.85rem', userSelect: 'none'
-        }}
-      >
-        <ChevronIcon open={srcOpen} />
-        <FolderIcon open={srcOpen} />
-        <span style={{ fontWeight: 500, letterSpacing: '0.02em' }}>Quantum-Project</span>
-      </div>
-
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '2px', overflow: 'hidden', height: srcOpen ? 'auto' : 0 }}>
-        <FileItem name="main.py" active={activeFile === 'main.py'} onClick={() => onSelect('main.py')} icon={<PythonIcon />} />
-        <FileItem name="main.qasm" active={activeFile === 'main.qasm'} onClick={() => onSelect('main.qasm')} icon={<QasmIcon />} />
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
 /* Page Component                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -130,11 +47,11 @@ export default function IdePage() {
   const { user } = useAuth();
   
   // File state
-  const [activeFile, setActiveFile] = useState<'main.py' | 'main.qasm'>('main.py');
-  const [files, setFiles] = useState<{ 'main.py': string, 'main.qasm': string }>({
-    'main.py': DEFAULT_PYTHON,
-    'main.qasm': DEFAULT_QASM,
-  });
+  const [files, setFiles] = useState<FileNode[]>([
+    { id: '1', name: 'main.py', type: 'file', parentId: null, content: DEFAULT_PYTHON },
+    { id: '2', name: 'main.qasm', type: 'file', parentId: null, content: DEFAULT_QASM }
+  ]);
+  const [activeFileId, setActiveFileId] = useState<string | null>('1');
 
   // Settings State
   const [shots, setShots] = useState(1024);
@@ -206,21 +123,74 @@ export default function IdePage() {
 
   const ibmAvailable = providers.some((p) => p.id === 'ibm_quantum' && p.available);
 
-  const handleFileChange = (file: 'main.py' | 'main.qasm') => {
-    setActiveFile(file);
+  const handleFileSelect = (id: string) => {
+    setActiveFileId(id);
     setEditorError(null);
   };
 
   const handleCodeChange = (newCode: string | undefined) => {
-    setFiles(prev => ({ ...prev, [activeFile]: newCode || '' }));
+    if (!activeFileId) return;
+    setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: newCode || '' } : f));
   };
+
+  const generateId = () => Math.random().toString(36).substring(2, 9);
+
+  const handleCreateFile = (parentId: string | null, name: string) => {
+    const newId = generateId();
+    setFiles(prev => [...prev, { id: newId, name, type: 'file', parentId, content: '' }]);
+    setActiveFileId(newId);
+  };
+
+  const handleCreateFolder = (parentId: string | null, name: string) => {
+    const newId = generateId();
+    setFiles(prev => [...prev, { id: newId, name, type: 'folder', parentId, isOpen: true }]);
+  };
+
+  const handleRename = (id: string, newName: string) => {
+    setFiles(prev => prev.map(f => f.id === id ? { ...f, name: newName } : f));
+  };
+
+  const handleDelete = (id: string) => {
+    const getIdsToDelete = (nodeId: string, allFiles: FileNode[]): string[] => {
+      const children = allFiles.filter(f => f.parentId === nodeId).map(f => f.id);
+      return [nodeId, ...children.flatMap(childId => getIdsToDelete(childId, allFiles))];
+    };
+    const idsToDelete = getIdsToDelete(id, files);
+    setFiles(prev => prev.filter(f => !idsToDelete.includes(f.id)));
+    if (activeFileId && idsToDelete.includes(activeFileId)) {
+      setActiveFileId(null);
+    }
+  };
+
+  const handleToggleFolder = (id: string) => {
+    setFiles(prev => prev.map(f => f.id === id ? { ...f, isOpen: !f.isOpen } : f));
+  };
+
+  const handleImportFile = (parentId: string | null, file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const content = e.target?.result as string;
+      const newId = generateId();
+      setFiles(prev => [...prev, { id: newId, name: file.name, type: 'file', parentId, content }]);
+      setActiveFileId(newId);
+    };
+    reader.readAsText(file);
+  };
+
+  const activeFileNode = files.find(f => f.id === activeFileId);
+  const activeFileName = activeFileNode?.name || '';
+  const activeFileContent = activeFileNode?.content || '';
 
   const handleRun = useCallback(async () => {
     setEditorError(null);
     execution.reset();
     setAnalyzeResult(null);
     setBottomTab('terminal'); // Switch to terminal on run
-    const codeType = activeFile === 'main.py' ? 'python' : 'qasm';
+    if (!activeFileNode) {
+      setEditorError({ message: 'No file selected.' });
+      return;
+    }
+    const codeType = activeFileName.endsWith('.py') ? 'python' : 'qasm';
     
     // Clean noiseConfig to only include >0 values if enabled
     let finalNoiseConfig = undefined;
@@ -238,7 +208,7 @@ export default function IdePage() {
       const job = await submitExecutionJob({
         provider: selectedProvider,
         backend: selectedProvider === 'ibm_quantum' ? selectedBackend : undefined,
-        qasm: files[activeFile],
+        qasm: activeFileContent,
         shots,
         codeType,
         noiseConfig: finalNoiseConfig,
@@ -247,7 +217,7 @@ export default function IdePage() {
     } catch (err: any) {
       setEditorError({ message: err.message || 'Failed to submit job.' });
     }
-  }, [files, activeFile, execution, selectedProvider, selectedBackend, shots, noiseEnabled, noiseConfig]);
+  }, [activeFileNode, activeFileName, activeFileContent, execution, selectedProvider, selectedBackend, shots, noiseEnabled, noiseConfig]);
 
   const handleAnalyze = useCallback(async () => {
     if (selectedProvider !== 'simulator' || !noiseEnabled) return;
@@ -255,13 +225,14 @@ export default function IdePage() {
     setAnalyzeResult(null);
     setBottomTab('analysis');
     try {
-      const codeType = activeFile === 'main.py' ? 'python' : 'qasm';
+      if (!activeFileNode) throw new Error('No file selected.');
+      const codeType = activeFileName.endsWith('.py') ? 'python' : 'qasm';
       const cleaned: any = {};
       Object.entries(noiseConfig).forEach(([key, val]) => {
         if (val > 0) cleaned[key] = val;
       });
       const result = await analyzeCircuit({
-        qasm: files[activeFile],
+        qasm: activeFileContent,
         shots,
         mode: codeType,
         noiseConfig: Object.keys(cleaned).length > 0 ? cleaned : undefined,
@@ -273,7 +244,7 @@ export default function IdePage() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [files, activeFile, selectedProvider, shots, noiseEnabled, noiseConfig]);
+  }, [activeFileNode, activeFileName, activeFileContent, selectedProvider, shots, noiseEnabled, noiseConfig]);
 
   useEffect(() => {
     if (execution.viewState === 'completed' && execution.outcomes.length > 0) {
@@ -286,7 +257,17 @@ export default function IdePage() {
       
       <div className="ide-sidebar" style={{ width: '280px', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
         
-        <FileExplorer activeFile={activeFile} onSelect={handleFileChange} />
+        <FileExplorer 
+          files={files} 
+          activeFileId={activeFileId} 
+          onSelect={handleFileSelect}
+          onCreateFile={handleCreateFile}
+          onCreateFolder={handleCreateFolder}
+          onRename={handleRename}
+          onDelete={handleDelete}
+          onToggleFolder={handleToggleFolder}
+          onImportFile={handleImportFile}
+        />
 
         {/* Execution Settings */}
         <div style={{ padding: '24px 16px 12px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-subtle)' }}>
@@ -470,12 +451,16 @@ export default function IdePage() {
         
         <div className="ide-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', backgroundColor: '#09090b', borderBottom: '1px solid var(--color-border)' }}>
           <div style={{ fontSize: '0.9rem', color: '#e4e4e7', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {activeFile === 'main.py' ? <PythonIcon /> : <QasmIcon />}
-            {activeFile}
+            {activeFileName && (
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#a1a1aa' }}>
+                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                <polyline points="13 2 13 9 20 9"></polyline>
+              </svg>
+            )}
+            {activeFileName}
           </div>
-          <button 
-            className="btn btn--primary" 
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px' }}
+          <Button 
+            variant="primary" 
             onClick={handleRun}
             disabled={execution.loading || (selectedProvider === 'ibm_quantum' && credentialStatus !== 'valid')}
           >
@@ -483,19 +468,25 @@ export default function IdePage() {
               <>Running...</>
             ) : (
               <>
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style={{ marginRight: '8px' }}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
                 Run {selectedProvider === 'ibm_quantum' ? 'on IBM' : (noiseEnabled ? 'with Noise' : 'Simulator')}
               </>
             )}
-          </button>
+          </Button>
         </div>
 
         <div style={{ flex: 2, position: 'relative', borderBottom: '1px solid var(--color-border)' }}>
-          <EditorPanel
-            code={files[activeFile]}
-            onChange={handleCodeChange}
-            language={activeFile === 'main.py' ? 'python' : 'qasm'}
-          />
+          {activeFileNode ? (
+            <EditorPanel
+              code={activeFileContent}
+              onChange={handleCodeChange}
+              language={activeFileName.endsWith('.py') ? 'python' : 'qasm'}
+            />
+          ) : (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#a1a1aa' }}>
+              Select a file to edit
+            </div>
+          )}
         </div>
 
         <div style={{ flex: 1, backgroundColor: '#09090b', display: 'flex', flexDirection: 'column' }}>
@@ -625,7 +616,7 @@ export default function IdePage() {
                 )}
                 {!isAnalyzing && !analyzeResult && (
                   <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                    <button onClick={handleAnalyze} className="btn btn--primary">Analyze Performance</button>
+                    <Button onClick={handleAnalyze} variant="primary">Analyze Performance</Button>
                   </div>
                 )}
               </div>

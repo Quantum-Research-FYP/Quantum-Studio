@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
@@ -86,6 +87,18 @@ const IconMoon = () => (
   </svg>
 );
 
+const IconChevronLeft = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="15 18 9 12 15 6" />
+  </svg>
+);
+
+const IconChevronRight = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
 /* ------------------------------------------------------------------ */
 /* Nav structure                                                        */
 /* ------------------------------------------------------------------ */
@@ -124,6 +137,7 @@ export default function Header() {
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
   const { theme, toggle } = useTheme();
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -133,17 +147,26 @@ export default function Header() {
   const initials = user?.email ? user.email[0].toUpperCase() : '?';
 
   return (
-    <aside className="app-sidebar">
-      {/* Brand */}
-      <Link to="/create" className="app-sidebar__brand">
-        <div className="app-sidebar__logo">
-          <IconAtom />
-        </div>
-        <div className="app-sidebar__brand-text">
-          <span className="app-sidebar__brand-name">Quantum</span>
-          <span className="app-sidebar__brand-sub">Studio</span>
-        </div>
-      </Link>
+    <aside className={`app-sidebar ${isCollapsed ? 'app-sidebar--collapsed' : ''}`}>
+      {/* Brand & Toggle */}
+      <div className="app-sidebar__header">
+        <Link to="/create" className="app-sidebar__brand">
+          <div className="app-sidebar__logo">
+            <IconAtom />
+          </div>
+          <div className="app-sidebar__brand-text">
+            <span className="app-sidebar__brand-name">Quantum</span>
+            <span className="app-sidebar__brand-sub">Studio</span>
+          </div>
+        </Link>
+        <button 
+          className="app-sidebar__collapse-btn"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        >
+          {isCollapsed ? <IconChevronRight /> : <IconChevronLeft />}
+        </button>
+      </div>
 
       {/* Navigation */}
       <nav className="app-sidebar__nav" aria-label="Main navigation">

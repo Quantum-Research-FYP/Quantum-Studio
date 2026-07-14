@@ -2,3 +2,4 @@ fastapi>=0.115.0
 uvicorn[standard]>=0.30.0
 qiskit>=1.0.0
 qiskit-aer>=0.14.0
+qiskit-ibm-runtime>=0.20.0
