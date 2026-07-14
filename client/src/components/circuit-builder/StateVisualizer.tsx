@@ -1,8 +1,8 @@
 import ProbabilityBarChart from './ProbabilityBarChart';
 import QSphere from './QSphere';
+import DiracNotation from './DiracNotation';
 import PlaybackControls from './PlaybackControls';
-import { type CircuitModel } from '../../circuit';
-import { useStepSimulation } from '../../hooks/useStepSimulation';
+import type { Operation } from '../../circuit/types';
 
 interface StateVisualizerProps {
   currentStep: number;
@@ -12,6 +12,8 @@ interface StateVisualizerProps {
   error: string | null;
   currentAmplitudes: Record<string, { re: number; im: number }>;
   circuitQubits: number;
+  /** Operations placed at the current time-step column. */
+  currentOperations: Operation[];
   onPlay: () => void;
   onPause: () => void;
   onStepForward: () => void;
@@ -27,6 +29,7 @@ export default function StateVisualizer({
   error,
   currentAmplitudes,
   circuitQubits,
+  currentOperations,
   onPlay,
   onPause,
   onStepForward,
@@ -52,6 +55,13 @@ export default function StateVisualizer({
           onStepForward={onStepForward}
           onStepBack={onStepBack}
           onSeek={onSeek}
+        />
+
+        {/* Mathematical State — Dirac Notation Panel */}
+        <DiracNotation
+          amplitudes={currentAmplitudes}
+          currentOperations={currentOperations}
+          currentStep={currentStep}
         />
 
         <div className="state-visualizer__charts">

@@ -88,6 +88,14 @@ export default function CircuitBuilderPage() {
   // Stepper state
   const stepSim = useStepSimulation(circuit);
 
+  // Operations at the current step (time column) — used by DiracNotation
+  const currentStepOperations = useMemo(() => {
+    if (stepSim.currentStep === 0) return [];
+    // Step N means "after applying all gates at time column N-1"
+    const timeCol = stepSim.currentStep - 1;
+    return circuit.operations.filter(op => op.time === timeCol);
+  }, [circuit.operations, stepSim.currentStep]);
+
   // Load experiment from URL params on mount
   const experimentId = searchParams.get('experimentId');
   useEffect(() => {
@@ -419,6 +427,7 @@ export default function CircuitBuilderPage() {
               error={stepSim.error}
               currentAmplitudes={stepSim.currentAmplitudes}
               circuitQubits={circuit.qubits}
+              currentOperations={currentStepOperations}
               onPlay={stepSim.play}
               onPause={stepSim.pause}
               onStepForward={stepSim.stepForward}

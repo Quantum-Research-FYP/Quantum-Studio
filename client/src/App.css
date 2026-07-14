@@ -5013,9 +5013,164 @@ a {
   color: var(--color-text-subtle);
   margin-top: 2px;
 }
+
 /* ------------------------------------------------------------------ */
-/* Circuit Profiler Panel                                             */
+/* Dirac Notation / Mathematical State Panel                          */
 /* ------------------------------------------------------------------ */
+
+.dirac-notation {
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.06) 0%, rgba(139, 92, 246, 0.04) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.15);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.dirac-notation::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa, #6366f1);
+  background-size: 200% 100%;
+  animation: dirac-shimmer 4s linear infinite;
+}
+
+@keyframes dirac-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.dirac-notation__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.dirac-notation__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.dirac-notation__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  color: #fff;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  font-family: 'Times New Roman', serif;
+}
+
+.dirac-notation__step-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 100px;
+  background: rgba(139, 92, 246, 0.12);
+  color: #a78bfa;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.dirac-notation__empty {
+  padding: 20px 0;
+  text-align: center;
+  color: var(--color-text-subtle);
+  font-size: 0.8125rem;
+  font-style: italic;
+}
+
+.dirac-notation__content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dirac-notation__section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dirac-notation__section-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-subtle);
+  padding-left: 2px;
+}
+
+.dirac-notation__formula-card {
+  background: rgba(15, 15, 30, 0.5);
+  border: 1px solid rgba(99, 102, 241, 0.12);
+  border-radius: 8px;
+  padding: 14px 18px;
+  overflow-x: auto;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.dirac-notation__formula-card:hover {
+  border-color: rgba(139, 92, 246, 0.3);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.08);
+}
+
+.dirac-notation__formula-card--gate {
+  border-left: 3px solid #6366f1;
+}
+
+.dirac-notation__formula-card--matrix {
+  border-left: 3px solid #8b5cf6;
+}
+
+.dirac-notation__formula-card--prob {
+  border-left: 3px solid #a78bfa;
+}
+
+.dirac-notation__katex {
+  font-size: 1.05rem;
+  color: #e0e7ff;
+  line-height: 1.8;
+}
+
+/* Override KaTeX colors to match dark theme */
+.dirac-notation .katex {
+  color: #e0e7ff;
+}
+
+.dirac-notation .katex .mord.text {
+  color: #c4b5fd;
+}
+
+.dirac-notation .katex .mord.textbf {
+  color: #a78bfa;
+}
+
+/* Responsive: stack the sections on small screens */
+@media (max-width: 700px) {
+  .dirac-notation__formula-card {
+    padding: 10px 12px;
+  }
+
+  .dirac-notation__katex {
+    font-size: 0.9rem;
+  }
+}
+
+
 .profiler-panel {
   background: var(--color-surface);
   border: 1px solid var(--color-border);
