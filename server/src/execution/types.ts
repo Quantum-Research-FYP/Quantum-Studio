@@ -100,7 +100,9 @@ export const IBM_STATUS_MAP: Record<string, ExecutionJobStatus> = {
   VALIDATING: 'queued',
   RUNNING: 'running',
   DONE: 'completed',
+  COMPLETED: 'completed',
   ERROR: 'failed',
+  FAILED: 'failed',
   CANCELLED: 'cancelled',
 };
 

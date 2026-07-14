@@ -13,6 +13,8 @@ import IdePage from './pages/IdePage';
 import SharedExperimentPage from './pages/SharedExperimentPage';
 import SettingsPage from './pages/SettingsPage';
 import NotFoundPage from './pages/NotFoundPage';
+import './styles/variables.css';
+import './styles/global.css';
 import './App.css';
 
 export default function App() {

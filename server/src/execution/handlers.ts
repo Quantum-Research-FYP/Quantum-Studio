@@ -211,12 +211,14 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
       if (!token) return;
 
       // Submit to IBM
-      const ibmResult = await ibm.submitJob(token, backend, qasm, shots);
+      const ibmResult = await ibm.submitJob(token, backend, qasm, shots, resolvedCodeType);
 
       if (!ibmResult.ok) {
         const statusCode =
           ibmResult.error.errorCode === 'INVALID_TOKEN' ? 401 :
-          ibmResult.error.errorCode === 'PROVIDER_RATE_LIMITED' ? 429 : 502;
+            ibmResult.error.errorCode === 'PROVIDER_RATE_LIMITED' ? 429 :
+              ibmResult.error.errorCode === 'TRANSPILATION_ERROR' ? 422 :
+                ibmResult.error.errorCode === 'UNSUPPORTED_FRAMEWORK' ? 422 : 502;
         ibmErrorResponse(res, statusCode, ibmResult.error.errorCode, ibmResult.error.message);
         return;
       }

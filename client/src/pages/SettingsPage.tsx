@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../hooks/useAuth';
+import { Button } from '../components/ui/Button';
 import {
   getIbmSettings,
   saveIbmSettings,
@@ -268,9 +269,9 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
-                <button
+                <Button
                   type="submit"
-                  className="btn btn--primary"
+                  variant="primary"
                   disabled={saving || token.trim().length < 10}
                 >
                   {saving
@@ -278,7 +279,7 @@ export default function SettingsPage() {
                     : viewState === 'has-settings'
                       ? 'Update Token'
                       : 'Connect Account'}
-                </button>
+                </Button>
               </form>
             )}
 
@@ -293,14 +294,14 @@ export default function SettingsPage() {
                       experiments on IBM hardware until you reconnect.
                     </p>
                   </div>
-                  <button
+                  <Button
                     type="button"
-                    className="btn btn--danger"
+                    variant="danger"
                     onClick={handleDelete}
                     disabled={deleting}
                   >
                     {deleting ? 'Removing…' : 'Remove'}
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}

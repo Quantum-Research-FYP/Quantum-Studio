@@ -17,7 +17,8 @@ Request body for /simulate:
 """
 
 import re
-import time
+import time as _time
+import hashlib
 import builtins as _builtins_module
 from typing import Any, Literal
 
@@ -89,6 +90,37 @@ class SimulateRequest(BaseModel):
     noiseConfig: dict[str, Any] | None = Field(None, description="Optional noise configuration")
 
 
+class TranspileIbmRequest(BaseModel):
+    code: str = Field(..., description="Circuit source code")
+    codeType: Literal["qasm", "python", "cirq", "pennylane", "braket", "tket"] = Field(
+        "qasm", description="Framework / format of the input code"
+    )
+    backend: str = Field("ibm_brisbane", description="Target IBM backend name (used for ISA transpilation)")
+    # Credentials — when provided, used to fetch the real backend's coupling map
+    # from IBM Quantum / IBM Cloud, ensuring ISA-compliant qubit routing.
+    ibm_token: str | None = Field(None, description="Raw IBM API key or IBM Quantum token")
+    ibm_channel: str | None = Field(None, description="'ibm_quantum' or 'ibm_cloud'")
+    ibm_instance: str | None = Field(None, description="CRN for IBM Cloud, or hub/group/project for IBM Quantum")
+
+
+class TranspileIbmResponse(BaseModel):
+    transpiled_qasm: str
+    metadata: dict[str, Any]
+
+
+class IbmJobResultRequest(BaseModel):
+    job_id: str = Field(..., description="The provider job ID from IBM Qiskit Runtime")
+    ibm_token: str = Field(..., description="Raw IBM API key or IBM Quantum token")
+    ibm_channel: str = Field("ibm_cloud", description="'ibm_quantum' or 'ibm_cloud'")
+    ibm_instance: str | None = Field(None, description="CRN for IBM Cloud, or hub/group/project for IBM Quantum")
+
+
+class IbmJobResultResponse(BaseModel):
+    counts: dict[str, int]
+    status: str
+    metadata: dict[str, Any] | None = None
+
+
 class SimulateResponse(BaseModel):
     counts: dict[str, int]
     metadata: dict[str, Any]
@@ -139,6 +171,505 @@ def _detect_backend_name() -> str:
         return "aer_simulator"
     except ImportError:
         return "basic_simulator"
+
+
+# ---------------------------------------------------------------------------
+# IBM QPU Transpilation endpoint
+# ---------------------------------------------------------------------------
+#
+# ARCHITECTURE: Each IBM QPU must be transpiled INDEPENDENTLY.
+#
+# Even backends that appear identical on paper — same family, same qubit
+# count, same native gate set — are DIFFERENT physical machines with their
+# own coupling map, error rates, calibration data, and gate quality.
+#
+# Example: ibm_fez, ibm_kingston, ibm_marrakesh are all Heron r2 / 156 qubits,
+# but submitting a circuit transpiled FOR ibm_fez TO ibm_kingston will fail
+# because their coupling maps (which qubits are physically connected) differ.
+#
+# Correct usage:
+#   transpile(circuit, backend=service.backend("ibm_fez"))       # for ibm_fez
+#   transpile(circuit, backend=service.backend("ibm_kingston"))  # for ibm_kingston
+#
+# The ONLY source of truth is QiskitRuntimeService(token=...).backend(name),
+# which returns the live backend object with its exact coupling map and
+# calibration data. This is what the real-backend path (A) below uses.
+#
+# The fallback (B) uses GenericBackendV2 with the correct native 2-qubit
+# gate for the backend's processor family. Basis gate decomposition will be
+# correct, but qubit routing will NOT match the real device.
+
+# ---------------------------------------------------------------------------
+# Native 2-qubit gate per backend.
+# This is the ONLY property we can determine from the backend NAME alone
+# (it is family-level). Everything else — coupling map, error rates,
+# calibration, qubit count per machine — requires the real backend object.
+# ---------------------------------------------------------------------------
+_IBM_NATIVE_2Q_GATE: dict[str, str] = {
+    # Eagle r1 (127 qubits) — native 2Q gate: ecr
+    "ibm_brisbane":   "ecr",
+    "ibm_osaka":      "ecr",
+    "ibm_kyoto":      "ecr",
+    "ibm_sherbrooke": "ecr",
+    "ibm_nazca":      "ecr",
+    "ibm_hanoi":      "ecr",
+    "ibm_cairo":      "ecr",
+    # Heron r1 (133 qubits) — native 2Q gate: cz
+    "ibm_torino":     "cz",
+    # Heron r2 (156 qubits) — native 2Q gate: cz
+    # NOTE: ibm_fez, ibm_kingston, ibm_marrakesh are SEPARATE physical
+    # machines. They share the same native gate but NOT the same coupling map.
+    "ibm_fez":        "cz",
+    "ibm_kingston":   "cz",
+    "ibm_marrakesh":  "cz",
+    "ibm_strasbourg": "cz",
+}
+
+# Qubit count per backend — used ONLY to size the fallback GenericBackendV2.
+# This is also family-level; the real backend may have a different effective
+# qubit count depending on which qubits are currently calibrated.
+_IBM_BACKEND_QUBIT_COUNT: dict[str, int] = {
+    "ibm_brisbane":   127, "ibm_osaka":      127, "ibm_kyoto":      127,
+    "ibm_sherbrooke": 127, "ibm_nazca":      127, "ibm_hanoi":      127,
+    "ibm_cairo":      127,
+    "ibm_torino":     133,
+    "ibm_fez":        156, "ibm_kingston":   156, "ibm_marrakesh":  156,
+    "ibm_strasbourg": 156,
+}
+_DEFAULT_QUBIT_COUNT = 127
+_DEFAULT_NATIVE_2Q   = "ecr"   # Eagle is the most common current family
+
+_SINGLE_QUBIT_BASIS = ['id', 'rz', 'sx', 'x', 'reset']
+
+def _basis_gates_for(backend_name: str) -> list[str]:
+    """Return the basis gate list for a backend, derived from its native 2Q gate."""
+    native_2q = _IBM_NATIVE_2Q_GATE.get(backend_name, _DEFAULT_NATIVE_2Q)
+    return _SINGLE_QUBIT_BASIS + [native_2q]
+
+# ---------------------------------------------------------------------------
+# Backend cache: real IBM backend objects are cached for 5 minutes
+# to avoid a round-trip to IBM on every job submission.
+# ---------------------------------------------------------------------------
+
+_BACKEND_CACHE: dict[str, tuple[Any, float]] = {}
+_BACKEND_CACHE_TTL_S = 300  # 5 minutes
+
+
+def _get_real_backend_cached(ibm_channel: str, ibm_token: str, ibm_instance: str | None, backend_name: str) -> Any:
+    """
+    Fetch the real IBM backend object from QiskitRuntimeService.
+
+    The backend object carries the exact coupling map, basis gates, and
+    calibration data needed for ISA-compliant transpilation. Results are
+    cached for 5 minutes to avoid repeated API round-trips.
+
+    Raises on auth failure or unknown backend name.
+    """
+    token_hash = hashlib.sha256(ibm_token.encode()).hexdigest()[:16]
+    cache_key = f"{ibm_channel}:{token_hash}:{backend_name}"
+
+    cached = _BACKEND_CACHE.get(cache_key)
+    if cached and (_time.monotonic() - cached[1]) < _BACKEND_CACHE_TTL_S:
+        return cached[0]
+
+    from qiskit_ibm_runtime import QiskitRuntimeService
+
+    kwargs: dict[str, Any] = {"channel": ibm_channel, "token": ibm_token}
+    if ibm_instance:
+        kwargs["instance"] = ibm_instance
+
+    service = QiskitRuntimeService(**kwargs)
+    backend = service.backend(backend_name)
+    _BACKEND_CACHE[cache_key] = (backend, _time.monotonic())
+    return backend
+
+
+def _get_ibm_fake_backend(backend_name: str) -> Any:
+    """
+    FALLBACK ONLY. Returns a GenericBackendV2 with the correct native
+    2-qubit gate for the target backend's processor family.
+
+    What this gets RIGHT:
+      - Gate decomposition: cx / other gates are converted to ecr (Eagle)
+        or cz (Heron) — the correct native 2Q gate for this family.
+
+    What this gets WRONG (and why it will still fail on real hardware):
+      - Coupling map: GenericBackendV2 generates a RANDOM topology.
+        ibm_fez, ibm_kingston, and ibm_marrakesh are all Heron r2 /
+        156 qubits, but their qubit connectivity is DIFFERENT per machine.
+        Routing against a random coupling map will place 2Q gates on qubit
+        pairs that don't exist on the real device.
+
+    The correct path is ALWAYS A: QiskitRuntimeService(token=...).backend(name),
+    which returns the live backend with its exact coupling map.
+    This fallback exists only for local dev / testing without credentials.
+    """
+    print(
+        f"[transpile-ibm] WARNING: Using GenericBackendV2 fallback for '{backend_name}'. "
+        "Coupling map is RANDOM — qubit routing will not match the real QPU. "
+        "Provide IBM credentials for correct ISA transpilation."
+    )
+    from qiskit.providers.fake_provider import GenericBackendV2
+    n_qubits = _IBM_BACKEND_QUBIT_COUNT.get(backend_name, _DEFAULT_QUBIT_COUNT)
+    basis_gates = _basis_gates_for(backend_name)
+    return GenericBackendV2(num_qubits=n_qubits, basis_gates=basis_gates)
+
+
+@app.post(
+    "/transpile-ibm",
+    response_model=TranspileIbmResponse,
+    responses={
+        422: {"description": "Validation or conversion error"},
+        500: {"description": "Runtime error during transpilation"},
+    },
+)
+def transpile_ibm(req: TranspileIbmRequest):
+    """
+    Convert a circuit to an IBM-QPU-executable ISA circuit for the selected backend.
+
+    Per-QPU transpilation pipeline:
+      Input code (QASM / Qiskit Python)
+                ↓
+      Parse → Qiskit QuantumCircuit
+                ↓
+      [A] QiskitRuntimeService(token).backend(req.backend)
+           └─ Real backend with EXACT coupling map + calibration for THIS machine
+                ↓
+      qiskit.transpile(qc, backend=real_backend, optimization_level=1)
+           └─ ISA-compliant QASM 3 (gates native to this QPU, routing
+              using only connected qubit pairs on this physical device)
+                ↓
+      IBM Qiskit Runtime Sampler
+
+    Backends in the same family (e.g. ibm_fez / ibm_kingston / ibm_marrakesh,
+    all Heron r2 156q) are still different physical machines with different
+    coupling maps.  The backend name is therefore treated as the EXACT
+    compilation target — not as a family hint.
+
+    Fallback (no credentials): GenericBackendV2 with correct basis gates but
+    random coupling map. Gate decomposition is correct; routing is NOT.
+    """
+    if not req.code.strip():
+        raise HTTPException(
+            status_code=422,
+            detail={"errorCode": "VALIDATION_SYNTAX", "message": "Empty circuit input."},
+        )
+
+    # -----------------------------------------------------------------------
+    # Step 1: Convert input to a Qiskit QuantumCircuit
+    # -----------------------------------------------------------------------
+    if req.codeType in ("cirq", "pennylane", "braket", "tket"):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "errorCode": "UNSUPPORTED_FRAMEWORK",
+                "message": (
+                    f"Framework '{req.codeType}' is not supported for IBM QPU execution yet. "
+                    "Please convert your circuit to OpenQASM 2/3 or Qiskit Python first."
+                ),
+            },
+        )
+
+    qc = None
+
+    if req.codeType == "qasm":
+        try:
+            qc = _parse_qasm(req.code)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"errorCode": "VALIDATION_SYNTAX", "message": _sanitize(str(exc))},
+            )
+
+    elif req.codeType == "python":
+        # Sandboxed exec — same as the /simulate Python path.
+        try:
+            compiled = compile(req.code, "<user_circuit>", "exec")
+        except SyntaxError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "errorCode": "VALIDATION_SYNTAX",
+                    "message": f"Python syntax error on line {exc.lineno}: {exc.msg}",
+                },
+            )
+
+        namespace: dict = {"__builtins__": _SAFE_BUILTINS}
+        try:
+            exec(compiled, namespace)  # noqa: S102
+        except ImportError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"errorCode": "VALIDATION_SYNTAX", "message": str(exc)},
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
+            )
+
+        qc = namespace.get("qc")
+        if qc is None:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "errorCode": "VALIDATION_NO_CIRCUIT",
+                    "message": (
+                        "Your code must define a variable named 'qc' (QuantumCircuit). "
+                        "Example: qc = QuantumCircuit(2, 2)"
+                    ),
+                },
+            )
+
+        try:
+            from qiskit import QuantumCircuit as QC
+            if not isinstance(qc, QC):
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "errorCode": "VALIDATION_NO_CIRCUIT",
+                        "message": f"'qc' must be a QuantumCircuit, got {type(qc).__name__}.",
+                    },
+                )
+        except ImportError:
+            pass
+
+    if qc is None:
+        raise HTTPException(
+            status_code=500,
+            detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": "No circuit was produced."},
+        )
+
+    # -----------------------------------------------------------------------
+    # Step 2: Per-QPU transpilation
+    # -----------------------------------------------------------------------
+    #
+    # Every IBM backend is a unique physical machine. Even backends in the
+    # same processor family (same qubit count, same native gate) have
+    # different coupling maps, error rates, and calibration data.
+    #
+    # Strategy:
+    #   A (correct): QiskitRuntimeService(token).backend(name)
+    #      └─ Fetches the LIVE backend with its exact coupling map and
+    #         calibration. Transpilation produces a circuit that is
+    #         guaranteed to route correctly on THIS specific QPU.
+    #
+    #   B (fallback — routing WILL be wrong):
+    #      GenericBackendV2 with the correct native 2Q gate (ecr/cz) but
+    #      a RANDOM coupling map. Gate decomposition is correct; qubit
+    #      routing is unreliable. Use only for local testing.
+    try:
+        from qiskit import transpile
+
+        backend = None
+
+        # --- Path A: real backend (correct coupling map per QPU) ---
+        if req.ibm_token and req.ibm_channel:
+            try:
+                print(
+                    f"[transpile-ibm] Fetching real backend '{req.backend}' "
+                    f"via {req.ibm_channel} (coupling map is QPU-specific)..."
+                )
+                backend = _get_real_backend_cached(
+                    req.ibm_channel, req.ibm_token, req.ibm_instance, req.backend
+                )
+                print(
+                    f"[transpile-ibm] Real backend loaded. "
+                    f"Qubits: {backend.num_qubits}, "
+                    f"Basis: {list(backend.operation_names)}"
+                )
+            except Exception as e:
+                print(
+                    f"[transpile-ibm] Could not load real backend '{req.backend}': {e}. "
+                    f"Falling back to GenericBackendV2 (routing will be approximate)."
+                )
+                backend = None
+
+        # --- Path B: fallback (basis gates correct, coupling map random) ---
+        if backend is None:
+            backend = _get_ibm_fake_backend(req.backend)
+
+        transpiled = transpile(
+            qc,
+            backend=backend,
+            optimization_level=1,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=422,
+            detail={"errorCode": "TRANSPILATION_ERROR", "message": _sanitize(str(exc))},
+        )
+
+    # -----------------------------------------------------------------------
+    # Step 3: Serialise transpiled circuit to OpenQASM 3
+    # -----------------------------------------------------------------------
+    try:
+        from qiskit import qasm3
+        transpiled_qasm = qasm3.dumps(transpiled)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail={"errorCode": "TRANSPILATION_ERROR", "message": _sanitize(str(exc))},
+        )
+
+    metadata = {
+        "backend": req.backend,
+        "depth": transpiled.depth(),
+        "width": transpiled.width(),
+        "size": transpiled.size(),
+        "codeType": req.codeType,
+    }
+
+    return TranspileIbmResponse(transpiled_qasm=transpiled_qasm, metadata=metadata)
+
+
+# ---------------------------------------------------------------------------
+# IBM QPU Job Result Fetcher
+# ---------------------------------------------------------------------------
+
+@app.post(
+    "/ibm-job-result",
+    response_model=IbmJobResultResponse,
+    responses={
+        404: {"description": "Job not found"},
+        500: {"description": "Error fetching or parsing results"},
+    }
+)
+def get_ibm_job_result(req: IbmJobResultRequest):
+    """
+    Fetch and decode results for a completed IBM Qiskit Runtime job.
+    Primitive V2 results are heavily encoded (MessagePack/Base64/Numpy).
+    Using the Python SDK is the only robust way to extract the counts.
+    """
+    try:
+        from qiskit_ibm_runtime import QiskitRuntimeService
+
+        kwargs: dict[str, Any] = {"channel": req.ibm_channel, "token": req.ibm_token}
+        if req.ibm_instance:
+            kwargs["instance"] = req.ibm_instance
+
+        service = QiskitRuntimeService(**kwargs)
+        job = service.job(req.job_id)
+        
+        status = job.status()
+        if status not in ("DONE", "COMPLETED"):
+            return IbmJobResultResponse(counts={}, status=status)
+            
+        result = job.result()
+        
+        counts = {}
+        
+        # 1. Try V2 PrimitiveResult (Iterable of PubResult)
+        try:
+            # We use a loop instead of [0] to avoid KeyError if it's acting like a dict
+            if hasattr(result, "__iter__") and not isinstance(result, dict):
+                for pub_result in result:
+                    if hasattr(pub_result, "data"):
+                        for val in pub_result.data.values():
+                            if hasattr(val, "get_counts"):
+                                c = val.get_counts()
+                                for k, v in c.items():
+                                    counts[k] = counts.get(k, 0) + v
+        except Exception:
+            pass
+
+        # 2. Try V1 SamplerResult (has quasi_dists)
+        if not counts and hasattr(result, "quasi_dists"):
+            try:
+                dists = result.quasi_dists
+                if dists and len(dists) > 0:
+                    d = dists[0]
+                    shots = job.metadata.get("shots", 1024)
+                    
+                    # If it's a QuasiDistribution, it should have binary_probabilities
+                    if hasattr(d, "binary_probabilities"):
+                        probs = d.binary_probabilities()
+                        for k, v in probs.items():
+                            counts[str(k)] = counts.get(str(k), 0) + int(v * shots)
+                    else:
+                        for k, v in d.items():
+                            # naive string conversion if binary_probabilities is missing
+                            k_str = str(k)
+                            counts[k_str] = counts.get(k_str, 0) + int(v * shots)
+            except Exception as e:
+                import traceback
+                print(f"[ibm-job-result] quasi_dists extraction failed: {e}\n{traceback.format_exc()}")
+
+        # 3. Try standard get_counts() (legacy backend.run)
+        if not counts and hasattr(result, "get_counts"):
+            try:
+                c = result.get_counts()
+                if isinstance(c, list) and len(c) > 0:
+                    c = c[0]
+                counts = dict(c)
+            except Exception:
+                pass
+                
+        # 4. Try treating result as a dictionary (if SDK didn't deserialize)
+        if not counts and isinstance(result, dict):
+            # A raw Sampler V2 pub result dict looks like:
+            # {"results": [{"data": {"c": {"samples": ["0x3", "0x0", ...]}}}]}
+            results_list = result.get("results", [])
+            for res_item in results_list:
+                data = res_item.get("data", {})
+                for reg_name, reg_data in data.items():
+                    if isinstance(reg_data, dict):
+                        # V2 samples format
+                        samples = reg_data.get("samples")
+                        if isinstance(samples, list):
+                            # Guess the register size based on the largest hex value
+                            max_val = 0
+                            for s in samples:
+                                try:
+                                    max_val = max(max_val, int(str(s).replace("0x", "") or "0", 16))
+                                except Exception:
+                                    pass
+                            
+                            reg_bits = len(bin(max_val)[2:]) if max_val > 0 else 1
+                            
+                            for s in samples:
+                                clean_k = str(s).replace("0x", "")
+                                if not clean_k:
+                                    clean_k = "0"
+                                try:
+                                    bin_k = bin(int(clean_k, 16))[2:]
+                                    bin_k = bin_k.zfill(reg_bits)
+                                except Exception:
+                                    bin_k = clean_k
+                                counts[bin_k] = counts.get(bin_k, 0) + 1
+                                
+                        # V2 counts format (just in case)
+                        c = reg_data.get("counts")
+                        if isinstance(c, dict):
+                            for k, v in c.items():
+                                clean_k = str(k).replace("0x", "")
+                                try:
+                                    bin_k = bin(int(clean_k, 16))[2:]
+                                    counts[bin_k] = counts.get(bin_k, 0) + int(v)
+                                except Exception:
+                                    counts[clean_k] = counts.get(clean_k, 0) + int(v)
+
+        if not counts:
+            err_details = f"Could not extract counts. Type: {type(result)}, Dir: {dir(result)}"
+            if isinstance(result, dict):
+                import json
+                err_details += f"\nDict content: {json.dumps(result)[:500]}"
+            raise ValueError(err_details)
+                
+        return IbmJobResultResponse(counts=counts, status=status, metadata=job.metadata)
+
+    except Exception as exc:
+        import traceback
+        tb = traceback.format_exc()
+        print(f"[ibm-job-result] Error extracting results for {req.job_id}:\n{tb}")
+        
+        err_msg = str(exc)
+        if "not found" in err_msg.lower() or "404" in err_msg:
+            raise HTTPException(status_code=404, detail="Job not found on IBM Quantum.")
+        raise HTTPException(
+            status_code=500,
+            detail={"errorCode": "RESULT_FETCH_ERROR", "message": f"{type(exc).__name__}: {err_msg}\n\n{tb}"},
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -311,7 +842,7 @@ def simulate_stepper(req: StepperRequest):
         )
 
     try:
-        start = time.monotonic()
+        start = _time.monotonic()
         backend_name = "aer_simulator"
         
         try:
@@ -328,7 +859,7 @@ def simulate_stepper(req: StepperRequest):
         job = backend.run(transpiled)
         result = job.result()
         
-        elapsed_ms = round((time.monotonic() - start) * 1000)
+        elapsed_ms = round((_time.monotonic() - start) * 1000)
         
         data = result.data(0)
         statevectors = {}
@@ -488,7 +1019,7 @@ def _parse_qasm(qasm_text: str):
 
 def _run_simulation(circuit, shots: int, noiseConfig: dict | None = None) -> tuple:
     """Execute the circuit on the best available simulator."""
-    start = time.monotonic()
+    start = _time.monotonic()
 
     backend_name = "aer_simulator"
     try:
@@ -511,7 +1042,7 @@ def _run_simulation(circuit, shots: int, noiseConfig: dict | None = None) -> tup
     job = backend.run(transpiled, shots=shots)
     result = job.result()
 
-    elapsed_ms = round((time.monotonic() - start) * 1000)
+    elapsed_ms = round((_time.monotonic() - start) * 1000)
     counts = result.get_counts()
     clean_counts = {str(k): int(v) for k, v in counts.items()}
     return clean_counts, backend_name, elapsed_ms
