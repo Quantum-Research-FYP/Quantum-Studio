@@ -3494,6 +3494,159 @@ a {
 }
 
 /* ------------------------------------------------------------------ */
+/* GitHub integration                                                   */
+/* ------------------------------------------------------------------ */
+.github-profile {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.github-profile__avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 2px solid var(--color-border-strong);
+  flex-shrink: 0;
+}
+
+.github-profile__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.github-profile__name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.github-profile__username {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.github-profile__handle {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.github-profile__link {
+  font-size: 0.8125rem;
+  color: var(--color-primary);
+  text-decoration: none;
+  margin-top: 2px;
+}
+
+.github-profile__link:hover {
+  text-decoration: underline;
+}
+
+/* ---- Connect section ---- */
+.github-connect-section {
+  padding: 0;
+}
+
+.github-connect-section__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 40px 28px;
+  gap: 12px;
+}
+
+.github-connect-section__icon {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-surface-2);
+  border-radius: 50%;
+  color: var(--color-text-muted);
+  margin-bottom: 4px;
+}
+
+.github-connect-section__title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.github-connect-section__desc {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  max-width: 420px;
+  line-height: 1.55;
+}
+
+.github-connect-section__features {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.github-connect-section__features li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.github-connect-section__features li::before {
+  content: '✓';
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: rgba(52, 211, 153, 0.15);
+  color: var(--color-success);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* ---- GitHub branded button ---- */
+.btn--github {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 20px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  font-family: inherit;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #24292f;
+  color: #fff;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.btn--github:hover {
+  background: #32383f;
+  transform: translateY(-1px);
+}
+
+.btn--github:active {
+  transform: translateY(0);
+}
+
+[data-theme='light'] .btn--github {
+  background: #24292f;
+  color: #fff;
+}
+
+/* ------------------------------------------------------------------ */
 /* Share dialog                                                         */
 /* ------------------------------------------------------------------ */
 .share-dialog {

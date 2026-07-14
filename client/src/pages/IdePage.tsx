@@ -1,10 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import EditorPanel from '../components/ide/EditorPanel';
-import FileExplorer, { type FileNode } from '../components/ide/FileExplorer';
 import { useExecution } from '../hooks/useExecution';
 import { useAuth } from '../hooks/useAuth';
-import { Button } from '../components/ui/Button';
 import {
   getProviders,
   listIbmBackends,
@@ -13,6 +11,13 @@ import {
   type IbmBackend,
 } from '../api/execution';
 import { getIbmSettings } from '../api/integrations';
+import {
+  getGitHubStatus,
+  listGitHubRepos,
+  pushToGitHub,
+  type GitHubStatus,
+  type GitHubRepo,
+} from '../api/github';
 import ProbabilityBarChart from '../components/results/ProbabilityBarChart';
 import ResultsTable from '../components/results/ResultsTable';
 import { PerformanceAnalysisPanel } from '../components/results/PerformanceAnalysisPanel';
@@ -40,18 +45,103 @@ measure q[1] -> c[1];
 `;
 
 /* ------------------------------------------------------------------ */
+/* Explorer Sub-Components                                              */
+/* ------------------------------------------------------------------ */
+
+const PythonIcon = () => (
+  <svg viewBox="0 0 128 128" width="16" height="16" style={{ flexShrink: 0 }}>
+    <path fill="#4B8BBE" d="M64 6.7c-31.5 0-30.2 13.5-30.2 13.5l.1 14h30.8v4.4H33.3s-14.1-.7-14.1 13.9 14.1 14.7 14.1 14.7h9.5v-13.4s-.3-14.7 14.3-14.7h18.2s13.4.1 13.4-13.7V12.1S88.6 6.7 64 6.7zm-14.8 8.6c2.8 0 5 2.2 5 5s-2.2 5-5 5-5-2.2-5-5 2.2-5 5-5z" />
+    <path fill="#FFD43B" d="M64 121.3c31.5 0 30.2-13.5 30.2-13.5l-.1-14H63.2v-4.4h31.4s14.1.7 14.1-13.9-14.1-14.7-14.1-14.7h-9.5v13.4s.3 14.7-14.3 14.7H52.5s-13.4-.1-13.4 13.7v13.3s.1 14.6 24.9 14.6zm14.8-8.6c-2.8 0-5-2.2-5-5s2.2-5 5-5 5 2.2 5 5-2.2 5-5 5z" />
+  </svg>
+);
+
+const QasmIcon = () => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#10b981" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+    <polyline points="16 18 22 12 16 6" />
+    <polyline points="8 6 2 12 8 18" />
+  </svg>
+);
+
+const FolderIcon = ({ open }: { open: boolean }) => (
+  <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#fbbf24', flexShrink: 0 }}>
+    {open ? (
+      <path d="M3 5v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
+    ) : (
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+    )}
+  </svg>
+);
+
+const ChevronIcon = ({ open }: { open: boolean }) => (
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.1s', color: 'var(--color-text-subtle)', flexShrink: 0 }}>
+    <polyline points="9 18 15 12 9 6" />
+  </svg>
+);
+
+function FileItem({ name, active, onClick, icon }: { name: string, active: boolean, onClick: () => void, icon: React.ReactNode }) {
+  const [hover, setHover] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px 6px 36px',
+        cursor: 'pointer', fontSize: '0.85rem', userSelect: 'none',
+        backgroundColor: active ? 'var(--color-primary-dim)' : hover ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
+        color: active ? '#fff' : hover ? '#e2e8f0' : 'var(--color-text-muted)',
+        borderLeft: active ? '2px solid var(--color-primary)' : '2px solid transparent'
+      }}
+    >
+      {icon}
+      <span>{name}</span>
+    </div>
+  );
+}
+
+function FileExplorer({ activeFile, onSelect }: { activeFile: string, onSelect: (f: 'main.py' | 'main.qasm') => void }) {
+  const [srcOpen, setSrcOpen] = useState(true);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', paddingBottom: '12px', borderBottom: '1px solid var(--color-border)' }}>
+      <div
+        style={{ padding: '16px 16px 12px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-subtle)' }}
+      >
+        Explorer
+      </div>
+
+      <div
+        onClick={() => setSrcOpen(!srcOpen)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 16px', cursor: 'pointer',
+          color: 'var(--color-text-muted)', fontSize: '0.85rem', userSelect: 'none'
+        }}
+      >
+        <ChevronIcon open={srcOpen} />
+        <FolderIcon open={srcOpen} />
+        <span style={{ fontWeight: 500, letterSpacing: '0.02em' }}>Quantum-Project</span>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '2px', overflow: 'hidden', height: srcOpen ? 'auto' : 0 }}>
+        <FileItem name="main.py" active={activeFile === 'main.py'} onClick={() => onSelect('main.py')} icon={<PythonIcon />} />
+        <FileItem name="main.qasm" active={activeFile === 'main.qasm'} onClick={() => onSelect('main.qasm')} icon={<QasmIcon />} />
+      </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /* Page Component                                                       */
 /* ------------------------------------------------------------------ */
 
 export default function IdePage() {
   const { user } = useAuth();
-  
+
   // File state
-  const [files, setFiles] = useState<FileNode[]>([
-    { id: '1', name: 'main.py', type: 'file', parentId: null, content: DEFAULT_PYTHON },
-    { id: '2', name: 'main.qasm', type: 'file', parentId: null, content: DEFAULT_QASM }
-  ]);
-  const [activeFileId, setActiveFileId] = useState<string | null>('1');
+  const [activeFile, setActiveFile] = useState<'main.py' | 'main.qasm'>('main.py');
+  const [files, setFiles] = useState<{ 'main.py': string, 'main.qasm': string }>({
+    'main.py': DEFAULT_PYTHON,
+    'main.qasm': DEFAULT_QASM,
+  });
 
   // Settings State
   const [shots, setShots] = useState(1024);
@@ -60,7 +150,7 @@ export default function IdePage() {
   const [ibmBackends, setIbmBackends] = useState<IbmBackend[]>([]);
   const [selectedBackend, setSelectedBackend] = useState('');
   const [credentialStatus, setCredentialStatus] = useState<'unknown' | 'missing' | 'invalid' | 'valid'>('unknown');
-  
+
   // Noise Settings
   const [noiseEnabled, setNoiseEnabled] = useState(false);
   const [noiseConfig, setNoiseConfig] = useState<NoiseConfig>({
@@ -121,77 +211,88 @@ export default function IdePage() {
     return () => { cancelled = true; };
   }, [selectedProvider, credentialStatus, user, selectedBackend]);
 
+  // --- GitHub push state ---
+  const [ghStatus, setGhStatus] = useState<GitHubStatus | null>(null);
+  const [showGhPush, setShowGhPush] = useState(false);
+  const [ghRepos, setGhRepos] = useState<GitHubRepo[]>([]);
+  const [ghReposLoading, setGhReposLoading] = useState(false);
+  const [ghSelectedRepo, setGhSelectedRepo] = useState('');
+  const [ghFilePath, setGhFilePath] = useState('');
+  const [ghCommitMsg, setGhCommitMsg] = useState('');
+  const [ghPushing, setGhPushing] = useState(false);
+  const [ghPushResult, setGhPushResult] = useState<{ type: 'success' | 'error'; text: string; url?: string } | null>(null);
+
+  // Load GitHub status
+  useEffect(() => {
+    if (!user) return;
+    getGitHubStatus()
+      .then((s) => setGhStatus(s))
+      .catch(() => setGhStatus(null));
+  }, [user]);
+
+  // GitHub push dialog open handler
+  const openGhPush = useCallback(async () => {
+    setShowGhPush(true);
+    setGhPushResult(null);
+    setGhFilePath(activeFile === 'main.py' ? 'circuits/main.py' : 'circuits/main.qasm');
+    setGhCommitMsg(`Update ${activeFile} via Quantum Studio`);
+    setGhReposLoading(true);
+    try {
+      const data = await listGitHubRepos();
+      setGhRepos(data.repos);
+      if (data.repos.length > 0 && !ghSelectedRepo) {
+        setGhSelectedRepo(data.repos[0].fullName);
+      }
+    } catch {
+      setGhRepos([]);
+    } finally {
+      setGhReposLoading(false);
+    }
+  }, [activeFile, ghSelectedRepo]);
+
+  const handleGhPush = useCallback(async () => {
+    if (!ghSelectedRepo || !ghFilePath.trim()) return;
+    setGhPushing(true);
+    setGhPushResult(null);
+    try {
+      const [owner, repo] = ghSelectedRepo.split('/');
+      const result = await pushToGitHub(
+        owner,
+        repo,
+        ghFilePath.trim(),
+        files[activeFile],
+        ghCommitMsg || undefined,
+      );
+      setGhPushResult({
+        type: 'success',
+        text: `Pushed successfully! Commit: ${result.sha.slice(0, 7)}`,
+        url: result.htmlUrl,
+      });
+    } catch (err: any) {
+      setGhPushResult({ type: 'error', text: err.message || 'Push failed.' });
+    } finally {
+      setGhPushing(false);
+    }
+  }, [ghSelectedRepo, ghFilePath, ghCommitMsg, files, activeFile]);
+
   const ibmAvailable = providers.some((p) => p.id === 'ibm_quantum' && p.available);
 
-  const handleFileSelect = (id: string) => {
-    setActiveFileId(id);
+  const handleFileChange = (file: 'main.py' | 'main.qasm') => {
+    setActiveFile(file);
     setEditorError(null);
   };
 
   const handleCodeChange = (newCode: string | undefined) => {
-    if (!activeFileId) return;
-    setFiles(prev => prev.map(f => f.id === activeFileId ? { ...f, content: newCode || '' } : f));
+    setFiles(prev => ({ ...prev, [activeFile]: newCode || '' }));
   };
-
-  const generateId = () => Math.random().toString(36).substring(2, 9);
-
-  const handleCreateFile = (parentId: string | null, name: string) => {
-    const newId = generateId();
-    setFiles(prev => [...prev, { id: newId, name, type: 'file', parentId, content: '' }]);
-    setActiveFileId(newId);
-  };
-
-  const handleCreateFolder = (parentId: string | null, name: string) => {
-    const newId = generateId();
-    setFiles(prev => [...prev, { id: newId, name, type: 'folder', parentId, isOpen: true }]);
-  };
-
-  const handleRename = (id: string, newName: string) => {
-    setFiles(prev => prev.map(f => f.id === id ? { ...f, name: newName } : f));
-  };
-
-  const handleDelete = (id: string) => {
-    const getIdsToDelete = (nodeId: string, allFiles: FileNode[]): string[] => {
-      const children = allFiles.filter(f => f.parentId === nodeId).map(f => f.id);
-      return [nodeId, ...children.flatMap(childId => getIdsToDelete(childId, allFiles))];
-    };
-    const idsToDelete = getIdsToDelete(id, files);
-    setFiles(prev => prev.filter(f => !idsToDelete.includes(f.id)));
-    if (activeFileId && idsToDelete.includes(activeFileId)) {
-      setActiveFileId(null);
-    }
-  };
-
-  const handleToggleFolder = (id: string) => {
-    setFiles(prev => prev.map(f => f.id === id ? { ...f, isOpen: !f.isOpen } : f));
-  };
-
-  const handleImportFile = (parentId: string | null, file: File) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const content = e.target?.result as string;
-      const newId = generateId();
-      setFiles(prev => [...prev, { id: newId, name: file.name, type: 'file', parentId, content }]);
-      setActiveFileId(newId);
-    };
-    reader.readAsText(file);
-  };
-
-  const activeFileNode = files.find(f => f.id === activeFileId);
-  const activeFileName = activeFileNode?.name || '';
-  const activeFileContent = activeFileNode?.content || '';
 
   const handleRun = useCallback(async () => {
     setEditorError(null);
     execution.reset();
     setAnalyzeResult(null);
     setBottomTab('terminal'); // Switch to terminal on run
-    if (!activeFileNode) {
-      setEditorError({ message: 'No file selected.' });
-      return;
-    }
-    const codeType = activeFileName.endsWith('.py') ? 'python' : 'qasm';
-    
+    const codeType = activeFile === 'main.py' ? 'python' : 'qasm';
+
     // Clean noiseConfig to only include >0 values if enabled
     let finalNoiseConfig = undefined;
     if (noiseEnabled && selectedProvider === 'simulator') {
@@ -208,7 +309,7 @@ export default function IdePage() {
       const job = await submitExecutionJob({
         provider: selectedProvider,
         backend: selectedProvider === 'ibm_quantum' ? selectedBackend : undefined,
-        qasm: activeFileContent,
+        qasm: files[activeFile],
         shots,
         codeType,
         noiseConfig: finalNoiseConfig,
@@ -217,7 +318,7 @@ export default function IdePage() {
     } catch (err: any) {
       setEditorError({ message: err.message || 'Failed to submit job.' });
     }
-  }, [activeFileNode, activeFileName, activeFileContent, execution, selectedProvider, selectedBackend, shots, noiseEnabled, noiseConfig]);
+  }, [files, activeFile, execution, selectedProvider, selectedBackend, shots, noiseEnabled, noiseConfig]);
 
   const handleAnalyze = useCallback(async () => {
     if (selectedProvider !== 'simulator' || !noiseEnabled) return;
@@ -225,14 +326,13 @@ export default function IdePage() {
     setAnalyzeResult(null);
     setBottomTab('analysis');
     try {
-      if (!activeFileNode) throw new Error('No file selected.');
-      const codeType = activeFileName.endsWith('.py') ? 'python' : 'qasm';
+      const codeType = activeFile === 'main.py' ? 'python' : 'qasm';
       const cleaned: any = {};
       Object.entries(noiseConfig).forEach(([key, val]) => {
         if (val > 0) cleaned[key] = val;
       });
       const result = await analyzeCircuit({
-        qasm: activeFileContent,
+        qasm: files[activeFile],
         shots,
         mode: codeType,
         noiseConfig: Object.keys(cleaned).length > 0 ? cleaned : undefined,
@@ -244,7 +344,7 @@ export default function IdePage() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [activeFileNode, activeFileName, activeFileContent, selectedProvider, shots, noiseEnabled, noiseConfig]);
+  }, [files, activeFile, selectedProvider, shots, noiseEnabled, noiseConfig]);
 
   useEffect(() => {
     if (execution.viewState === 'completed' && execution.outcomes.length > 0) {
@@ -254,30 +354,20 @@ export default function IdePage() {
 
   return (
     <div className="ide-layout" style={{ display: 'flex', height: '100%', width: '100%', backgroundColor: '#000', color: '#fff' }}>
-      
+
       <div className="ide-sidebar" style={{ width: '280px', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-        
-        <FileExplorer 
-          files={files} 
-          activeFileId={activeFileId} 
-          onSelect={handleFileSelect}
-          onCreateFile={handleCreateFile}
-          onCreateFolder={handleCreateFolder}
-          onRename={handleRename}
-          onDelete={handleDelete}
-          onToggleFolder={handleToggleFolder}
-          onImportFile={handleImportFile}
-        />
+
+        <FileExplorer activeFile={activeFile} onSelect={handleFileChange} />
 
         {/* Execution Settings */}
         <div style={{ padding: '24px 16px 12px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-subtle)' }}>
           Execution Settings
         </div>
-        
+
         <div style={{ padding: '0 16px 16px', display: 'flex', flexDirection: 'column', gap: '16px', borderBottom: '1px solid var(--color-border)' }}>
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', color: '#a1a1aa', marginBottom: '6px' }}>Provider</label>
-            <select 
+            <select
               className="form-field__input"
               style={{ width: '100%', backgroundColor: '#18181b', color: '#fff', border: '1px solid #27272a', padding: '8px', borderRadius: '4px', fontSize: '0.85rem' }}
               value={selectedProvider}
@@ -296,7 +386,7 @@ export default function IdePage() {
           {selectedProvider === 'ibm_quantum' && credentialStatus === 'valid' && (
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', color: '#a1a1aa', marginBottom: '6px' }}>Hardware Backend</label>
-              <select 
+              <select
                 className="form-field__input"
                 style={{ width: '100%', backgroundColor: '#18181b', color: '#fff', border: '1px solid #27272a', padding: '8px', borderRadius: '4px', fontSize: '0.85rem' }}
                 value={selectedBackend}
@@ -313,7 +403,7 @@ export default function IdePage() {
 
           <div>
             <label style={{ display: 'block', fontSize: '0.8rem', color: '#a1a1aa', marginBottom: '6px' }}>Shots</label>
-            <input 
+            <input
               type="number"
               className="form-field__input"
               style={{ width: '100%', backgroundColor: '#18181b', color: '#fff', border: '1px solid #27272a', padding: '8px', borderRadius: '4px', fontSize: '0.85rem' }}
@@ -401,8 +491,8 @@ export default function IdePage() {
               <span>Noise Simulator</span>
               <label style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', margin: 0 }}>
                 <div className="noise-toggle">
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     checked={noiseEnabled}
                     onChange={(e) => setNoiseEnabled(e.target.checked)}
                   />
@@ -430,14 +520,14 @@ export default function IdePage() {
                         {((noiseConfig as any)[key] * 100).toFixed(1)}%
                       </span>
                     </div>
-                    <input 
+                    <input
                       type="range"
                       className="noise-slider"
                       min="0"
                       max="0.5"
                       step="0.01"
                       value={(noiseConfig as any)[key]}
-                      onChange={(e) => setNoiseConfig({...noiseConfig, [key]: parseFloat(e.target.value)})}
+                      onChange={(e) => setNoiseConfig({ ...noiseConfig, [key]: parseFloat(e.target.value) })}
                     />
                   </div>
                 ))}
@@ -446,51 +536,57 @@ export default function IdePage() {
           </>
         )}
       </div>
-
       <div className="ide-main" style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-        
         <div className="ide-toolbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 24px', backgroundColor: '#09090b', borderBottom: '1px solid var(--color-border)' }}>
           <div style={{ fontSize: '0.9rem', color: '#e4e4e7', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {activeFileName && (
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#a1a1aa' }}>
-                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
-                <polyline points="13 2 13 9 20 9"></polyline>
-              </svg>
-            )}
-            {activeFileName}
+            {activeFile === 'main.py' ? <PythonIcon /> : <QasmIcon />}
+            {activeFile}
           </div>
-          <Button 
-            variant="primary" 
-            onClick={handleRun}
-            disabled={execution.loading || (selectedProvider === 'ibm_quantum' && credentialStatus !== 'valid')}
-          >
-            {execution.loading ? (
-              <>Running...</>
-            ) : (
-              <>
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" style={{ marginRight: '8px' }}><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
-                Run {selectedProvider === 'ibm_quantum' ? 'on IBM' : (noiseEnabled ? 'with Noise' : 'Simulator')}
-              </>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            {/* Push to GitHub button */}
+            {ghStatus?.connected && (
+              <button
+                type="button"
+                className="btn"
+                style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 12px', background: '#21262d', border: '1px solid #30363d', color: '#e6edf3', borderRadius: '6px', fontSize: '0.8125rem', cursor: 'pointer' }}
+                onClick={openGhPush}
+                title="Push to GitHub"
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+                </svg>
+                Push
+              </button>
             )}
-          </Button>
+
+            <button
+              className="btn btn--primary"
+              style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px' }}
+              onClick={handleRun}
+              disabled={execution.loading || (selectedProvider === 'ibm_quantum' && credentialStatus !== 'valid')}
+            >
+              {execution.loading ? (
+                <>Running...</>
+              ) : (
+                <>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+                  Run {selectedProvider === 'ibm_quantum' ? 'on IBM' : (noiseEnabled ? 'with Noise' : 'Simulator')}
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         <div style={{ flex: 2, position: 'relative', borderBottom: '1px solid var(--color-border)' }}>
-          {activeFileNode ? (
-            <EditorPanel
-              code={activeFileContent}
-              onChange={handleCodeChange}
-              language={activeFileName.endsWith('.py') ? 'python' : 'qasm'}
-            />
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#a1a1aa' }}>
-              Select a file to edit
-            </div>
-          )}
+          <EditorPanel
+            code={files[activeFile]}
+            onChange={handleCodeChange}
+            language={activeFile === 'main.py' ? 'python' : 'qasm'}
+          />
         </div>
 
         <div style={{ flex: 1, backgroundColor: '#09090b', display: 'flex', flexDirection: 'column' }}>
-          
+
           <div style={{ display: 'flex', gap: '2px', borderBottom: '1px solid var(--color-border)', backgroundColor: '#09090b', padding: '0 8px' }}>
             <style>{`
               .ide-tab {
@@ -510,19 +606,19 @@ export default function IdePage() {
                 border-bottom: 2px solid #3b82f6;
               }
             `}</style>
-            <button 
+            <button
               className={`ide-tab ${bottomTab === 'terminal' ? 'ide-tab--active' : ''}`}
               onClick={() => setBottomTab('terminal')}
             >
               Terminal
             </button>
-            <button 
+            <button
               className={`ide-tab ${bottomTab === 'results' ? 'ide-tab--active' : ''}`}
               onClick={() => setBottomTab('results')}
             >
               Visualizer
             </button>
-            <button 
+            <button
               className={`ide-tab ${bottomTab === 'analysis' ? 'ide-tab--active' : ''}`}
               title={(!noiseEnabled || selectedProvider !== 'simulator') ? "Enable noise simulator to view Analysis" : ""}
               disabled={!noiseEnabled || selectedProvider !== 'simulator' || execution.viewState !== 'completed'}
@@ -546,7 +642,7 @@ export default function IdePage() {
           </div>
 
           <div style={{ padding: '12px 16px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-            
+
             {bottomTab === 'terminal' && (
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem', color: '#a1a1aa' }}>
                 {!execution.job && !editorError && (
@@ -555,7 +651,7 @@ export default function IdePage() {
                 {execution.loading && <div>&gt; Submitting job...</div>}
                 {execution.job && execution.viewState === 'pending' && (
                   <div>
-                    &gt; Job [{execution.job.jobId}] {execution.job.status}... 
+                    &gt; Job [{execution.job.jobId}] {execution.job.status}...
                     {selectedProvider === 'ibm_quantum' ? ' (Hardware queue may take a while)' : ''}
                   </div>
                 )}
@@ -596,7 +692,7 @@ export default function IdePage() {
                   </div>
                 ) : (
                   <div style={{ color: '#a1a1aa', fontStyle: 'italic', display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                    {execution.viewState === 'completed' 
+                    {execution.viewState === 'completed'
                       ? "No outcomes recorded for this run. Did you forget to add measurement gates?"
                       : "Run a circuit successfully to view visualization."}
                   </div>
@@ -616,7 +712,7 @@ export default function IdePage() {
                 )}
                 {!isAnalyzing && !analyzeResult && (
                   <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
-                    <Button onClick={handleAnalyze} variant="primary">Analyze Performance</Button>
+                    <button onClick={handleAnalyze} className="btn btn--primary">Analyze Performance</button>
                   </div>
                 )}
               </div>
@@ -626,6 +722,122 @@ export default function IdePage() {
         </div>
 
       </div>
+
+      {/* ======================== Push to GitHub Dialog ======================== */}
+      {showGhPush && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center',
+            justifyContent: 'center', background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowGhPush(false); }}
+        >
+          <div
+            style={{
+              width: 480, maxWidth: '95vw', background: '#0d1117', border: '1px solid #30363d',
+              borderRadius: 12, overflow: 'hidden', boxShadow: '0 16px 48px rgba(0,0,0,0.5)',
+            }}
+          >
+            {/* Header */}
+            <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #21262d', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <svg width="20" height="20" viewBox="0 0 16 16" fill="#e6edf3">
+                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
+              </svg>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: '#e6edf3', margin: 0 }}>Push to GitHub</h3>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {ghPushResult && (
+                <div style={{
+                  padding: '10px 14px', borderRadius: 6, fontSize: '0.875rem',
+                  background: ghPushResult.type === 'success' ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)',
+                  color: ghPushResult.type === 'success' ? '#34d399' : '#f87171',
+                  border: `1px solid ${ghPushResult.type === 'success' ? 'rgba(52,211,153,0.25)' : 'rgba(248,113,113,0.25)'}`,
+                }}>
+                  {ghPushResult.text}
+                  {ghPushResult.url && (
+                    <>
+                      {' '}
+                      <a href={ghPushResult.url} target="_blank" rel="noopener noreferrer" style={{ color: '#58a6ff' }}>
+                        View on GitHub ↗
+                      </a>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Repository */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#8b949e', marginBottom: 6 }}>Repository</label>
+                {ghReposLoading ? (
+                  <div style={{ fontSize: '0.8125rem', color: '#8b949e' }}>Loading repositories…</div>
+                ) : (
+                  <select
+                    style={{ width: '100%', background: '#161b22', color: '#e6edf3', border: '1px solid #30363d', padding: '8px 10px', borderRadius: 6, fontSize: '0.85rem', boxSizing: 'border-box' }}
+                    value={ghSelectedRepo}
+                    onChange={(e) => setGhSelectedRepo(e.target.value)}
+                  >
+                    {ghRepos.length === 0 && <option value="">No repositories found</option>}
+                    {ghRepos.map((r) => (
+                      <option key={r.id} value={r.fullName}>
+                        {r.fullName} {r.private ? '🔒' : ''}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {/* File path */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#8b949e', marginBottom: 6 }}>File Path</label>
+                <input
+                  type="text"
+                  style={{ width: '100%', background: '#161b22', color: '#e6edf3', border: '1px solid #30363d', padding: '8px 10px', borderRadius: 6, fontSize: '0.85rem', boxSizing: 'border-box' }}
+                  value={ghFilePath}
+                  onChange={(e) => setGhFilePath(e.target.value)}
+                  placeholder="e.g. circuits/bell_state.py"
+                />
+              </div>
+
+              {/* Commit message */}
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', color: '#8b949e', marginBottom: 6 }}>Commit Message</label>
+                <input
+                  type="text"
+                  style={{ width: '100%', background: '#161b22', color: '#e6edf3', border: '1px solid #30363d', padding: '8px 10px', borderRadius: 6, fontSize: '0.85rem', boxSizing: 'border-box' }}
+                  value={ghCommitMsg}
+                  onChange={(e) => setGhCommitMsg(e.target.value)}
+                  placeholder="Describe your changes"
+                />
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #21262d', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setShowGhPush(false)}
+                style={{ padding: '8px 16px', background: '#21262d', color: '#e6edf3', border: '1px solid #30363d', borderRadius: 6, fontSize: '0.85rem', cursor: 'pointer' }}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleGhPush}
+                disabled={ghPushing || !ghSelectedRepo || !ghFilePath.trim()}
+                style={{
+                  padding: '8px 16px', background: '#238636', color: '#fff', border: '1px solid #2ea043',
+                  borderRadius: 6, fontSize: '0.85rem', fontWeight: 600, cursor: ghPushing ? 'wait' : 'pointer',
+                  opacity: (ghPushing || !ghSelectedRepo || !ghFilePath.trim()) ? 0.5 : 1,
+                }}
+              >
+                {ghPushing ? 'Pushing…' : 'Push to GitHub'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -389,10 +389,14 @@ export function createIbmClient() {
         },
       );
 
-      const rawStatus = statusRes.data.status.toUpperCase();
-      console.log(`[ibm-client] Normalized status for ${providerJobId}: ${statusRes.ok ? rawStatus : 'API Error'}`);
+      if (!statusRes.ok) {
+        return statusRes;
+      }
 
-      if (!statusRes.ok || (rawStatus !== 'COMPLETED' && rawStatus !== 'DONE')) {
+      const rawStatus = statusRes.data.status.toUpperCase();
+      console.log(`[ibm-client] Normalized status for ${providerJobId}: ${rawStatus}`);
+
+      if (rawStatus !== 'COMPLETED' && rawStatus !== 'DONE') {
         return statusRes;
       }
 
