@@ -52,7 +52,7 @@ export const bernsteinVaziraniTemplate: TemplateDefinition = {
     shots: 1024,
   },
   learnMore: {
-    imageSrc: '/images/algorithms/bernstein-vazirani.png',
+    imageSrc: '/images/algorithms/bernstein-vazirani.jpg',
     longDescription: `The Bernstein-Vazirani algorithm solves the problem of finding a hidden binary string encoded in an oracle. 
 
 Classically, finding an n-bit string requires n queries to the oracle. The Bernstein-Vazirani algorithm, however, finds the entire hidden string in a single quantum query! It does this by using a clever arrangement of Hadamard gates before and after the oracle, causing constructive interference exactly on the state that corresponds to the hidden string.`

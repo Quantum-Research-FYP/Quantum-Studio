@@ -111,35 +111,24 @@ export default function SignupPage() {
 
   return (
     <div className="auth-page">
-      <form className="auth-form" onSubmit={handleSubmit} noValidate>
-        <div className="auth-form__brand">
-          <div className="auth-form__logo" aria-hidden="true">
-            <svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <circle cx="20" cy="20" r="3.5" fill="currentColor" />
-              <ellipse cx="20" cy="20" rx="16" ry="5.5" stroke="currentColor" strokeWidth="1.5" />
-              <ellipse
-                cx="20"
-                cy="20"
-                rx="16"
-                ry="5.5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                transform="rotate(60 20 20)"
-              />
-              <ellipse
-                cx="20"
-                cy="20"
-                rx="16"
-                ry="5.5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                transform="rotate(120 20 20)"
-              />
-            </svg>
-          </div>
-          <h1 className="auth-form__title">Create account</h1>
-          <p className="auth-form__subtitle">Join Quantum Studio and start experimenting.</p>
+      <div className="auth-split-visual" aria-hidden="true">
+        <div className="auth-split-visual-content">
+          <h2 className="auth-split-visual-title">Quantum Experiment Studio</h2>
+          <p className="auth-split-visual-desc">
+            Design, simulate, and execute quantum circuits in a modern, collaborative environment.
+          </p>
         </div>
+      </div>
+      
+      <div className="auth-split-form">
+        <form className="auth-form" onSubmit={handleSubmit} noValidate>
+          <div className="auth-form__brand">
+            <div className="auth-form__logo" aria-hidden="true">
+              <img src="/favicon.png" alt="Quantum Studio Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            </div>
+            <h1 className="auth-form__title">Create account</h1>
+            <p className="auth-form__subtitle">Join Quantum Studio and start experimenting.</p>
+          </div>
 
         {error && (
           <div className="alert alert--error" role="alert">
@@ -282,6 +271,7 @@ export default function SignupPage() {
           </Link>
         </p>
       </form>
+      </div>
     </div>
   );
 }

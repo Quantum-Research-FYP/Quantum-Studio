@@ -36,14 +36,14 @@ const QasmIcon = () => (
 );
 
 const FileIcon = () => (
-  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#a1a1aa', flexShrink: 0 }}>
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-text-muted)', flexShrink: 0 }}>
     <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
     <polyline points="13 2 13 9 20 9"></polyline>
   </svg>
 );
 
 const FolderIcon = ({ open }: { open?: boolean }) => (
-  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#fbbf24', flexShrink: 0 }}>
+  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: 'var(--color-warning)', flexShrink: 0 }}>
     {open ? (
       <path d="M3 5v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2z" />
     ) : (
@@ -164,8 +164,8 @@ export default function FileExplorer({
           style={{
             display: 'flex', alignItems: 'center', padding: `4px 8px 4px ${paddingLeft}px`,
             cursor: 'pointer', fontSize: '0.85rem', userSelect: 'none',
-            backgroundColor: isActive ? 'var(--color-primary-dim)' : isHovered ? 'rgba(255, 255, 255, 0.05)' : 'transparent',
-            color: isActive ? '#fff' : isHovered ? '#e2e8f0' : 'var(--color-text-muted)',
+            backgroundColor: isActive ? 'var(--color-primary-dim)' : isHovered ? 'var(--color-surface-3)' : 'transparent',
+            color: isActive ? 'var(--color-primary)' : isHovered ? 'var(--color-text)' : 'var(--color-text-muted)',
             borderLeft: isActive ? '2px solid var(--color-primary)' : '2px solid transparent',
             position: 'relative',
             height: '28px'
@@ -188,8 +188,8 @@ export default function FileExplorer({
                 }}
                 onClick={e => e.stopPropagation()}
                 style={{ 
-                  flex: 1, minWidth: 0, background: '#09090b', color: '#fff', 
-                  border: '1px solid #3b82f6', outline: 'none', padding: '0 4px',
+                  flex: 1, minWidth: 0, background: 'var(--color-bg)', color: 'var(--color-text)', 
+                  border: '1px solid var(--color-primary)', outline: 'none', padding: '0 4px',
                   fontSize: '0.85rem', marginLeft: '-4px'
                 }}
               />
@@ -202,21 +202,21 @@ export default function FileExplorer({
 
           {/* Action buttons on hover */}
           {isHovered && !isEditing && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: isActive ? 'var(--color-primary-dim)' : '#1f1f22', paddingLeft: '4px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', background: isActive ? 'var(--color-primary-dim)' : 'var(--color-surface-2)', paddingLeft: '4px' }}>
               {isFolder && (
                 <>
-                  <button onClick={(e) => handleStartCreate('file', node.id, e)} title="New File" style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', padding: '2px' }}>
+                  <button onClick={(e) => handleStartCreate('file', node.id, e)} title="New File" style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '2px' }}>
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
                   </button>
-                  <button onClick={(e) => handleStartCreate('folder', node.id, e)} title="New Folder" style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', padding: '2px' }}>
+                  <button onClick={(e) => handleStartCreate('folder', node.id, e)} title="New Folder" style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '2px' }}>
                     <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
                   </button>
                 </>
               )}
-              <button onClick={(e) => handleStartRename(node.id, node.name, e)} title="Rename" style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', padding: '2px' }}>
+              <button onClick={(e) => handleStartRename(node.id, node.name, e)} title="Rename" style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '2px' }}>
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="16 3 21 8 8 21 3 21 3 16 16 3"></polygon></svg>
               </button>
-              <button onClick={(e) => { e.stopPropagation(); onDelete(node.id); }} title="Delete" style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '2px' }}>
+              <button onClick={(e) => { e.stopPropagation(); onDelete(node.id); }} title="Delete" style={{ background: 'none', border: 'none', color: 'var(--color-error)', cursor: 'pointer', padding: '2px' }}>
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
               </button>
             </div>
@@ -240,8 +240,8 @@ export default function FileExplorer({
                 }}
                 placeholder={creatingType === 'folder' ? "Folder name" : "File name"}
                 style={{ 
-                  flex: 1, minWidth: 0, background: '#09090b', color: '#fff', 
-                  border: '1px solid #3b82f6', outline: 'none', padding: '0 4px',
+                  flex: 1, minWidth: 0, background: 'var(--color-bg)', color: 'var(--color-text)', 
+                  border: '1px solid var(--color-primary)', outline: 'none', padding: '0 4px',
                   fontSize: '0.85rem'
                 }}
               />
@@ -268,18 +268,18 @@ export default function FileExplorer({
         style={{ 
           padding: '16px 16px 8px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', 
           letterSpacing: '0.05em', color: 'var(--color-text-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          position: 'sticky', top: 0, background: '#000', zIndex: 1
+          position: 'sticky', top: 0, background: 'var(--color-bg)', zIndex: 1
         }}
       >
         <span>Explorer</span>
         <div style={{ display: 'flex', gap: '4px' }}>
-          <button onClick={(e) => handleStartCreate('file', null, e)} title="New File" style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', padding: '2px' }}>
+          <button onClick={(e) => handleStartCreate('file', null, e)} title="New File" style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '2px' }}>
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
           </button>
-          <button onClick={(e) => handleStartCreate('folder', null, e)} title="New Folder" style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', padding: '2px' }}>
+          <button onClick={(e) => handleStartCreate('folder', null, e)} title="New Folder" style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '2px' }}>
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
           </button>
-          <button onClick={(e) => triggerImport(null, e)} title="Import File" style={{ background: 'none', border: 'none', color: '#a1a1aa', cursor: 'pointer', padding: '2px' }}>
+          <button onClick={(e) => triggerImport(null, e)} title="Import File" style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '2px' }}>
              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
           </button>
         </div>
@@ -302,8 +302,8 @@ export default function FileExplorer({
               }}
               placeholder={creatingType === 'folder' ? "Folder name" : "File name"}
               style={{ 
-                flex: 1, minWidth: 0, background: '#09090b', color: '#fff', 
-                border: '1px solid #3b82f6', outline: 'none', padding: '0 4px',
+                flex: 1, minWidth: 0, background: 'var(--color-bg)', color: 'var(--color-text)', 
+                border: '1px solid var(--color-primary)', outline: 'none', padding: '0 4px',
                 fontSize: '0.85rem'
               }}
             />
@@ -314,7 +314,7 @@ export default function FileExplorer({
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1px' }}>
         {rootNodes.map(node => renderNode(node))}
         {rootNodes.length === 0 && !creatingType && (
-          <div style={{ padding: '16px', color: '#a1a1aa', fontSize: '0.8rem', fontStyle: 'italic', textAlign: 'center' }}>
+          <div style={{ padding: '16px', color: 'var(--color-text-muted)', fontSize: '0.8rem', fontStyle: 'italic', textAlign: 'center' }}>
             No files. Create or import one.
           </div>
         )}

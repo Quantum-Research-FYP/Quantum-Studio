@@ -11,6 +11,31 @@ interface PlaybackControlsProps {
   onSeek: (step: number) => void;
 }
 
+const IconPlay = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <path d="M6 4l14 8-14 8V4z" />
+  </svg>
+);
+
+const IconPause = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <rect x="6" y="4" width="4" height="16" rx="1" />
+    <rect x="14" y="4" width="4" height="16" rx="1" />
+  </svg>
+);
+
+const IconStepBack = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <path d="M18 20L8 12l10-8v16zM4 19V5h3v14H4z" />
+  </svg>
+);
+
+const IconStepForward = () => (
+  <svg width="17" height="17" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+    <path d="M6 4l10 8-10 8V4zm11-1v14h3V3h-3z" />
+  </svg>
+);
+
 export default function PlaybackControls({
   currentStep,
   maxStep,
@@ -29,16 +54,17 @@ export default function PlaybackControls({
           onClick={onStepBack}
           disabled={currentStep === 0}
           title="Step Back"
+          aria-label="Step Back"
         >
-          ⏮
+          <IconStepBack />
         </button>
         {isPlaying ? (
-          <button className="playback-controls__btn" onClick={onPause} title="Pause">
-            ⏸
+          <button className="playback-controls__btn" onClick={onPause} title="Pause" aria-label="Pause">
+            <IconPause />
           </button>
         ) : (
-          <button className="playback-controls__btn" onClick={onPlay} title="Play">
-            ▶️
+          <button className="playback-controls__btn" onClick={onPlay} title="Play" aria-label="Play">
+            <IconPlay />
           </button>
         )}
         <button
@@ -46,8 +72,9 @@ export default function PlaybackControls({
           onClick={onStepForward}
           disabled={currentStep >= maxStep}
           title="Step Forward"
+          aria-label="Step Forward"
         >
-          ⏭
+          <IconStepForward />
         </button>
       </div>
 

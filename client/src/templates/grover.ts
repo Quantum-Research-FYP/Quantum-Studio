@@ -57,7 +57,7 @@ export const groverTemplate: TemplateDefinition = {
     shots: 1024,
   },
   learnMore: {
-    imageSrc: '/images/algorithms/grover.png',
+    imageSrc: '/images/algorithms/grover.jpg',
     longDescription: `Grover's Search Algorithm is a quantum algorithm that finds with high probability the unique input to a black box function that produces a particular output value. 
 
 While classical algorithms require O(N) operations to search an unstructured database, Grover's algorithm provides a quadratic speedup, solving the problem in O(√N) time. It works by using amplitude amplification to increase the probability of measuring the correct answer.`

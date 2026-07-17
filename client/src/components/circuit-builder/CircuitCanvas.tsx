@@ -7,7 +7,7 @@ import {
   PARAMETERIZED_GATES,
 } from '../../circuit';
 import AngleInputDialog from './AngleInputDialog';
-
+import { GATE_DESCRIPTIONS } from './GatePalette';
 /**
  * CircuitCanvas renders the quantum circuit as a grid/timeline.
  *
@@ -254,7 +254,7 @@ export default function CircuitCanvas({
             type="button"
             className={gateClass}
             onClick={(e) => handleGateClick(e, op)}
-            title={`${op.type} gate — click to delete${hasError ? ' (has validation error)' : ''}`}
+            data-tooltip={`${op.type} gate\n${GATE_DESCRIPTIONS[op.type] || ''}\n\n(Click to delete)${hasError ? '\n\n[!] Has validation error' : ''}`}
             aria-label={`${op.type} gate at ${wirePrefix === 'q' ? 'qubit' : 'classical bit'} ${wireIndex}, time ${time}. Click to delete.`}
             aria-invalid={hasError || undefined}
           >

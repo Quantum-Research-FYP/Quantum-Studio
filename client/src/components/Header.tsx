@@ -152,7 +152,7 @@ export default function Header() {
       <div className="app-sidebar__header">
         <Link to="/create" className="app-sidebar__brand">
           <div className="app-sidebar__logo">
-            <IconAtom />
+            <img src="/favicon.png" alt="Quantum Studio" style={{ width: 22, height: 22, objectFit: 'contain' }} />
           </div>
           <div className="app-sidebar__brand-text">
             <span className="app-sidebar__brand-name">Quantum</span>

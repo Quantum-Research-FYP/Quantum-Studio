@@ -49,7 +49,7 @@ export const deutschJozsaTemplate: TemplateDefinition = {
     shots: 1024,
   },
   learnMore: {
-    imageSrc: '/images/algorithms/deutsch-jozsa.png',
+    imageSrc: '/images/algorithms/deutsch-jozsa.jpg',
     longDescription: `The Deutsch-Jozsa algorithm was one of the first examples of a quantum algorithm that is exponentially faster than any possible deterministic classical algorithm. 
 
 It solves a specific black-box problem: determining if a given function (the "oracle") is either completely constant (returns the same value for all inputs) or balanced (returns 0 for half of inputs and 1 for the other half). A classical computer requires multiple queries, but this quantum algorithm solves it in a single query by exploiting quantum interference.`

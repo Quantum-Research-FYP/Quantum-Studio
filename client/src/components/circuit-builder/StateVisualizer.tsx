@@ -2,6 +2,7 @@ import ProbabilityBarChart from './ProbabilityBarChart';
 import QSphere from './QSphere';
 import DiracNotation from './DiracNotation';
 import PlaybackControls from './PlaybackControls';
+import MultiBlochPanel from './MultiBlochPanel';
 import type { Operation } from '../../circuit/types';
 
 interface StateVisualizerProps {
@@ -57,17 +58,22 @@ export default function StateVisualizer({
           onSeek={onSeek}
         />
 
+        <div className="state-visualizer__bloch">
+          <h4>Per-Qubit Bloch Spheres</h4>
+          <MultiBlochPanel amplitudes={currentAmplitudes} qubitCount={circuitQubits} />
+        </div>
+
+        <div className="state-visualizer__charts">
+          <ProbabilityBarChart amplitudes={currentAmplitudes} />
+          <QSphere amplitudes={currentAmplitudes} qubitCount={circuitQubits} />
+        </div>
+
         {/* Mathematical State — Dirac Notation Panel */}
         <DiracNotation
           amplitudes={currentAmplitudes}
           currentOperations={currentOperations}
           currentStep={currentStep}
         />
-
-        <div className="state-visualizer__charts">
-          <ProbabilityBarChart amplitudes={currentAmplitudes} />
-          <QSphere amplitudes={currentAmplitudes} qubitCount={circuitQubits} />
-        </div>
       </div>
     </div>
   );
