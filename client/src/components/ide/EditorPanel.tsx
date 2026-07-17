@@ -2,6 +2,7 @@ import { Editor, useMonaco } from '@monaco-editor/react';
 import { useEffect, useRef } from 'react';
 import { setupQasmLanguage } from '../../ide/qasm-language';
 import type { editor } from 'monaco-editor';
+import { useTheme } from '../../hooks/useTheme';
 
 interface EditorPanelProps {
   code: string;
@@ -13,6 +14,7 @@ interface EditorPanelProps {
 export default function EditorPanel({ code, language, onChange, error }: EditorPanelProps) {
   const monaco = useMonaco();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const { theme } = useTheme();
 
   // Set up custom QASM language when monaco is available
   useEffect(() => {
@@ -48,7 +50,7 @@ export default function EditorPanel({ code, language, onChange, error }: EditorP
       <Editor
         height="100%"
         language={language}
-        theme="vs-dark"
+        theme={theme === 'dark' ? 'vs-dark' : 'light'}
         value={code}
         onChange={onChange}
         onMount={(editor) => {
