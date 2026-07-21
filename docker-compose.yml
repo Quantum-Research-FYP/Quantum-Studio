@@ -19,7 +19,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=1
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('https://quantum-studio.onrender.com/health')"]
       interval: 15s
       timeout: 10s
       retries: 5
