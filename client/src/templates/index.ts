@@ -6,6 +6,9 @@ import { ghzStateTemplate } from './ghz-state';
 import { superpositionTemplate } from './superposition';
 import { deutschJozsaTemplate } from './deutsch-jozsa';
 import { bernsteinVaziraniTemplate } from './bernstein-vazirani';
+import { quantumTeleportationTemplate } from './quantum-teleportation';
+import { superdenseCodingTemplate } from './superdense-coding';
+import { qftTemplate } from './qft';
 
 export type { TemplateDefinition, TemplateCircuit, ExecutionConfig, TemplateOperation } from './types';
 
@@ -14,6 +17,9 @@ const TEMPLATES: readonly TemplateDefinition[] = [
   superpositionTemplate,
   bellStateTemplate,
   ghzStateTemplate,
+  quantumTeleportationTemplate,
+  superdenseCodingTemplate,
+  qftTemplate,
   groverTemplate,
   deutschJozsaTemplate,
   bernsteinVaziraniTemplate,
