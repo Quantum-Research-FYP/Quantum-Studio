@@ -64,7 +64,7 @@ const IBM_TRANSPILE_TIMEOUT_MS = parseInt(process.env.IBM_TRANSPILE_TIMEOUT_MS |
 
 
 /** URL of the Python simulation micro-service (same host, port 8000 by default). */
-const SIMULATION_SERVICE_URL = process.env.SIMULATION_SERVICE_URL || 'http://localhost:8000';
+const SIMULATION_SERVICE_URL = process.env.SIMULATION_SERVICE_URL ;
 
 function isRealMode(): boolean {
   return process.env.ENABLE_IBM_QUANTUM === 'true';
