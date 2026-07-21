@@ -64,7 +64,9 @@ const IBM_TRANSPILE_TIMEOUT_MS = parseInt(process.env.IBM_TRANSPILE_TIMEOUT_MS |
 
 
 /** URL of the Python simulation micro-service (same host, port 8000 by default). */
-const SIMULATION_SERVICE_URL = process.env.SIMULATION_SERVICE_URL ;
+function getSimulationServiceUrl(): string {
+  return process.env.SIMULATION_SERVICE_URL || 'http://localhost:8000';
+}
 
 function isRealMode(): boolean {
   return process.env.ENABLE_IBM_QUANTUM === 'true';
@@ -216,7 +218,7 @@ async function transpileForIbm(
   backend: string,
   ibmAuth?: IbmTranspileAuth,
 ): Promise<IbmClientResult<SimServiceTranspileResult>> {
-  const url = `${SIMULATION_SERVICE_URL}/transpile-ibm`;
+  const url = `${getSimulationServiceUrl()}/transpile-ibm`;
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), IBM_TRANSPILE_TIMEOUT_MS);
@@ -405,7 +407,7 @@ export function createIbmClient() {
       // ------------------------------------------------------------------
       try {
         console.log(`[ibm-client] Job ${providerJobId} is completed. Requesting python service to fetch results...`);
-        const url = `${SIMULATION_SERVICE_URL}/ibm-job-result`;
+        const url = `${getSimulationServiceUrl()}/ibm-job-result`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), IBM_TRANSPILE_TIMEOUT_MS);
         
