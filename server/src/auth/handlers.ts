@@ -320,7 +320,7 @@ export function createAuthHandlers(pool: Db) {
           }),
         });
         
-        const tokenData = await tokenRes.json();
+        const tokenData = await tokenRes.json() as any;
         if (!tokenRes.ok) {
           throw new Error(tokenData.error_description || tokenData.error || 'Failed to exchange code');
         }
@@ -329,7 +329,7 @@ export function createAuthHandlers(pool: Db) {
           headers: { Authorization: `Bearer ${tokenData.access_token}` },
         });
         
-        const userData = await userRes.json();
+        const userData = await userRes.json() as any;
         if (!userRes.ok) {
           throw new Error(userData.error?.message || 'Failed to fetch user profile');
         }
@@ -426,7 +426,7 @@ export function createAuthHandlers(pool: Db) {
           }),
         });
         
-        const tokenData = await tokenRes.json();
+        const tokenData = await tokenRes.json() as any;
         if (tokenData.error) {
           throw new Error(tokenData.error_description || tokenData.error);
         }
@@ -437,7 +437,7 @@ export function createAuthHandlers(pool: Db) {
             Accept: 'application/json',
           },
         });
-        const userData = await userRes.json();
+        const userData = await userRes.json() as any;
         
         const emailsRes = await fetch('https://api.github.com/user/emails', {
           headers: {
@@ -445,7 +445,7 @@ export function createAuthHandlers(pool: Db) {
             Accept: 'application/json',
           },
         });
-        const emailsData = await emailsRes.json();
+        const emailsData = await emailsRes.json() as any;
         
         const primaryEmailObj = emailsData.find((e: any) => e.primary) || emailsData[0];
         if (!primaryEmailObj || !primaryEmailObj.email) {
