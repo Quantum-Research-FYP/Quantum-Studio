@@ -145,7 +145,7 @@ async function runPythonSimulation(
   codeType: CodeType = 'qasm',
   noiseConfig?: Record<string, any>
 ): Promise<SimulationResult> {
-  const serviceUrl = (process.env.SIM_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
+  const serviceUrl = (process.env.SIMULATION_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
