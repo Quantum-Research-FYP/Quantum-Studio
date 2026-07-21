@@ -266,5 +266,236 @@ export function createAuthHandlers(pool: Db) {
         res.status(500).send('An unexpected error occurred during Moodle SSO authentication.');
       }
     },
+    /** GET /api/auth/google */
+    async googleAuth(req: Request, res: Response): Promise<void> {
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      if (!clientId) {
+        res.status(500).json({ error: 'Google SSO is not configured.' });
+        return;
+      }
+      
+      const appUrl = process.env.APP_URL || 'http://localhost:5173';
+      const redirectUri = `${appUrl}/api/auth/google/callback`;
+      
+      const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+      url.searchParams.set('client_id', clientId);
+      url.searchParams.set('redirect_uri', redirectUri);
+      url.searchParams.set('response_type', 'code');
+      url.searchParams.set('scope', 'email profile');
+      url.searchParams.set('access_type', 'offline');
+      url.searchParams.set('prompt', 'consent');
+      
+      res.redirect(url.toString());
+    },
+
+    /** GET /api/auth/google/callback */
+    async googleCallback(req: Request, res: Response): Promise<void> {
+      const { code, error } = req.query;
+      
+      const appUrl = process.env.APP_URL || 'http://localhost:5173';
+      
+      if (error) {
+        res.redirect(`${appUrl}/login?error=google_sso_failed`);
+        return;
+      }
+      if (!code || typeof code !== 'string') {
+        res.status(400).send('Invalid request');
+        return;
+      }
+      
+      const clientId = process.env.GOOGLE_CLIENT_ID;
+      const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+      const redirectUri = `${appUrl}/api/auth/google/callback`;
+      
+      try {
+        const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            code,
+            client_id: clientId!,
+            client_secret: clientSecret!,
+            redirect_uri: redirectUri,
+            grant_type: 'authorization_code',
+          }),
+        });
+        
+        const tokenData = await tokenRes.json();
+        if (!tokenRes.ok) {
+          throw new Error(tokenData.error_description || tokenData.error || 'Failed to exchange code');
+        }
+        
+        const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+          headers: { Authorization: `Bearer ${tokenData.access_token}` },
+        });
+        
+        const userData = await userRes.json();
+        if (!userRes.ok) {
+          throw new Error(userData.error?.message || 'Failed to fetch user profile');
+        }
+        
+        const email = normalizeEmail(userData.email);
+        const googleId = userData.id;
+        
+        let user = await users.findOne({ email });
+        const now = new Date();
+        
+        if (!user) {
+          const userId = uuid();
+          user = {
+            _id: userId,
+            email,
+            passwordHash: null,
+            googleUserId: googleId,
+            firstname: userData.given_name || '',
+            lastname: userData.family_name || '',
+            lastLoginAt: now,
+            schemaVersion: 1,
+            createdAt: now,
+            updatedAt: now,
+          };
+          await users.insertOne(user);
+        } else {
+          await users.updateOne(
+            { _id: user._id },
+            {
+              $set: {
+                lastLoginAt: now,
+                googleUserId: googleId,
+                updatedAt: now,
+              },
+            }
+          );
+        }
+        
+        await createSession(pool, user._id as string, req, res);
+        res.redirect(appUrl);
+      } catch (err) {
+        console.error('Google SSO Callback error:', err);
+        res.redirect(`${appUrl}/login?error=google_sso_error`);
+      }
+    },
+
+    /** GET /api/auth/github */
+    async githubAuth(req: Request, res: Response): Promise<void> {
+      const clientId = process.env.GITHUB_CLIENT_ID;
+      if (!clientId) {
+        res.status(500).json({ error: 'GitHub SSO is not configured.' });
+        return;
+      }
+      
+      const appUrl = process.env.APP_URL || 'http://localhost:5173';
+      const redirectUri = `${appUrl}/api/auth/github/callback`;
+      
+      const url = new URL('https://github.com/login/oauth/authorize');
+      url.searchParams.set('client_id', clientId);
+      url.searchParams.set('redirect_uri', redirectUri);
+      url.searchParams.set('scope', 'user:email');
+      
+      res.redirect(url.toString());
+    },
+
+    /** GET /api/auth/github/callback */
+    async githubCallback(req: Request, res: Response): Promise<void> {
+      const { code, error } = req.query;
+      const appUrl = process.env.APP_URL || 'http://localhost:5173';
+      
+      if (error) {
+        res.redirect(`${appUrl}/login?error=github_sso_failed`);
+        return;
+      }
+      if (!code || typeof code !== 'string') {
+        res.status(400).send('Invalid request');
+        return;
+      }
+      
+      const clientId = process.env.GITHUB_CLIENT_ID;
+      const clientSecret = process.env.GITHUB_CLIENT_SECRET;
+      
+      try {
+        const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            client_id: clientId,
+            client_secret: clientSecret,
+            code,
+          }),
+        });
+        
+        const tokenData = await tokenRes.json();
+        if (tokenData.error) {
+          throw new Error(tokenData.error_description || tokenData.error);
+        }
+        
+        const userRes = await fetch('https://api.github.com/user', {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+            Accept: 'application/json',
+          },
+        });
+        const userData = await userRes.json();
+        
+        const emailsRes = await fetch('https://api.github.com/user/emails', {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+            Accept: 'application/json',
+          },
+        });
+        const emailsData = await emailsRes.json();
+        
+        const primaryEmailObj = emailsData.find((e: any) => e.primary) || emailsData[0];
+        if (!primaryEmailObj || !primaryEmailObj.email) {
+          throw new Error('No email found for GitHub user');
+        }
+        
+        const email = normalizeEmail(primaryEmailObj.email);
+        const githubId = String(userData.id);
+        
+        let user = await users.findOne({ email });
+        const now = new Date();
+        
+        if (!user) {
+          const userId = uuid();
+          const nameParts = (userData.name || '').split(' ');
+          const firstname = nameParts[0] || '';
+          const lastname = nameParts.slice(1).join(' ') || '';
+          
+          user = {
+            _id: userId,
+            email,
+            passwordHash: null,
+            githubUserId: githubId,
+            firstname,
+            lastname,
+            lastLoginAt: now,
+            schemaVersion: 1,
+            createdAt: now,
+            updatedAt: now,
+          };
+          await users.insertOne(user);
+        } else {
+          await users.updateOne(
+            { _id: user._id },
+            {
+              $set: {
+                lastLoginAt: now,
+                githubUserId: githubId,
+                updatedAt: now,
+              },
+            }
+          );
+        }
+        
+        await createSession(pool, user._id as string, req, res);
+        res.redirect(appUrl);
+      } catch (err) {
+        console.error('GitHub SSO Callback error:', err);
+        res.redirect(`${appUrl}/login?error=github_sso_error`);
+      }
+    },
   };
 }

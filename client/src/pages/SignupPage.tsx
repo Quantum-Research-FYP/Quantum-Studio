@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/ui/Button';
+import { GoogleIcon, GitHubIcon } from '../components/ui/Icons';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 12;
@@ -263,6 +264,29 @@ export default function SignupPage() {
         >
           {submitting ? 'Creating account…' : 'Create account'}
         </Button>
+
+        <div className="auth-divider">
+          <span>or continue with</span>
+        </div>
+        
+        <div className="auth-sso-buttons">
+          <button
+            type="button"
+            className="auth-sso-btn"
+            onClick={() => window.location.href = '/api/auth/google'}
+          >
+            <GoogleIcon />
+            Google
+          </button>
+          <button
+            type="button"
+            className="auth-sso-btn"
+            onClick={() => window.location.href = '/api/auth/github'}
+          >
+            <GitHubIcon />
+            GitHub
+          </button>
+        </div>
 
         <p className="auth-form__footer">
           Already have an account?{' '}

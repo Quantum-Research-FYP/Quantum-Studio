@@ -11,6 +11,9 @@ export function createAuthRouter(pool: Db): Router {
   router.post('/logout', handlers.logout);
   router.get('/me', handlers.me);
   router.post('/moodle/callback', handlers.moodleCallback);
-
+  router.get('/google', handlers.googleAuth);
+  router.get('/google/callback', handlers.googleCallback);
+  router.get('/github', handlers.githubAuth);
+  router.get('/github/callback', handlers.githubCallback);
   return router;
 }
