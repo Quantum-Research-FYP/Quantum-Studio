@@ -46,6 +46,8 @@ uvicorn main:app --port 8000 --reload
 
 The service will be available at `http://localhost:8000`. You can view the automatically generated API documentation by visiting `http://localhost:8000/docs` in your browser.
 
+The service accepts cross-origin browser requests by default so integrations such as Moodle plugins can call `/simulate` without failing the CORS preflight. If you want to restrict that later, set `CORS_ALLOW_ORIGINS` to a comma-separated list of allowed origins before starting the server.
+
 ## Running with Docker
 
 Alternatively, you can run the service using Docker. 

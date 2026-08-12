@@ -16,6 +16,7 @@ Request body for /simulate:
     the code must define a `qc` QuantumCircuit variable
 """
 
+import os
 import re
 import time as _time
 import hashlib
@@ -23,6 +24,7 @@ import builtins as _builtins_module
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 try:
@@ -31,6 +33,26 @@ except ImportError:
     pass
 
 app = FastAPI(title="Quantum Simulation Service", version="1.1.0")
+
+_cors_origins_env = os.getenv("CORS_ALLOW_ORIGINS", "*")
+_cors_origins = [origin.strip() for origin in _cors_origins_env.split(",") if origin.strip()]
+
+if _cors_origins == ["*"]:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_methods=["*"],
+        allow_headers=["*"],
+        allow_credentials=False,
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=_cors_origins,
+        allow_methods=["*"],
+        allow_headers=["*"],
+        allow_credentials=False,
+    )
 
 # ---------------------------------------------------------------------------
 # Restricted execution sandbox for Python mode
