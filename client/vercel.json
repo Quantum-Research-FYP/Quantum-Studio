@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://quantum-studio-1.onrender.com/api/:path*"
+      "destination": "https://quantum-studio-3.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
