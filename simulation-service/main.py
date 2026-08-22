@@ -59,7 +59,7 @@ else:
 # ---------------------------------------------------------------------------
 
 _ALLOWED_MODULES = frozenset({
-    'qiskit', 'qiskit_aer', 'qiskit_ibm_runtime',
+    'qiskit', 'qiskit_aer', 'qiskit_ibm_runtime', 'spinqit',
     'numpy', 'math', 'cmath',
     'collections', 'itertools', 'functools',
 })
@@ -110,6 +110,8 @@ class SimulateRequest(BaseModel):
     shots: int = Field(..., ge=1, le=100_000, description="Number of shots (1–100 000)")
     mode: Literal["qasm", "python"] = Field("qasm", description="Input mode: qasm (default) or python")
     noiseConfig: dict[str, Any] | None = Field(None, description="Optional noise configuration")
+    provider: Literal["local", "spinq"] = Field("local", description="Backend provider: local or spinq")
+    spinqConfig: dict[str, Any] | None = Field(None, description="Optional SpinQ QC configuration")
 
 
 class TranspileIbmRequest(BaseModel):
@@ -714,22 +716,31 @@ def simulate(req: SimulateRequest):
         )
 
     if req.mode == "python":
-        counts, backend_name, duration_ms = _run_python_mode(req.qasm, req.shots, req.noiseConfig)
+        counts, backend_name, duration_ms = _run_python_mode(req.qasm, req.shots, req.noiseConfig, req.provider, req.spinqConfig)
     else:
-        try:
-            circuit = _parse_qasm(req.qasm)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={"errorCode": "VALIDATION_SYNTAX", "message": _sanitize(str(exc))},
-            )
-        try:
-            counts, backend_name, duration_ms = _run_simulation(circuit, req.shots, req.noiseConfig)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=500,
-                detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
-            )
+        if req.provider == "spinq":
+            try:
+                counts, backend_name, duration_ms = _run_spinq_simulation(req.qasm, req.shots, req.spinqConfig)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=500,
+                    detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
+                )
+        else:
+            try:
+                circuit = _parse_qasm(req.qasm)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"errorCode": "VALIDATION_SYNTAX", "message": _sanitize(str(exc))},
+                )
+            try:
+                counts, backend_name, duration_ms = _run_simulation(circuit, req.shots, req.noiseConfig)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=500,
+                    detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
+                )
 
     return SimulateResponse(
         counts=counts,
@@ -746,8 +757,8 @@ def simulate(req: SimulateRequest):
 # Python sandbox executor
 # ---------------------------------------------------------------------------
 
-def _run_python_mode(code: str, shots: int, noiseConfig: dict | None = None) -> tuple:
-    """Execute Qiskit Python in a restricted sandbox, then simulate the circuit."""
+def _run_python_mode(code: str, shots: int, noiseConfig: dict | None = None, provider: str = "local", spinqConfig: dict | None = None) -> tuple:
+    """Execute Python in a restricted sandbox, then simulate the circuit."""
     # Compile first for clean syntax error reporting
     try:
         compiled = compile(code, '<user_circuit>', 'exec')
@@ -775,7 +786,25 @@ def _run_python_mode(code: str, shots: int, noiseConfig: dict | None = None) -> 
             detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
         )
 
-    # Expect a `qc` variable holding a QuantumCircuit
+    if provider == "spinq":
+        if 'counts' in namespace and isinstance(namespace['counts'], dict):
+            return namespace['counts'], "spinq_python_script", 0
+        if 'result' in namespace and hasattr(namespace['result'], 'counts'):
+            return namespace['result'].counts, "spinq_python_script", 0
+        if 'circ' in namespace:
+            return _execute_spinq_circuit(namespace['circ'], shots, spinqConfig)
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "errorCode": "VALIDATION_NO_CIRCUIT",
+                "message": (
+                    "Your SpinQ code must define a variable named 'circ' (Circuit), "
+                    "or perform execution and save 'counts' or 'result'."
+                ),
+            },
+        )
+
+    # Expect a `qc` variable holding a QuantumCircuit for Qiskit local provider
     qc = namespace.get('qc')
     if qc is None:
         raise HTTPException(
@@ -795,8 +824,8 @@ def _run_python_mode(code: str, shots: int, noiseConfig: dict | None = None) -> 
             raise HTTPException(
                 status_code=422,
                 detail={
-                    "errorCode": "VALIDATION_NO_CIRCUIT",
-                    "message": f"'qc' must be a QuantumCircuit, got {type(qc).__name__}.",
+                    "errorCode": "VALIDATION_TYPE_ERROR",
+                    "message": "The variable 'qc' is not a valid Qiskit QuantumCircuit.",
                 },
             )
     except ImportError:
@@ -1037,6 +1066,76 @@ def _parse_qasm(qasm_text: str):
         pass
 
     return qasm2.loads(qasm_text)
+
+
+def _execute_spinq_circuit(circuit, shots: int, spinq_config: dict | None = None) -> tuple:
+    start = _time.monotonic()
+    from spinqit import get_compiler, get_nmr, NMRConfig
+
+    compiler = get_compiler("native")
+    exe = compiler.compile(circuit, 1)
+
+    engine = get_nmr()
+    config = NMRConfig()
+    
+    if spinq_config:
+        if spinq_config.get("ip"):
+            config.configure_ip(spinq_config["ip"])
+        if spinq_config.get("port"):
+            config.configure_port(spinq_config["port"])
+        if spinq_config.get("username") and spinq_config.get("password"):
+            config.configure_account(spinq_config["username"], spinq_config["password"])
+    else:
+        # Fallback to defaults
+        config.configure_ip("172.31.80.238")
+        config.configure_port(8989)
+        config.configure_account("GamithChanuka", "123Samsung@")
+        
+    config.configure_task("qs_task", "Generated from Quantum Studio")
+    config.configure_shots(shots)
+
+    result = engine.execute(exe, config)
+    end = _time.monotonic()
+    return result.counts, "spinq_gemini_mini_pro", int((end - start) * 1000)
+
+def _run_spinq_simulation(qasm_text: str, shots: int, spinq_config: dict | None = None) -> tuple:
+    try:
+        from spinqit import Circuit
+    except ImportError:
+        raise RuntimeError("spinqit library is not installed. Please install it to use the SpinQ backend.")
+    
+    circuit = None
+    # 1. Try to load QASM using qiskit -> spinqit if possible
+    try:
+        from qiskit import QuantumCircuit
+        qc = QuantumCircuit.from_qasm_str(qasm_text)
+        from spinqit.interface.qiskit import to_spinqit
+        circuit = to_spinqit(qc)
+    except Exception:
+        pass
+
+    # 2. Try direct parser
+    if circuit is None:
+        try:
+            if hasattr(Circuit, 'from_qasm_str'):
+                circuit = Circuit.from_qasm_str(qasm_text)
+            elif hasattr(Circuit, 'from_qasm'):
+                circuit = Circuit.from_qasm(qasm_text)
+        except Exception:
+            pass
+
+    # 3. Try to parse using a generic qasm load
+    if circuit is None:
+        try:
+            import spinqit.qasm as sqasm
+            circuit = sqasm.loads(qasm_text)
+        except Exception:
+            pass
+            
+    if circuit is None:
+        raise RuntimeError("Could not parse OpenQASM 2.0 into a SpinQit Circuit. Please ensure SpinQit supports QASM loading or write native Python SpinQit code.")
+        
+    return _execute_spinq_circuit(circuit, shots, spinq_config)
 
 
 def _run_simulation(circuit, shots: int, noiseConfig: dict | None = None) -> tuple:

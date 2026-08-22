@@ -23,6 +23,8 @@ export interface ExecutionConfig {
   shots: number;
   /** Simulator backend identifier (optional, uses server default if omitted). */
   backend?: string;
+  /** Provider for the simulation (optional). */
+  provider?: 'local' | 'spinq' | 'ibm';
 }
 
 /**

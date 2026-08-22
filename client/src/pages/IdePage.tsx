@@ -146,7 +146,7 @@ export default function IdePage() {
   // Settings State
   const [shots, setShots] = useState(1024);
   const [providers, setProviders] = useState<ExecutionProvider[]>([]);
-  const [selectedProvider, setSelectedProvider] = useState<'simulator' | 'ibm_quantum'>('simulator');
+  const [selectedProvider, setSelectedProvider] = useState<'simulator' | 'ibm_quantum' | 'spinq'>('simulator');
   const [ibmBackends, setIbmBackends] = useState<IbmBackend[]>([]);
   const [selectedBackend, setSelectedBackend] = useState('');
   const [credentialStatus, setCredentialStatus] = useState<'unknown' | 'missing' | 'invalid' | 'valid'>('unknown');
@@ -375,6 +375,7 @@ export default function IdePage() {
             >
               <option value="simulator">Local Simulator</option>
               {ibmAvailable && <option value="ibm_quantum">IBM Quantum</option>}
+              <option value="spinq">SpinQ Gemini Mini Pro</option>
             </select>
             {selectedProvider === 'ibm_quantum' && credentialStatus !== 'valid' && (
               <div style={{ fontSize: '0.75rem', color: 'var(--color-error)', marginTop: '4px' }}>

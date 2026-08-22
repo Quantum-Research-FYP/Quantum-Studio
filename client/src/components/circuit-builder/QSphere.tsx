@@ -147,7 +147,16 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
   return (
     <div className="qsphere">
       <div className="qsphere__header">
-        <span className="qsphere__title">Q-Sphere</span>
+        <span className="qsphere__title">
+          Q-Sphere
+          <button 
+            className="info-btn" 
+            data-tooltip="Visualizes the multi-qubit quantum state where the radius indicates probability and color represents the phase."
+            aria-label="Info"
+          >
+            !
+          </button>
+        </span>
       </div>
       <div className="qsphere__canvas-wrapper">
         <svg 

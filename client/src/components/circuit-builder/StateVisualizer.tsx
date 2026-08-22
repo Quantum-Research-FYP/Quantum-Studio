@@ -59,7 +59,16 @@ export default function StateVisualizer({
         />
 
         <div className="state-visualizer__bloch">
-          <h4>Per-Qubit Bloch Spheres</h4>
+          <h4>
+            Per-Qubit Bloch Spheres
+            <button 
+              className="info-btn" 
+              data-tooltip="Visualizes the state of individual qubits on the Bloch sphere."
+              aria-label="Info"
+            >
+              !
+            </button>
+          </h4>
           <MultiBlochPanel amplitudes={currentAmplitudes} qubitCount={circuitQubits} />
         </div>
 

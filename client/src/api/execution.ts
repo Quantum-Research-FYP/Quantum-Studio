@@ -45,7 +45,7 @@ export interface ExecutionJobResponse {
 }
 
 export interface SubmitExecutionJobInput {
-  provider: 'simulator' | 'ibm_quantum';
+  provider: 'simulator' | 'ibm_quantum' | 'spinq';
   backend?: string;
   qasm: string;
   shots: number;

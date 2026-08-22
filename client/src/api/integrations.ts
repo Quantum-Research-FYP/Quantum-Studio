@@ -63,3 +63,31 @@ export function deleteIbmSettings(): Promise<void> {
     method: 'DELETE',
   });
 }
+
+// ---------------------------------------------------------------------------
+// SpinQ Quantum Settings
+// ---------------------------------------------------------------------------
+
+export interface SpinqSettingsResponse {
+  settings: {
+    id: string;
+    userId: string;
+    ip: string;
+    port: number;
+    username: string;
+    hasPassword: boolean;
+    createdAt: string;
+    updatedAt: string;
+  };
+}
+
+export function saveSpinqSettings(ip: string, port: number, username: string, password?: string): Promise<SpinqSettingsResponse> {
+  return request('/api/integrations/spinq/settings', {
+    method: 'POST',
+    body: JSON.stringify({ ip, port, username, password }),
+  });
+}
+
+export function getSpinqSettings(): Promise<SpinqSettingsResponse> {
+  return request('/api/integrations/spinq/settings');
+}

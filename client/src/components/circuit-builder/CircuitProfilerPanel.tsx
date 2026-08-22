@@ -33,7 +33,17 @@ export default function CircuitProfilerPanel({ circuit }: CircuitProfilerPanelPr
   return (
     <div className="profiler-panel">
       <div className="profiler-panel__header">
-        <h3 className="profiler-panel__title">Circuit Profiler & Cost</h3>
+        <h3 className="profiler-panel__title">
+          Circuit Profiler & Cost
+          <button 
+            className="info-btn" 
+            data-tooltip="Analyzes the circuit to estimate execution cost, gate depth, and potential fidelity on real quantum hardware."
+            data-tooltip-pos="left"
+            aria-label="Info"
+          >
+            !
+          </button>
+        </h3>
       </div>
       
       <div className="profiler-panel__metrics">

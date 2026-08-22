@@ -165,14 +165,14 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
       }
 
       // Simulator path: delegate to existing simulation job creation
-      if (!provider || provider === 'simulator') {
+      if (!provider || provider === 'simulator' || provider === 'spinq') {
         const job = await jobRepo.createJob({
           userId,
           qasmInput: qasm,
           codeType: resolvedCodeType,
           shots,
           backend: backend || 'aer_simulator',
-          provider: 'simulator',
+          provider: provider || 'simulator',
           limitsSnapshot: {},
           idempotencyKey,
         });

@@ -286,6 +286,13 @@ export default function DiracNotation({
         <span className="dirac-notation__title">
           <span className="dirac-notation__icon">∑</span>
           Mathematical State
+          <button 
+            className="info-btn" 
+            data-tooltip="Displays the quantum state vector and active gate matrices in mathematical Dirac notation."
+            aria-label="Info"
+          >
+            !
+          </button>
         </span>
         <span className="dirac-notation__step-badge">
           Step {currentStep}

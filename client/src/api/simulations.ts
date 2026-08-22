@@ -68,6 +68,7 @@ export interface SubmitJobInput {
   qasm: string;
   shots: number;
   mode?: 'qasm' | 'python';
+  provider?: 'local' | 'spinq' | 'ibm';
   idempotencyKey?: string;
   noiseConfig?: NoiseConfig;
 }

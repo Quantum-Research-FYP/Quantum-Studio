@@ -11,6 +11,7 @@ import {
   generatePennyLaneCode,
   generateBraketCode,
   generateTketCode,
+  generateSpinqitCode,
   getDependentOperations,
   placeGate,
   removeWireWithDependents,
@@ -24,7 +25,6 @@ import CodePanel from '../components/circuit-builder/CodePanel';
 import type { Framework } from '../components/circuit-builder/CodePanel';
 import ValidationSummaryPanel from '../components/circuit-builder/ValidationSummaryPanel';
 import CircuitProfilerPanel from '../components/circuit-builder/CircuitProfilerPanel';
-import ExportControls from '../components/circuit-builder/ExportControls';
 import AiDraftPanel from '../components/circuit-builder/AiDraftPanel';
 import AiImportBanner from '../components/circuit-builder/AiImportBanner';
 import type { AiImportInfo } from '../components/circuit-builder/AiImportBanner';
@@ -187,8 +187,12 @@ export default function CircuitBuilderPage() {
     const qasm = generateOpenQasm(circuit);
     if (!qasm) return;
 
-    await simulation.submit({ qasm, shots: executionConfig.shots });
-  }, [circuit, executionConfig.shots, simulation]);
+    await simulation.submit({ 
+      qasm, 
+      shots: executionConfig.shots,
+      provider: executionConfig.provider || 'local'
+    });
+  }, [circuit, executionConfig.shots, executionConfig.provider, simulation]);
 
   // Navigate to results page once a job is created and submission is complete
   useEffect(() => {
@@ -228,6 +232,7 @@ export default function CircuitBuilderPage() {
       case 'pennylane': return generatePennyLaneCode(circuit);
       case 'braket': return generateBraketCode(circuit);
       case 'tket': return generateTketCode(circuit);
+      case 'spinqit': return generateSpinqitCode(circuit);
       case 'qasm': return generateOpenQasm(circuit) || '# Add qubits and gates to generate OpenQASM code';
       case 'qiskit':
       default: return generateQiskitCode(circuit);
@@ -305,12 +310,6 @@ export default function CircuitBuilderPage() {
           onRemoveClbit={handleRemoveClbit}
         />
         <UndoRedoControls canUndo={canUndo} canRedo={canRedo} onUndo={undo} onRedo={redo} />
-        <ExportControls
-          code={code}
-          hasErrors={errors.length > 0}
-          hasGates={circuit.operations.length > 0}
-          framework={exportFramework}
-        />
         <button
           className={`ai-chat-trigger${showAiPanel ? ' ai-chat-trigger--active' : ''}`}
           onClick={() => setShowAiPanel((prev) => !prev)}
@@ -342,6 +341,17 @@ export default function CircuitBuilderPage() {
               Save As
             </button>
           )}
+          <select
+            className="toolbar-selector"
+            style={{ width: 'auto' }}
+            value={executionConfig.provider || 'local'}
+            onChange={(e) => setExecutionConfig({ ...executionConfig, provider: e.target.value as 'local' | 'spinq' | 'ibm' })}
+            aria-label="Select Backend Provider"
+          >
+            <option value="local">Local Simulator</option>
+            <option value="ibm">IBM Quantum</option>
+            <option value="spinq">SpinQ Gemini Mini Pro</option>
+          </select>
           <button
             className="btn btn--primary btn--sm"
             onClick={handleRun}

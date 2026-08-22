@@ -85,7 +85,16 @@ interface GatePaletteProps {
 export default function GatePalette({ selectedGate, onSelectGate }: GatePaletteProps) {
   return (
     <aside className="gate-palette" aria-label="Gate palette">
-      <h3 className="gate-palette__title">Gates</h3>
+      <h3 className="gate-palette__title">
+        Gates
+        <button 
+          className="info-btn" 
+          data-tooltip="Select and place quantum gates onto the circuit wires."
+          aria-label="Info"
+        >
+          !
+        </button>
+      </h3>
       {GATE_CATEGORIES.map(({ title, gates }) => (
         <div key={title} className="gate-palette__category">
           <span className="gate-palette__category-label">{title}</span>

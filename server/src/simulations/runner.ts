@@ -1,5 +1,6 @@
 import type { Db } from 'mongodb';
 import { createSimulationRepository } from './repository.js';
+import { createSpinqRepository } from '../integrations/spinq-repository.js';
 import type { CodeType } from './repository.js';
 import { getResourceLimits } from './validation.js';
 
@@ -16,6 +17,7 @@ interface RunnerOptions {
  */
 export function createJobRunner(pool: Db, options?: RunnerOptions) {
   const repo = createSimulationRepository(pool);
+  const spinqRepo = createSpinqRepository(pool);
   const maxConcurrent =
     parseInt(process.env.SIM_MAX_CONCURRENT_JOBS || '', 10) || options?.maxConcurrent || 2;
   const pollIntervalMs = options?.pollIntervalMs ?? 1000;
@@ -34,7 +36,7 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
 
       activeJobs++;
       // Run asynchronously — don't await, so we can dequeue multiple jobs
-      executeJob(job.id, job.qasmInput, job.shots, job.codeType ?? 'qasm', job.noiseConfig).finally(() => {
+      executeJob(job.userId, job.id, job.qasmInput, job.shots, job.codeType ?? 'qasm', job.noiseConfig, job.provider).finally(() => {
         activeJobs--;
         // After a job finishes, immediately check for more work
         if (!stopped) tryProcessQueue().catch(logError);
@@ -43,12 +45,20 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
   }
 
   /** Execute a single simulation job via Python subprocess. */
-  async function executeJob(jobId: string, qasmInput: string, shots: number, codeType: CodeType = 'qasm', noiseConfig?: Record<string, any>): Promise<void> {
+  async function executeJob(userId: string, jobId: string, qasmInput: string, shots: number, codeType: CodeType = 'qasm', noiseConfig?: Record<string, any>, provider?: string): Promise<void> {
     const limits = getResourceLimits();
     const timeoutMs = limits.maxExecutionTimeSeconds * 1000;
 
     try {
-      const result = await runPythonSimulation(qasmInput, shots, timeoutMs, codeType, noiseConfig);
+      let spinqConfig;
+      if (provider === 'spinq') {
+        const settings = await spinqRepo.getFullSettings(userId);
+        if (settings) {
+          spinqConfig = settings;
+        }
+      }
+
+      const result = await runPythonSimulation(qasmInput, shots, timeoutMs, codeType, noiseConfig, provider, spinqConfig);
 
       if (result.error) {
         await repo.transitionStatus(jobId, 'failed', {
@@ -143,7 +153,9 @@ async function runPythonSimulation(
   shots: number,
   timeoutMs: number,
   codeType: CodeType = 'qasm',
-  noiseConfig?: Record<string, any>
+  noiseConfig?: Record<string, any>,
+  provider?: string,
+  spinqConfig?: Record<string, any>
 ): Promise<SimulationResult> {
   const serviceUrl = (process.env.SIMULATION_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
   const controller = new AbortController();
@@ -153,7 +165,7 @@ async function runPythonSimulation(
     const response = await fetch(`${serviceUrl}/simulate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ qasm: qasmInput, shots, mode: codeType, noiseConfig }),
+      body: JSON.stringify({ qasm: qasmInput, shots, mode: codeType, noiseConfig, provider: provider || 'simulator', spinqConfig }),
       signal: controller.signal,
     });
 
