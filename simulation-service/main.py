@@ -741,6 +741,50 @@ def _diff_gates(ops_before: dict[str, int], ops_after: dict[str, int]) -> list[s
     return sorted(changed)
 
 
+def _safe_qasm_dump(circ) -> str:
+    """
+    Safely dumps a circuit to OpenQASM 3.
+    If the circuit contains physical qubits (which are not part of any register, 
+    often produced during Qiskit mapping/routing passes), standard qasm3.dumps()
+    will fail with QASM3ExporterError. 
+    This function detects that failure and wraps the circuit's gates in a 
+    standard register-backed QuantumCircuit before dumping.
+    """
+    if circ is None:
+        return ""
+    try:
+        from qiskit import qasm3
+        return qasm3.dumps(circ)
+    except Exception:
+        try:
+            from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
+            from qiskit import qasm3
+            
+            num_qubits = circ.num_qubits
+            num_clbits = circ.num_clbits
+            
+            qr = QuantumRegister(num_qubits, "q")
+            cr = ClassicalRegister(num_clbits, "c") if num_clbits > 0 else None
+            
+            safe_circ = QuantumCircuit(qr)
+            if cr:
+                safe_circ.add_register(cr)
+                
+            for inst in circ.data:
+                q_indices = [circ.find_bit(q).index for q in inst.qubits]
+                c_indices = [circ.find_bit(c).index for c in inst.clbits]
+                
+                safe_inst_qubits = [qr[i] for i in q_indices]
+                safe_inst_clbits = [cr[i] for i in c_indices] if cr else []
+                
+                safe_circ.append(inst.operation, safe_inst_qubits, safe_inst_clbits)
+                
+            return qasm3.dumps(safe_circ)
+        except Exception as e:
+            print(f"[transpile-trace] safe_qasm_dump fallback failed: {e}")
+            return ""
+
+
 class TranspileTraceCollector:
     def __init__(self, initial_circuit):
         from qiskit import qasm3
@@ -762,7 +806,7 @@ class TranspileTraceCollector:
             from qiskit import qasm3
             
             circ = dag_to_circuit(dag)
-            qasm_str = qasm3.dumps(circ)
+            qasm_str = _safe_qasm_dump(circ)
             
             pass_name = pass_.name()
             pass_class = pass_.__class__.__name__
@@ -982,7 +1026,7 @@ def transpile_trace(req: TranspileTraceRequest):
         )
         
         total_time_ms = (_time.time() - start_time) * 1000
-        final_qasm = qasm3.dumps(transpiled)
+        final_qasm = _safe_qasm_dump(transpiled)
 
         # Build stage-level trace summaries
         stages = _group_trace_into_stages(collector, qc.size(), qc.depth())

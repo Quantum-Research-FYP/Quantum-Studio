@@ -91,14 +91,15 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const body = await res.json().catch(() => null);
 
   if (!res.ok) {
-    const apiErr = body as ApiError | null;
-    const err = new Error(apiErr?.error || 'An error occurred.') as Error & {
+    const apiErr = body as (ApiError & { detail?: { message?: string; errorCode?: string } }) | null;
+    const errMsg = apiErr?.error || apiErr?.detail?.message || 'An error occurred.';
+    const err = new Error(errMsg) as Error & {
       status: number;
       errorCode?: string;
       details?: ApiError['details'];
     };
     err.status = res.status;
-    err.errorCode = apiErr?.errorCode;
+    err.errorCode = apiErr?.errorCode || apiErr?.detail?.errorCode;
     err.details = apiErr?.details;
     throw err;
   }
