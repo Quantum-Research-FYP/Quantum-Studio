@@ -4,7 +4,10 @@ import {
   getIbmSettings,
   saveIbmSettings,
   deleteIbmSettings,
+  getSpinqSettings,
+  saveSpinqSettings,
   type IbmSettingsResponse,
+  type SpinqSettingsResponse,
 } from '../api/integrations';
 import {
   getGitHubStatus,
@@ -13,7 +16,7 @@ import {
 } from '../api/github';
 
 type ViewState = 'loading' | 'no-settings' | 'has-settings' | 'error';
-type SettingsTab = 'ibm' | 'github';
+type SettingsTab = 'ibm' | 'spinq' | 'github';
 
 const STATUS_CONFIG = {
   valid: { label: 'Connected', className: 'settings-status--valid' },
@@ -37,6 +40,17 @@ export default function SettingsPage() {
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [featureDisabled, setFeatureDisabled] = useState(false);
+
+  // --- SpinQ state ---
+  const [spinqViewState, setSpinqViewState] = useState<ViewState>('loading');
+  const [spinqSettings, setSpinqSettings] = useState<SpinqSettingsResponse['settings'] | null>(null);
+  const [spinqIp, setSpinqIp] = useState('');
+  const [spinqPort, setSpinqPort] = useState('');
+  const [spinqUsername, setSpinqUsername] = useState('');
+  const [spinqPassword, setSpinqPassword] = useState('');
+  const [spinqShowPassword, setSpinqShowPassword] = useState(false);
+  const [spinqSaving, setSpinqSaving] = useState(false);
+  const [spinqMessage, setSpinqMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // --- GitHub state ---
   const [ghStatus, setGhStatus] = useState<GitHubStatus | null>(null);
@@ -80,6 +94,29 @@ export default function SettingsPage() {
     }
   }, []);
 
+  // --- SpinQ loader ---
+  const loadSpinqSettings = useCallback(async () => {
+    try {
+      const data = await getSpinqSettings();
+      if (data && data.settings) {
+        setSpinqSettings(data.settings);
+        setSpinqIp(data.settings.ip);
+        setSpinqPort(data.settings.port.toString());
+        setSpinqUsername(data.settings.username);
+        setSpinqViewState('has-settings');
+      } else {
+        setSpinqViewState('no-settings');
+      }
+    } catch (err: unknown) {
+      const apiErr = err as { status?: number };
+      if (apiErr.status === 404) {
+        setSpinqViewState('no-settings');
+      } else {
+        setSpinqViewState('error');
+      }
+    }
+  }, []);
+
   // --- GitHub loader ---
   const loadGitHubStatus = useCallback(async () => {
     setGhLoading(true);
@@ -96,9 +133,10 @@ export default function SettingsPage() {
   useEffect(() => {
     if (user) {
       loadSettings();
+      loadSpinqSettings();
       loadGitHubStatus();
     }
-  }, [user, loadSettings, loadGitHubStatus]);
+  }, [user, loadSettings, loadSpinqSettings, loadGitHubStatus]);
 
   // --- IBM handlers ---
   async function handleSave(e: React.FormEvent) {
@@ -146,6 +184,29 @@ export default function SettingsPage() {
       setMessage({ type: 'error', text: msg });
     } finally {
       setDeleting(false);
+    }
+  }
+
+  // --- SpinQ handlers ---
+  async function handleSpinqSave(e: React.FormEvent) {
+    e.preventDefault();
+    if (!spinqIp || !spinqPort || !spinqUsername) return;
+
+    setSpinqSaving(true);
+    setSpinqMessage(null);
+
+    try {
+      const data = await saveSpinqSettings(spinqIp.trim(), parseInt(spinqPort, 10), spinqUsername.trim(), spinqPassword || undefined);
+      setSpinqSettings(data.settings);
+      setSpinqPassword('');
+      setSpinqShowPassword(false);
+      setSpinqViewState('has-settings');
+      setSpinqMessage({ type: 'success', text: 'SpinQ settings saved successfully.' });
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save SpinQ settings.';
+      setSpinqMessage({ type: 'error', text: msg });
+    } finally {
+      setSpinqSaving(false);
     }
   }
 
@@ -213,6 +274,14 @@ export default function SettingsPage() {
           >
             <span className="settings-nav__icon" aria-hidden="true">⚛</span>
             IBM Quantum
+          </button>
+          <button
+            className={`settings-nav__item ${activeTab === 'spinq' ? 'settings-nav__item--active' : ''}`}
+            type="button"
+            onClick={() => setActiveTab('spinq')}
+          >
+            <span className="settings-nav__icon" aria-hidden="true">⚛</span>
+            SpinQ Quantum
           </button>
           <button
             className={`settings-nav__item ${activeTab === 'github' ? 'settings-nav__item--active' : ''}`}
@@ -398,6 +467,156 @@ export default function SettingsPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            </>
+          )}
+
+          {/* ======================== SPINQ QUANTUM TAB ======================== */}
+          {activeTab === 'spinq' && (
+            <>
+              {spinqMessage && (
+                <div className={`alert alert--${spinqMessage.type}`} role="alert">
+                  {spinqMessage.text}
+                </div>
+              )}
+
+              <div className="settings-panel">
+                <div className="settings-panel__header">
+                  <div className="settings-panel__title-row">
+                    <h2 className="settings-panel__title">SpinQ Hardware Integration</h2>
+                  </div>
+                  <p className="settings-panel__desc">
+                    Configure your SpinQ Gemini Mini Pro quantum computer's network and account details.
+                  </p>
+                </div>
+
+                {spinqViewState === 'loading' && (
+                  <div className="settings-panel__loading">
+                    <span className="settings-spinner" aria-hidden="true" />
+                    Loading integration settings…
+                  </div>
+                )}
+
+                {spinqViewState === 'error' && (
+                  <div className="settings-panel__body">
+                    <div className="alert alert--error" role="alert">
+                      Failed to load integration settings. Please refresh to try again.
+                    </div>
+                  </div>
+                )}
+
+                {spinqViewState === 'has-settings' && spinqSettings && (
+                  <div className="settings-connection-card">
+                    <div className="settings-connection-card__status-row">
+                      <span className="settings-status-dot settings-status--valid" aria-hidden="true" />
+                      <span className="settings-connection-card__status-label">Configuration Saved</span>
+                    </div>
+                    <div className="settings-meta-grid">
+                      <span className="settings-meta-grid__label">Target IP</span>
+                      <span className="settings-meta-grid__value">{spinqSettings.ip}:{spinqSettings.port}</span>
+                      <span className="settings-meta-grid__label">Username</span>
+                      <span className="settings-meta-grid__value">{spinqSettings.username}</span>
+                      <span className="settings-meta-grid__label">Last updated</span>
+                      <span className="settings-meta-grid__value">{formatDate(spinqSettings.updatedAt)}</span>
+                    </div>
+                  </div>
+                )}
+
+                <form
+                  className="settings-token-form"
+                  onSubmit={handleSpinqSave}
+                  aria-label="Save SpinQ Settings"
+                >
+                  <div className="settings-token-form__header">
+                    <h3 className="settings-token-form__title">
+                      {spinqViewState === 'has-settings' ? 'Update Configuration' : 'Configure Connection'}
+                    </h3>
+                  </div>
+
+                  <div className="form-field">
+                    <label className="form-field__label" htmlFor="spinq-ip-input">IP Address</label>
+                    <input
+                      id="spinq-ip-input"
+                      className="form-field__input"
+                      type="text"
+                      value={spinqIp}
+                      onChange={(e) => setSpinqIp(e.target.value)}
+                      placeholder="e.g. 172.31.80.238"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label className="form-field__label" htmlFor="spinq-port-input">Port</label>
+                    <input
+                      id="spinq-port-input"
+                      className="form-field__input"
+                      type="number"
+                      value={spinqPort}
+                      onChange={(e) => setSpinqPort(e.target.value)}
+                      placeholder="e.g. 8989"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label className="form-field__label" htmlFor="spinq-username-input">Username</label>
+                    <input
+                      id="spinq-username-input"
+                      className="form-field__input"
+                      type="text"
+                      value={spinqUsername}
+                      onChange={(e) => setSpinqUsername(e.target.value)}
+                      placeholder="e.g. GamithChanuka"
+                      required
+                    />
+                  </div>
+
+                  <div className="form-field">
+                    <label className="form-field__label" htmlFor="spinq-password-input">
+                      Password {spinqViewState === 'has-settings' && '(Leave blank to keep existing)'}
+                    </label>
+                    <div className="form-field__input-wrap">
+                      <input
+                        id="spinq-password-input"
+                        className="form-field__input form-field__input--with-addon"
+                        type={spinqShowPassword ? 'text' : 'password'}
+                        value={spinqPassword}
+                        onChange={(e) => setSpinqPassword(e.target.value)}
+                        placeholder="Enter password"
+                        autoComplete="off"
+                        required={spinqViewState !== 'has-settings'}
+                      />
+                      <button
+                        type="button"
+                        className="form-field__eye-btn"
+                        onClick={() => setSpinqShowPassword((v) => !v)}
+                        aria-label={spinqShowPassword ? 'Hide password' : 'Show password'}
+                      >
+                        {spinqShowPassword ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                            <line x1="1" y1="1" x2="23" y2="23" />
+                          </svg>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                          </svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="btn btn--primary"
+                    disabled={spinqSaving || !spinqIp || !spinqPort || !spinqUsername}
+                  >
+                    {spinqSaving ? 'Saving…' : 'Save Configuration'}
+                  </button>
+                </form>
               </div>
             </>
           )}

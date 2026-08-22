@@ -20,6 +20,7 @@ import { createAuthMiddleware } from './middleware/authenticate.js';
 import { createAiRouter } from './ai/router.js';
 import { createIntegrationsRouter } from './integrations/router.js';
 import { createGitHubRouter } from './integrations/github-router.js';
+import { createSpinqRouter } from './integrations/spinq-router.js';
 import { createExecutionRouter } from './execution/router.js';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
@@ -64,6 +65,7 @@ export function createApp(database: Db, onJobCreated?: () => void) {
   app.use('/api/shared', createSharedRouter(database));
   app.use('/api/ai', createAiRouter());
   app.use('/api/integrations/ibm-quantum', createIntegrationsRouter(database));
+  app.use('/api/integrations/spinq', createSpinqRouter(database));
   app.use('/api/integrations/github', createGitHubRouter(database));
   app.use('/api/execution', createExecutionRouter(database, onJobCreated));
 

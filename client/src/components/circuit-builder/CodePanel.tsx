@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export type Framework = 'qiskit' | 'cirq' | 'pennylane' | 'braket' | 'tket' | 'qasm';
+export type Framework = 'qiskit' | 'cirq' | 'pennylane' | 'braket' | 'tket' | 'qasm' | 'spinqit';
 
 interface CodePanelProps {
   code: string;
@@ -18,10 +18,37 @@ export default function CodePanel({ code, framework, onFrameworkChange }: CodePa
     });
   };
 
+  const handleDownload = () => {
+    const ext = framework === 'qasm' ? 'qasm' : 'py';
+    const filename = `circuit-${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}.${ext}`;
+    const blob = new Blob([code], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <section className="code-panel" aria-label="Generated circuit code">
       <div className="code-panel__header">
-        <h3 className="code-panel__title">Code</h3>
+        <h3 className="code-panel__title">
+          Code
+          <button 
+            className="info-btn" 
+            data-tooltip="Generated code for the quantum circuit in the selected framework."
+            data-tooltip-pos="left"
+            aria-label="Info"
+          >
+            !
+          </button>
+        </h3>
         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button
             onClick={handleCopy}
@@ -60,6 +87,38 @@ export default function CodePanel({ code, framework, onFrameworkChange }: CodePa
               </svg>
             )}
           </button>
+          <button
+            onClick={handleDownload}
+            className="code-panel__download-btn"
+            title={`Download .${framework === 'qasm' ? 'qasm' : 'py'}`}
+            aria-label="Download code"
+            style={{
+              background: 'transparent',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '4px',
+              borderRadius: '4px',
+              color: 'var(--color-text-subtle)',
+              transition: 'color 0.2s ease, background 0.2s ease'
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.color = 'var(--color-text)';
+              e.currentTarget.style.background = 'var(--color-bg-elevated)';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.color = 'var(--color-text-subtle)';
+              e.currentTarget.style.background = 'transparent';
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+          </button>
           <select 
             value={framework} 
             onChange={(e) => onFrameworkChange(e.target.value as Framework)}
@@ -67,6 +126,7 @@ export default function CodePanel({ code, framework, onFrameworkChange }: CodePa
             aria-label="Select framework"
           >
           <option value="qiskit">Qiskit</option>
+          <option value="spinqit">SpinQit</option>
           <option value="cirq">Cirq</option>
           <option value="pennylane">PennyLane</option>
           <option value="braket">Amazon Braket</option>

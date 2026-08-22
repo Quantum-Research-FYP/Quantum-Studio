@@ -30,7 +30,16 @@ export default function ProbabilityBarChart({ amplitudes }: ProbabilityBarChartP
     return (
       <div className="prob-barchart">
         <div className="prob-barchart__header">
-          <span className="prob-barchart__title">Probabilities</span>
+          <span className="prob-barchart__title">
+            Probabilities
+            <button 
+              className="info-btn" 
+              data-tooltip="Shows the measurement probability for each computational basis state."
+              aria-label="Info"
+            >
+              !
+            </button>
+          </span>
         </div>
         <div className="prob-barchart__empty">No state data available.</div>
       </div>
@@ -45,7 +54,16 @@ export default function ProbabilityBarChart({ amplitudes }: ProbabilityBarChartP
   return (
     <div className="prob-barchart" ref={containerRef}>
       <div className="prob-barchart__header">
-        <span className="prob-barchart__title">Probabilities</span>
+        <span className="prob-barchart__title">
+          Probabilities
+          <button 
+            className="info-btn" 
+            data-tooltip="Shows the measurement probability for each computational basis state."
+            aria-label="Info"
+          >
+            !
+          </button>
+        </span>
       </div>
       
       <div className="prob-barchart__layout">
