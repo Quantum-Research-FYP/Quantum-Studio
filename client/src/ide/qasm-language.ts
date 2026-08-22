@@ -67,7 +67,7 @@ export function setupQasmLanguage(monacoInstance: typeof monaco) {
 
   // Autocomplete basic QASM gates
   monacoInstance.languages.registerCompletionItemProvider('qasm', {
-    provideCompletionItems: (model, position) => {
+    provideCompletionItems: (model: monaco.editor.ITextModel, position: monaco.Position) => {
       const suggestions = [
         {
           label: 'OPENQASM',

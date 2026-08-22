@@ -1,7 +1,23 @@
 import type { Db } from 'mongodb';
 import { v4 as uuid } from 'uuid';
 import { encrypt, decrypt, type EncryptedPayload } from '../execution/encryption.js';
-import { COLLECTIONS, type AppDocument } from '../db/collections.js';
+import { COLLECTIONS } from '../db/collections.js';
+
+interface SpinqSettingsDocument {
+  _id: string;
+  userId: string;
+  provider: string;
+  createdAt: Date;
+  updatedAt: Date;
+  spinq?: {
+    ip: string;
+    port: number;
+    username: string;
+    encryptedPassword?: string;
+    iv?: string;
+    authTag?: string;
+  };
+}
 
 export interface SpinqSettingsPayload {
   ip: string;
@@ -22,7 +38,7 @@ export interface SpinqSettingsMasked {
 }
 
 export function createSpinqRepository(pool: Db) {
-  const settings = pool.collection<AppDocument>(COLLECTIONS.USER_INTEGRATION_SETTINGS);
+  const settings = pool.collection<SpinqSettingsDocument>(COLLECTIONS.USER_INTEGRATION_SETTINGS);
   const provider = 'spinq';
 
   return {

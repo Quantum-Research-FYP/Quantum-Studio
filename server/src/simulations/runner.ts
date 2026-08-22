@@ -36,7 +36,7 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
 
       activeJobs++;
       // Run asynchronously — don't await, so we can dequeue multiple jobs
-      executeJob(job.userId, job.id, job.qasmInput, job.shots, job.codeType ?? 'qasm', job.noiseConfig, job.provider).finally(() => {
+      executeJob(job.createdByUserId, job.id, job.qasmInput, job.shots, job.codeType ?? 'qasm', job.noiseConfig, job.provider).finally(() => {
         activeJobs--;
         // After a job finishes, immediately check for more work
         if (!stopped) tryProcessQueue().catch(logError);

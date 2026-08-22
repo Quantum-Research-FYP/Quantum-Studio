@@ -97,7 +97,7 @@ export function PerformanceAnalysisPanel({ data, onClose }: PerformanceAnalysisP
             <div style={{ height: '300px' }}>
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={errorBudgetArray} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" label={({name, value}) => `${name} (${value}%)`}>
+                  <Pie data={errorBudgetArray} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" label={({name, value}: {name?: string; value: number}) => `${name ?? ''} (${value}%)`}>
                     {errorBudgetArray.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
@@ -120,7 +120,7 @@ export function PerformanceAnalysisPanel({ data, onClose }: PerformanceAnalysisP
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={data.monteCarloFidelity}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
-                <XAxis dataKey="noiseScale" stroke="#a1a1aa" tickFormatter={(val) => `${val}x`} />
+                <XAxis dataKey="noiseScale" stroke="#a1a1aa" tickFormatter={(val: number) => `${val}x`} />
                 <YAxis domain={[0, 1]} stroke="#a1a1aa" />
                 <RechartsTooltip contentStyle={{ background: '#09090b', border: '1px solid #27272a', color: '#e4e4e7' }} formatter={(val: any) => (Number(val) * 100).toFixed(2) + '%'} labelFormatter={(val) => `Noise Scale: ${val}x`} />
                 <Legend />
