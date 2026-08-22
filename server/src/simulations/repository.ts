@@ -291,7 +291,7 @@ export function createSimulationRepository(pool: Db) {
     async dequeueNextJob(): Promise<SimulationJob | null> {
       const now = new Date();
       const result = await jobs.findOneAndUpdate(
-        { status: 'queued', provider: 'simulator' },
+        { status: 'queued', provider: { $in: ['simulator', 'spinq'] } },
         { $set: { status: 'running', startedAt: now, updatedAt: now } },
         { sort: { createdAt: 1 }, returnDocument: 'after' },
       );

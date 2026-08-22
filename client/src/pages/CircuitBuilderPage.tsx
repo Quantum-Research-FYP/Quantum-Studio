@@ -32,7 +32,15 @@ import StateVisualizer from '../components/circuit-builder/StateVisualizer';
 import { useStepSimulation } from '../hooks/useStepSimulation';
 import { useCircuitHistory } from '../hooks/useCircuitHistory';
 import { useExperiment } from '../hooks/useExperiment';
-import { useSimulation } from '../hooks/useSimulation';
+import { useAuth } from '../hooks/useAuth';
+import {
+  getProviders,
+  listIbmBackends,
+  submitExecutionJob,
+  type ExecutionProvider,
+  type IbmBackend,
+} from '../api/execution';
+import { getIbmSettings } from '../api/integrations';
 import { getTemplateById, loadTemplateCircuit, type ExecutionConfig } from '../templates';
 import type { AiDraftResponse, AiValidationResponse } from '../api/ai';
 import type { AiProvenanceInput } from '../api/experiments';
@@ -77,13 +85,51 @@ export default function CircuitBuilderPage() {
   const navigate = useNavigate();
 
   const experiment = useExperiment();
-  const simulation = useSimulation();
+  const { user } = useAuth();
   const loadedRef = useRef<string | null>(null);
   const [loadedRunSettings, setLoadedRunSettings] = useState<Record<string, unknown> | null>(null);
   const [loadedLatestResult, setLoadedLatestResult] = useState<Record<string, unknown> | null>(
     null,
   );
-  const [executionConfig, setExecutionConfig] = useState<ExecutionConfig>({ shots: DEFAULT_SHOTS });
+  const [executionConfig, setExecutionConfig] = useState<ExecutionConfig>({ shots: DEFAULT_SHOTS, provider: 'local' });
+  const [providers, setProviders] = useState<ExecutionProvider[]>([]);
+  const [ibmBackends, setIbmBackends] = useState<IbmBackend[]>([]);
+  const [credentialStatus, setCredentialStatus] = useState<'unknown' | 'missing' | 'invalid' | 'valid'>('unknown');
+  const [isRunning, setIsRunning] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    getProviders()
+      .then((data) => setProviders(data.providers))
+      .catch(() => setProviders([{ id: 'simulator', name: 'Simulator', available: true }]));
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    getIbmSettings()
+      .then((settings) => {
+        if (settings && settings.hasToken) {
+          setCredentialStatus(settings.validationStatus === 'valid' ? 'valid' : 'invalid');
+        } else {
+          setCredentialStatus('missing');
+        }
+      })
+      .catch(() => setCredentialStatus('unknown'));
+  }, [user]);
+
+  useEffect(() => {
+    if (executionConfig.provider === 'ibm' && credentialStatus === 'valid') {
+      listIbmBackends()
+        .then((data) => {
+          setIbmBackends(data.backends);
+          if (data.backends.length > 0 && !executionConfig.backend) {
+            setExecutionConfig(prev => ({ ...prev, backend: data.backends[0].name }));
+          }
+        })
+        .catch(() => setIbmBackends([]));
+    }
+  }, [executionConfig.provider, credentialStatus, executionConfig.backend]);
 
   // Stepper state
   const stepSim = useStepSimulation(circuit);
@@ -182,24 +228,36 @@ export default function CircuitBuilderPage() {
     await experiment.save(name, circuit, loadedRunSettings, loadedLatestResult, provenance);
   }, [experiment, circuit, loadedRunSettings, loadedLatestResult, aiImportInfo]);
 
-  // Run handler — generates QASM and submits to the simulator
+  // Run handler — generates QASM and submits to the unified execution endpoint
   const handleRun = useCallback(async () => {
     const qasm = generateOpenQasm(circuit);
     if (!qasm) return;
 
-    await simulation.submit({ 
-      qasm, 
-      shots: executionConfig.shots,
-      provider: executionConfig.provider || 'local'
-    });
-  }, [circuit, executionConfig.shots, executionConfig.provider, simulation]);
+    setIsRunning(true);
+    setRunError(null);
 
-  // Navigate to results page once a job is created and submission is complete
-  useEffect(() => {
-    if (simulation.job && !simulation.loading) {
-      navigate(`/results?jobId=${simulation.job.jobId}&source=sim`, { replace: true });
+    const providerVal = 
+      executionConfig.provider === 'ibm' ? 'ibm_quantum' :
+      executionConfig.provider === 'spinq' ? 'spinq' :
+      'simulator';
+
+    try {
+      const job = await submitExecutionJob({
+        provider: providerVal,
+        backend: providerVal === 'ibm_quantum' ? executionConfig.backend : undefined,
+        qasm,
+        shots: executionConfig.shots,
+        codeType: 'qasm'
+      });
+      
+      // Navigate to results page immediately using unified results view
+      navigate(`/results?jobId=${job.jobId}`, { replace: true });
+    } catch (err: any) {
+      setRunError(err.message || 'Failed to submit execution job.');
+    } finally {
+      setIsRunning(false);
     }
-  }, [simulation.job, simulation.loading, navigate]);
+  }, [circuit, executionConfig, navigate]);
 
   // Validation runs on every circuit change
   const errors = useMemo(() => validateCircuit(circuit), [circuit]);
@@ -345,22 +403,48 @@ export default function CircuitBuilderPage() {
             className="toolbar-selector"
             style={{ width: 'auto' }}
             value={executionConfig.provider || 'local'}
-            onChange={(e) => setExecutionConfig({ ...executionConfig, provider: e.target.value as 'local' | 'spinq' | 'ibm' })}
+            onChange={(e) => setExecutionConfig({ 
+              ...executionConfig, 
+              provider: e.target.value as any,
+              backend: undefined
+            })}
             aria-label="Select Backend Provider"
           >
             <option value="local">Local Simulator</option>
-            <option value="ibm">IBM Quantum</option>
+            {providers.some(p => p.id === 'ibm_quantum' && p.available) && (
+              <option value="ibm">IBM Quantum</option>
+            )}
             <option value="spinq">SpinQ Gemini Mini Pro</option>
           </select>
+
+          {executionConfig.provider === 'ibm' && credentialStatus === 'valid' && (
+            <select
+              className="toolbar-selector"
+              style={{ width: 'auto' }}
+              value={executionConfig.backend || ''}
+              onChange={(e) => setExecutionConfig({ ...executionConfig, backend: e.target.value })}
+              aria-label="Select Hardware Backend"
+            >
+              {ibmBackends.map((b) => (
+                <option key={b.name} value={b.name}>
+                  {b.name} ({b.qubits}Q)
+                </option>
+              ))}
+            </select>
+          )}
+
           <button
             className="btn btn--primary btn--sm"
             onClick={handleRun}
             disabled={
-              simulation.loading || errors.length > 0 || circuit.operations.length === 0
+              isRunning || 
+              errors.length > 0 || 
+              circuit.operations.length === 0 ||
+              (executionConfig.provider === 'ibm' && credentialStatus !== 'valid')
             }
-            aria-label="Run circuit on simulator"
+            aria-label="Run circuit"
           >
-            {simulation.loading ? 'Submitting...' : 'Run'}
+            {isRunning ? 'Submitting...' : 'Run'}
           </button>
           {experiment.lastSavedAt && (
             <span className="builder__save-status">
@@ -372,6 +456,17 @@ export default function CircuitBuilderPage() {
           )}
         </div>
       </div>
+
+      {executionConfig.provider === 'ibm' && credentialStatus !== 'valid' && (
+        <div className="alert alert--error" role="alert" style={{ margin: '12px 24px 0' }}>
+          IBM Quantum credentials are not configured. Please save your API token in Settings.
+        </div>
+      )}
+      {runError && (
+        <div className="alert alert--error" role="alert" style={{ margin: '12px 24px 0' }}>
+          {runError}
+        </div>
+      )}
 
       {/* Error/conflict banner */}
       {experiment.error && (
@@ -393,20 +488,7 @@ export default function CircuitBuilderPage() {
         </div>
       )}
 
-      {/* Simulation error banner with retry */}
-      {simulation.error && (
-        <div className="alert alert--error" role="alert">
-          {simulation.error}
-          <button
-            className="btn btn--ghost btn--sm"
-            style={{ marginLeft: 8 }}
-            onClick={handleRun}
-            aria-label="Retry simulation"
-          >
-            Retry
-          </button>
-        </div>
-      )}
+
 
       {/* AI import provenance banner */}
       {aiImportInfo && (
