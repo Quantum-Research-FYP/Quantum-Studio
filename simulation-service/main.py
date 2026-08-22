@@ -548,6 +548,467 @@ def transpile_ibm(req: TranspileIbmRequest):
 
 
 # ---------------------------------------------------------------------------
+# Transparent Transpilation Trace Engine Schemas and Callback
+# ---------------------------------------------------------------------------
+
+class TranspileTraceRequest(BaseModel):
+    code: str = Field(..., description="Circuit source code")
+    codeType: Literal["qasm", "python", "cirq", "pennylane", "braket", "tket"] = Field(
+        "qasm", description="Framework / format of the input code"
+    )
+    backend: str = Field("ibm_brisbane", description="Target IBM backend name (used for ISA transpilation)")
+    ibm_token: str | None = Field(None, description="Raw IBM API key or IBM Quantum token")
+    ibm_channel: str | None = Field(None, description="'ibm_quantum' or 'ibm_cloud'")
+    ibm_instance: str | None = Field(None, description="CRN for IBM Cloud, or hub/group/project for IBM Quantum")
+    optimization_level: int = Field(1, ge=0, le=3, description="Qiskit transpilation optimization level (0-3)")
+
+
+class TranspilePassTrace(BaseModel):
+    passName: str
+    passClass: str
+    stage: str
+    executionTimeMs: float
+    qasm: str
+    gateCount: int
+    depth: int
+    deltaGates: int
+    deltaDepth: int
+    purpose: str
+    rationale: str
+    changedGates: list[str]
+
+
+class TranspileStageSummary(BaseModel):
+    stageName: str
+    passes: list[TranspilePassTrace]
+    gateCountBefore: int
+    gateCountAfter: int
+    depthBefore: int
+    depthAfter: int
+    executionTimeMs: float
+
+
+class TranspileTraceResponse(BaseModel):
+    originalQasm: str
+    finalQasm: str
+    originalGateCount: int
+    originalDepth: int
+    finalGateCount: int
+    finalDepth: int
+    totalExecutionTimeMs: float
+    stages: list[TranspileStageSummary]
+    couplingMap: list[list[int]] | None = None
+    logicalToPhysicalLayout: dict[str, int] | None = None
+
+
+# Maps Qiskit Pass Name to one of the 6 stages defined in the educational specifications
+PASS_STAGE_MAP = {
+    "CheckMap": "Analysis",
+    "CheckGate": "Analysis",
+    "Depth": "Analysis",
+    "Size": "Analysis",
+    "Width": "Analysis",
+    "CountOps": "Analysis",
+    "BasisTranslator": "Translation",
+    "Decompose": "Translation",
+    "UnrollCustomDefinitions": "Translation",
+    "UnitarySynthesis": "Translation",
+    "Optimize1qGates": "Optimization",
+    "Optimize1qGatesDecomposition": "Optimization",
+    "CXCancellation": "Optimization",
+    "CommutativeCancellation": "Optimization",
+    "Optimize1qGatesSimpleCollapse": "Optimization",
+    "Collect2qBlocks": "Optimization",
+    "ConsolidateBlocks": "Optimization",
+    "InverseCancellation": "Optimization",
+    "TrivialLayout": "Mapping",
+    "DenseLayout": "Mapping",
+    "SabreLayout": "Mapping",
+    "VF2Layout": "Mapping",
+    "SetLayout": "Mapping",
+    "BasicSwap": "Routing",
+    "StochasticSwap": "Routing",
+    "SabreSwap": "Routing",
+    "SwapMapper": "Routing",
+    "ALAPScheduleAnalysis": "Scheduling",
+    "ASAPScheduleAnalysis": "Scheduling",
+    "ALAPSchedule": "Scheduling",
+    "ASAPSchedule": "Scheduling",
+    "DynamicalDecoupling": "Scheduling",
+}
+
+
+def _determine_stage(pass_name: str) -> str:
+    if pass_name in PASS_STAGE_MAP:
+        return PASS_STAGE_MAP[pass_name]
+    name_lower = pass_name.lower()
+    if "analysis" in name_lower or "check" in name_lower:
+        return "Analysis"
+    elif "layout" in name_lower or "placement" in name_lower or "map" in name_lower:
+        return "Mapping"
+    elif "swap" in name_lower or "route" in name_lower:
+        return "Routing"
+    elif "schedule" in name_lower or "delay" in name_lower:
+        return "Scheduling"
+    elif "translate" in name_lower or "decompose" in name_lower or "unroll" in name_lower:
+        return "Translation"
+    return "Optimization"
+
+
+PASS_EXPLANATIONS = {
+    "Optimize1qGatesDecomposition": {
+        "purpose": "Combines sequences of single-qubit gates on the same qubit.",
+        "rationale": "Consecutive single-qubit gates are equivalent to a single rotation. Merging them reduces gate execution time and overall error rate."
+    },
+    "CXCancellation": {
+        "purpose": "Eliminates adjacent pairs of CNOT (CX) gates that cancel each other.",
+        "rationale": "Executing a CNOT gate twice in succession on the same qubits acts as an identity operation (it does nothing). Removing them avoids unnecessary multi-qubit gate errors."
+    },
+    "CommutativeCancellation": {
+        "purpose": "Commutes gates through each other to find and cancel redundant pairs.",
+        "rationale": "Some gates (like Z rotations and CNOT targets) commute. By sliding them past each other, the compiler finds cancellations that were not immediately adjacent."
+    },
+    "BasisTranslator": {
+        "purpose": "Decomposes non-native gates into the target hardware's native gate set.",
+        "rationale": "Quantum hardware only implements a few physical gates (e.g. CX, RZ, SX, X). Other gates (like Hadamard H) must be decomposed into equivalent sequences of these native gates."
+    },
+    "SabreLayout": {
+        "purpose": "Finds a high-quality initial mapping of logical qubits to physical qubits.",
+        "rationale": "Using a heuristic look-ahead algorithm, this pass places qubits to minimize the number of SWAP gates required to execute two-qubit operations on the hardware."
+    },
+    "SabreSwap": {
+        "purpose": "Inserts SWAP gates to route qubits next to each other for entangling gates.",
+        "rationale": "Hardware only allows two-qubit gates (like CX) between directly connected physical qubits. SWAP gates move the states of logical qubits until they are adjacent."
+    },
+    "ALAPSchedule": {
+        "purpose": "Schedules gate execution times As-Late-As-Possible.",
+        "rationale": "Gantt-style scheduling ensures qubits remain in their ground state |0> for as long as possible before execution, minimizing decoherence and thermal relaxation errors (T1/T2)."
+    },
+    "ASAPSchedule": {
+        "purpose": "Schedules gate execution times As-Soon-As-Possible.",
+        "rationale": "Executes gates immediately to minimize the overall runtime of the circuit, reducing the duration qubits are susceptible to decoherence."
+    }
+}
+
+
+def _get_pass_explanation(pass_name: str, stage: str) -> tuple[str, str]:
+    if pass_name in PASS_EXPLANATIONS:
+        exp = PASS_EXPLANATIONS[pass_name]
+        return exp["purpose"], exp["rationale"]
+    
+    # Generic stage-based explanations
+    if stage == "Analysis":
+        return (
+            "Analyzes circuit properties like depth, gate count, or layout correctness.",
+            "Ensures the circuit is structurally valid and collects metrics for optimization."
+        )
+    elif stage == "Translation":
+        return (
+            "Translates non-native gates to equivalent native representation.",
+            "Decomposes gates into basis operations supported by the target device."
+        )
+    elif stage == "Mapping":
+        return (
+            "Maps logical qubits to physical device registers.",
+            "Prepares the circuit for the physical coupling constraints of the target hardware."
+        )
+    elif stage == "Routing":
+        return (
+            "Inserts SWAP gates to satisfy connectivity constraints.",
+            "Allows multi-qubit gates to execute between non-adjacent qubits."
+        )
+    elif stage == "Scheduling":
+        return (
+            "Computes execution times and gate start/idle durations.",
+            "Balances parallel execution and idle times to minimize quantum decoherence."
+        )
+    return (
+        "Optimizes gates and depth.",
+        "Reduces the physical resource footprint to maximize circuit fidelity."
+    )
+
+
+def _diff_gates(ops_before: dict[str, int], ops_after: dict[str, int]) -> list[str]:
+    changed = []
+    all_keys = set(ops_before.keys()) | set(ops_after.keys())
+    for k in all_keys:
+        before = ops_before.get(k, 0)
+        after = ops_after.get(k, 0)
+        diff = after - before
+        if diff != 0:
+            sign = "+" if diff > 0 else ""
+            changed.append(f"{k}: {sign}{diff}")
+    return sorted(changed)
+
+
+class TranspileTraceCollector:
+    def __init__(self, initial_circuit):
+        from qiskit import qasm3
+        self.trace = []
+        self.current_circuit = initial_circuit
+        try:
+            self.initial_qasm = qasm3.dumps(initial_circuit)
+        except Exception:
+            # Fallback to empty if dump fails
+            self.initial_qasm = ""
+        self.current_qasm = self.initial_qasm
+        self.current_gates = initial_circuit.size()
+        self.current_depth = initial_circuit.depth()
+        self.current_ops = dict(initial_circuit.count_ops())
+
+    def callback(self, pass_, dag, time, property_set, count):
+        try:
+            from qiskit.converters import dag_to_circuit
+            from qiskit import qasm3
+            
+            circ = dag_to_circuit(dag)
+            qasm_str = qasm3.dumps(circ)
+            
+            pass_name = pass_.name()
+            pass_class = pass_.__class__.__name__
+            stage = _determine_stage(pass_name)
+            
+            gate_count = circ.size()
+            depth = circ.depth()
+            ops = dict(circ.count_ops())
+            
+            delta_gates = gate_count - self.current_gates
+            delta_depth = depth - self.current_depth
+            changed_gates = _diff_gates(self.current_ops, ops)
+            
+            purpose, rationale = _get_pass_explanation(pass_name, stage)
+            
+            self.trace.append({
+                "passName": pass_name,
+                "passClass": pass_class,
+                "stage": stage,
+                "executionTimeMs": float(time * 1000),
+                "qasm": qasm_str,
+                "gateCount": gate_count,
+                "depth": depth,
+                "deltaGates": delta_gates,
+                "deltaDepth": delta_depth,
+                "purpose": purpose,
+                "rationale": rationale,
+                "changedGates": changed_gates
+            })
+            
+            # Update state for next pass
+            self.current_circuit = circ
+            self.current_qasm = qasm_str
+            self.current_gates = gate_count
+            self.current_depth = depth
+            self.current_ops = ops
+        except Exception as e:
+            print(f"[transpile-trace] Error in transpilation callback: {e}")
+
+
+def _group_trace_into_stages(collector, initial_gate_count, initial_depth) -> list[dict]:
+    stages_dict = {}
+    stage_order = ["Analysis", "Optimization", "Translation", "Mapping", "Routing", "Scheduling"]
+    
+    for stage_name in stage_order:
+        stages_dict[stage_name] = []
+        
+    for p in collector.trace:
+        stages_dict[p["stage"]].append(p)
+        
+    stages_list = []
+    current_gates = initial_gate_count
+    current_depth = initial_depth
+    
+    for stage_name in stage_order:
+        passes = stages_dict[stage_name]
+        
+        if not passes:
+            stages_list.append({
+                "stageName": stage_name,
+                "passes": [],
+                "gateCountBefore": current_gates,
+                "gateCountAfter": current_gates,
+                "depthBefore": current_depth,
+                "depthAfter": current_depth,
+                "executionTimeMs": 0.0
+            })
+            continue
+            
+        gate_count_before = current_gates
+        depth_before = current_depth
+        total_time = sum(p["executionTimeMs"] for p in passes)
+        
+        last_pass = passes[-1]
+        gate_count_after = last_pass["gateCount"]
+        depth_after = last_pass["depth"]
+        
+        stages_list.append({
+            "stageName": stage_name,
+            "passes": passes,
+            "gateCountBefore": gate_count_before,
+            "gateCountAfter": gate_count_after,
+            "depthBefore": depth_before,
+            "depthAfter": depth_after,
+            "executionTimeMs": total_time
+        })
+        
+        current_gates = gate_count_after
+        current_depth = depth_after
+        
+    return stages_list
+
+
+def _extract_coupling_map(backend) -> list[list[int]] | None:
+    if backend is None:
+        return None
+    try:
+        if hasattr(backend, "coupling_map") and backend.coupling_map is not None:
+            return list(backend.coupling_map.get_edges())
+        elif hasattr(backend, "configuration"):
+            config = backend.configuration()
+            if hasattr(config, "coupling_map") and config.coupling_map is not None:
+                return list(config.coupling_map)
+    except Exception as e:
+        print(f"[transpile-trace] Error extracting coupling map: {e}")
+    return None
+
+
+def _extract_layout(transpiled_circuit) -> dict[str, int] | None:
+    if not hasattr(transpiled_circuit, "layout") or transpiled_circuit.layout is None:
+        return None
+    try:
+        layout_dict = {}
+        virtual_bits = transpiled_circuit.layout.get_virtual_bits()
+        for logical_qubit, phys_idx in virtual_bits.items():
+            if logical_qubit is not None:
+                reg_name = "q"
+                if hasattr(logical_qubit, "register") and logical_qubit.register is not None:
+                    reg_name = logical_qubit.register.name
+                idx = logical_qubit._index if hasattr(logical_qubit, "_index") else 0
+                layout_dict[f"{reg_name}[{idx}]"] = int(phys_idx)
+        return layout_dict
+    except Exception as e:
+        print(f"[transpile-trace] Error extracting layout: {e}")
+        return None
+
+
+@app.post(
+    "/transpile-trace",
+    response_model=TranspileTraceResponse,
+    responses={
+        422: {"description": "Validation or conversion error"},
+        500: {"description": "Runtime error during transpilation"},
+    },
+)
+def transpile_trace(req: TranspileTraceRequest):
+    """
+    Run the transpilation pipeline step-by-step and return a detailed pass trace
+    with rationales, stage groupings, and qubit layout information.
+    """
+    if not req.code.strip():
+        raise HTTPException(
+            status_code=422,
+            detail={"errorCode": "VALIDATION_SYNTAX", "message": "Empty circuit input."},
+        )
+
+    if req.codeType in ("cirq", "pennylane", "braket", "tket"):
+        raise HTTPException(
+            status_code=422,
+            detail={
+                "errorCode": "UNSUPPORTED_FRAMEWORK",
+                "message": f"Framework '{req.codeType}' not supported for step-by-pass transpilation trace.",
+            },
+        )
+
+    qc = None
+    if req.codeType == "qasm":
+        try:
+            qc = _parse_qasm(req.code)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"errorCode": "VALIDATION_SYNTAX", "message": _sanitize(str(exc))},
+            )
+    elif req.codeType == "python":
+        try:
+            compiled = compile(req.code, "<user_circuit>", "exec")
+        except SyntaxError as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "errorCode": "VALIDATION_SYNTAX",
+                    "message": f"Python syntax error on line {exc.lineno}: {exc.msg}",
+                },
+            )
+        namespace: dict = {"__builtins__": _SAFE_BUILTINS}
+        try:
+            exec(compiled, namespace)  # noqa: S102
+        except Exception as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
+            )
+        qc = namespace.get("qc")
+
+    if qc is None:
+        raise HTTPException(
+            status_code=500,
+            detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": "No circuit was produced."},
+        )
+
+    # Load backend
+    backend = None
+    if req.ibm_token and req.ibm_channel:
+        try:
+            backend = _get_real_backend_cached(
+                req.ibm_channel, req.ibm_token, req.ibm_instance, req.backend
+            )
+        except Exception:
+            backend = None
+    if backend is None:
+        backend = _get_ibm_fake_backend(req.backend)
+
+    # Run Qiskit transpile with callback
+    try:
+        from qiskit import transpile
+        from qiskit import qasm3
+
+        collector = TranspileTraceCollector(qc)
+        start_time = _time.time()
+        
+        transpiled = transpile(
+            qc,
+            backend=backend,
+            optimization_level=req.optimization_level,
+            callback=collector.callback,
+        )
+        
+        total_time_ms = (_time.time() - start_time) * 1000
+        final_qasm = qasm3.dumps(transpiled)
+
+        # Build stage-level trace summaries
+        stages = _group_trace_into_stages(collector, qc.size(), qc.depth())
+        coupling_map = _extract_coupling_map(backend)
+        layout = _extract_layout(transpiled)
+
+        return TranspileTraceResponse(
+            originalQasm=collector.initial_qasm,
+            finalQasm=final_qasm,
+            originalGateCount=qc.size(),
+            originalDepth=qc.depth(),
+            finalGateCount=transpiled.size(),
+            finalDepth=transpiled.depth(),
+            totalExecutionTimeMs=total_time_ms,
+            stages=stages,
+            couplingMap=coupling_map,
+            logicalToPhysicalLayout=layout
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail={"errorCode": "TRANSPILATION_ERROR", "message": _sanitize(str(exc))},
+        )
+
+
+# ---------------------------------------------------------------------------
 # IBM QPU Job Result Fetcher
 # ---------------------------------------------------------------------------
 

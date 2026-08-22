@@ -137,3 +137,59 @@ export function analyzeCircuit(input: SubmitJobInput): Promise<AnalyzeResponse> 
     body: JSON.stringify(input),
   });
 }
+
+// ---------------------------------------------------------------------------
+// Transparent Transpilation Trace API Definitions
+// ---------------------------------------------------------------------------
+
+export interface TranspilePassTrace {
+  passName: string;
+  passClass: string;
+  stage: string;
+  executionTimeMs: number;
+  qasm: string;
+  gateCount: number;
+  depth: number;
+  deltaGates: number;
+  deltaDepth: number;
+  purpose: string;
+  rationale: string;
+  changedGates: string[];
+}
+
+export interface TranspileStageSummary {
+  stageName: string;
+  passes: TranspilePassTrace[];
+  gateCountBefore: number;
+  gateCountAfter: number;
+  depthBefore: number;
+  depthAfter: number;
+  executionTimeMs: number;
+}
+
+export interface TranspileTraceResponse {
+  originalQasm: string;
+  finalQasm: string;
+  originalGateCount: number;
+  originalDepth: number;
+  finalGateCount: number;
+  finalDepth: number;
+  totalExecutionTimeMs: number;
+  stages: TranspileStageSummary[];
+  couplingMap: Array<[number, number]> | null;
+  logicalToPhysicalLayout: Record<string, number> | null;
+}
+
+export interface TranspileTraceInput {
+  qasm: string;
+  mode?: 'qasm' | 'python';
+  backend?: string;
+  optimizationLevel?: number;
+}
+
+export function getTranspileTrace(input: TranspileTraceInput): Promise<TranspileTraceResponse> {
+  return request<TranspileTraceResponse>('/api/v1/simulations/transpile-trace', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}

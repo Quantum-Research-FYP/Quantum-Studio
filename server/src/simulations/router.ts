@@ -17,6 +17,7 @@ export function createSimulationsRouter(pool: Db, onJobCreated?: () => void): Ro
 
   router.post('/stepper', handlers.runStepper);
   router.post('/analyze', handlers.analyzePerformance);
+  router.post('/transpile-trace', handlers.runTranspileTrace);
 
   return router;
 }

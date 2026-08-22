@@ -23,6 +23,7 @@ import ResultsTable from '../components/results/ResultsTable';
 import { PerformanceAnalysisPanel } from '../components/results/PerformanceAnalysisPanel';
 import { analyzeCircuit } from '../api/simulations';
 import type { NoiseConfig, AnalyzeResponse } from '../api/simulations';
+import { TranspilationPanel } from '../components/results/TranspilationPanel';
 
 const DEFAULT_PYTHON = `from qiskit import QuantumCircuit
 
@@ -164,7 +165,7 @@ export default function IdePage() {
   });
 
   // Bottom panel tabs
-  const [bottomTab, setBottomTab] = useState<'terminal' | 'results' | 'analysis'>('terminal');
+  const [bottomTab, setBottomTab] = useState<'terminal' | 'results' | 'analysis' | 'transpile'>('terminal');
 
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analyzeResult, setAnalyzeResult] = useState<AnalyzeResponse | null>(null);
@@ -640,6 +641,13 @@ export default function IdePage() {
                 <span style={{ marginLeft: '6px', fontSize: '0.65rem', backgroundColor: 'var(--color-success)', color: 'var(--color-text)', padding: '2px 6px', borderRadius: '10px' }}>New</span>
               )}
             </button>
+            <button
+              className={`ide-tab ${bottomTab === 'transpile' ? 'ide-tab--active' : ''}`}
+              onClick={() => setBottomTab('transpile')}
+            >
+              Transpilation
+              <span style={{ marginLeft: '6px', fontSize: '0.65rem', backgroundColor: 'var(--color-primary)', color: 'var(--color-text)', padding: '2px 6px', borderRadius: '10px' }}>Trace</span>
+            </button>
           </div>
 
           <div style={{ padding: '12px 16px', flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
@@ -716,6 +724,17 @@ export default function IdePage() {
                     <button onClick={handleAnalyze} className="btn btn--primary">Analyze Performance</button>
                   </div>
                 )}
+              </div>
+            )}
+
+            {bottomTab === 'transpile' && (
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <TranspilationPanel
+                  qasm={files[activeFile]}
+                  codeType={activeFile === 'main.py' ? 'python' : 'qasm'}
+                  backendName={selectedProvider === 'ibm_quantum' ? selectedBackend : 'ibm_brisbane'}
+                  onClose={() => setBottomTab('terminal')}
+                />
               </div>
             )}
 

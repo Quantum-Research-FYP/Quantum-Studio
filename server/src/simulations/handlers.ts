@@ -3,6 +3,7 @@ import type { Db } from 'mongodb';
 import { createSimulationRepository } from './repository.js';
 import { validateSubmission, getResourceLimits } from './validation.js';
 import { getSimulationServiceUrl, fetchWithRetry } from './sim-fetch.js';
+import { createIntegrationsRepository } from '../integrations/repository.js';
 
 /** Compute probability for each bitstring as count / shots, rounded to 4 decimal places. */
 function computeProbabilities(
@@ -77,6 +78,7 @@ function formatJobResponse(job: {
 
 export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
   const repo = createSimulationRepository(pool);
+  const integrationsRepo = createIntegrationsRepository(pool);
 
   return {
     /** POST /api/v1/simulations/jobs — Submit a new simulation job. */
@@ -240,6 +242,71 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
         }
       } catch (err) {
         console.error('Analyze performance error:', err);
+        res.status(500).json({ error: 'An unexpected error occurred.' });
+      }
+    },
+
+    /** POST /api/v1/simulations/transpile-trace — Step-by-step transpilation trace. */
+    async runTranspileTrace(req: Request, res: Response): Promise<void> {
+      try {
+        const { qasm, mode, backend, optimizationLevel } = req.body ?? {};
+        const userId = req.user!.id;
+
+        if (!qasm || typeof qasm !== 'string') {
+          res.status(400).json({
+            error: 'Missing or invalid circuit code for transpilation.',
+            errorCode: 'VALIDATION_SYNTAX',
+          });
+          return;
+        }
+
+        const ibmToken = await integrationsRepo.getDecryptedToken(userId, 'ibm_quantum');
+        
+        const serviceUrl = getSimulationServiceUrl();
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 60000);
+
+        try {
+          const response = await fetchWithRetry(
+            `${serviceUrl}/transpile-trace`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                code: qasm,
+                codeType: mode === 'python' ? 'python' : 'qasm',
+                backend: backend || 'ibm_brisbane',
+                ibm_token: ibmToken || undefined,
+                ibm_channel: ibmToken ? 'ibm_quantum' : undefined,
+                optimization_level: typeof optimizationLevel === 'number' ? optimizationLevel : 1
+              }),
+            },
+            { signal: controller.signal },
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            res.status(response.status).json(data);
+            return;
+          }
+
+          res.status(200).json(data);
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') {
+            res.status(408).json({ error: 'Transpilation trace request timed out.', errorCode: 'EXECUTION_TIMEOUT' });
+            return;
+          }
+          console.error('Simulation service unreachable after retries:', err);
+          res.status(503).json({
+            error: 'Cannot reach the simulation service.',
+            errorCode: 'EXECUTION_RUNTIME_ERROR',
+          });
+        } finally {
+          clearTimeout(timer);
+        }
+      } catch (err) {
+        console.error('Transpile trace error:', err);
         res.status(500).json({ error: 'An unexpected error occurred.' });
       }
     },
