@@ -139,6 +139,102 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
   // Locate layout logical-to-physical index
   const logicalLayoutMap = trace?.logicalToPhysicalLayout || null;
 
+  // Directed Acyclic Graph (DAG) layout generator for the Original Circuit step
+  const dagLayout = useMemo(() => {
+    if (!trace?.dag || !trace.dag.nodes || trace.dag.nodes.length === 0) return null;
+    const nodes = trace.dag.nodes;
+    const edges = trace.dag.edges;
+
+    const adj: Record<string, string[]> = {};
+    const inEdges: Record<string, string[]> = {};
+    const nodeMap: Record<string, typeof nodes[0]> = {};
+    
+    nodes.forEach(n => {
+      adj[n.id] = [];
+      inEdges[n.id] = [];
+      nodeMap[n.id] = n;
+    });
+    
+    edges.forEach(e => {
+      if (adj[e.source]) adj[e.source].push(e.target);
+      if (inEdges[e.target]) inEdges[e.target].push(e.source);
+    });
+
+    const layers: Record<string, number> = {};
+    const visited = new Set<string>();
+
+    function getRank(nodeId: string): number {
+      if (layers[nodeId] !== undefined) return layers[nodeId];
+      const node = nodeMap[nodeId];
+      if (!node || node.type === 'in' || inEdges[nodeId].length === 0) {
+        layers[nodeId] = 0;
+        return 0;
+      }
+      
+      if (visited.has(nodeId)) return 0;
+      visited.add(nodeId);
+      
+      let maxParentRank = 0;
+      inEdges[nodeId].forEach(pId => {
+        maxParentRank = Math.max(maxParentRank, getRank(pId));
+      });
+      
+      visited.delete(nodeId);
+      const rank = maxParentRank + 1;
+      layers[nodeId] = rank;
+      return rank;
+    }
+
+    nodes.forEach(n => getRank(n.id));
+
+    let maxRank = 0;
+    nodes.forEach(n => {
+      if (layers[n.id] > maxRank) maxRank = layers[n.id];
+    });
+    nodes.forEach(n => {
+      if (n.type === 'out') {
+        layers[n.id] = maxRank + 1;
+      }
+    });
+    
+    // Recalculate max rank
+    maxRank = 0;
+    nodes.forEach(n => {
+      if (layers[n.id] > maxRank) maxRank = layers[n.id];
+    });
+
+    const layersGroup: Record<number, string[]> = {};
+    for (let r = 0; r <= maxRank; r++) {
+      layersGroup[r] = [];
+    }
+    nodes.forEach(n => {
+      const r = layers[n.id] || 0;
+      if (!layersGroup[r]) layersGroup[r] = [];
+      layersGroup[r].push(n.id);
+    });
+
+    const positions: Record<string, { x: number; y: number }> = {};
+    const width = 360;
+    const height = 180;
+    const paddingX = 35;
+    const paddingY = 20;
+
+    const activeLayers = Object.keys(layersGroup).map(Number).filter(l => layersGroup[l].length > 0).sort((a, b) => a - b);
+    const layerCount = activeLayers.length;
+
+    activeLayers.forEach((l, lIdx) => {
+      const x = paddingX + (lIdx / Math.max(1, layerCount - 1)) * (width - 2 * paddingX);
+      const nodeIds = layersGroup[l];
+      const nVal = nodeIds.length;
+      nodeIds.forEach((id, idx) => {
+        const y = paddingY + (nVal === 1 ? 0.5 : idx / (nVal - 1)) * (height - 2 * paddingY);
+        positions[id] = { x, y };
+      });
+    });
+
+    return { positions, nodes, edges };
+  }, [trace]);
+
   return (
     <div className="transpile-panel" style={{
       display: 'flex', flexDirection: 'column', height: '100%', minHeight: '500px',
@@ -386,74 +482,159 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
                   </div>
                 )}
 
-                {/* 2. Target Hardware Topology */}
+                {/* 2. Target Hardware Topology OR Directed Acyclic Graph (DAG) Visualizer */}
                 <div style={{ backgroundColor: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: '6px', padding: '12px', display: 'flex', flexDirection: 'column' }}>
-                  <h4 style={{ margin: '0 0 4px 0', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-subtle)' }}>Hardware Coupling Map Network</h4>
-                  {trace.couplingMap ? (
-                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
-                      <svg width="100%" height="100%" viewBox="0 0 360 180" style={{ maxWidth: '360px' }}>
-                        {/* Draw coupling connections */}
-                        {trace.couplingMap.map(([n1, n2], idx) => {
-                          const p1 = couplingPositions[n1];
-                          const p2 = couplingPositions[n2];
-                          if (!p1 || !p2) return null;
-                          return (
-                            <line 
-                              key={idx}
-                              x1={p1.x} y1={p1.y}
-                              x2={p2.x} y2={p2.y}
-                              stroke="var(--color-border)"
-                              strokeWidth="2"
-                            />
-                          );
-                        })}
-
-                        {/* Draw Qubit nodes */}
-                        {couplingNodes.map(node => {
-                          const pos = couplingPositions[node];
-                          if (!pos) return null;
-                          // Check if logical qubit is mapped to this physical node
-                          const logicalName = logicalLayoutMap 
-                            ? Object.keys(logicalLayoutMap).find(k => logicalLayoutMap[k] === node)
-                            : null;
-
-                          return (
-                            <g key={node}>
-                              <circle 
-                                cx={pos.x} cy={pos.y} r="14"
-                                fill={logicalName ? 'var(--color-primary-dim)' : 'var(--color-surface-2)'}
-                                stroke={logicalName ? 'var(--color-primary)' : 'var(--color-border)'}
-                                strokeWidth="2"
-                              />
-                              <text 
-                                x={pos.x} y={pos.y + 4} 
-                                textAnchor="middle" 
-                                fontSize="10" 
-                                fontWeight="bold"
-                                fill="var(--color-text)"
-                              >
-                                {node}
-                              </text>
-                              {logicalName && (
-                                <text 
-                                  x={pos.x} y={pos.y - 18} 
-                                  textAnchor="middle" 
-                                  fontSize="8" 
-                                  fill="var(--color-primary)"
-                                  fontWeight="600"
+                  {currentPassIndex === -1 && dagLayout ? (
+                    <>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-subtle)' }}>Directed Acyclic Graph (Circuit DAG)</h4>
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
+                        <svg width="100%" height="100%" viewBox="0 0 360 180" style={{ maxWidth: '360px' }}>
+                          <defs>
+                            <marker id="arrow" viewBox="0 0 10 10" refX="17" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-text-muted)" />
+                            </marker>
+                          </defs>
+                          {/* Draw DAG edges */}
+                          {dagLayout.edges.map((edge, idx) => {
+                            const p1 = dagLayout.positions[edge.source];
+                            const p2 = dagLayout.positions[edge.target];
+                            if (!p1 || !p2) return null;
+                            return (
+                              <g key={idx}>
+                                <line 
+                                  x1={p1.x} y1={p1.y}
+                                  x2={p2.x} y2={p2.y}
+                                  stroke="var(--color-border)"
+                                  strokeWidth="1.5"
+                                  markerEnd="url(#arrow)"
+                                />
+                                <text
+                                  x={(p1.x + p2.x) / 2}
+                                  y={(p1.y + p2.y) / 2 - 4}
+                                  textAnchor="middle"
+                                  fontSize="6.5"
+                                  fill="var(--color-text-muted)"
                                 >
-                                  {logicalName}
+                                  {edge.label}
                                 </text>
-                              )}
-                            </g>
-                          );
-                        })}
-                      </svg>
-                    </div>
+                              </g>
+                            );
+                          })}
+                          {/* Draw DAG nodes */}
+                          {dagLayout.nodes.map(node => {
+                            const pos = dagLayout.positions[node.id];
+                            if (!pos) return null;
+                            const isGate = node.type === 'gate';
+                            const isIn = node.type === 'in';
+                            const isOut = node.type === 'out';
+                            
+                            let fill = 'var(--color-surface-2)';
+                            let stroke = 'var(--color-border)';
+                            let r = "11";
+                            if (isGate) {
+                              fill = 'var(--color-primary-dim)';
+                              stroke = 'var(--color-primary)';
+                              r = "12";
+                            } else if (isIn) {
+                              fill = 'var(--color-surface-3)';
+                              stroke = 'var(--color-border)';
+                            } else if (isOut) {
+                              fill = 'rgba(16, 185, 129, 0.1)';
+                              stroke = 'rgb(16, 185, 129)';
+                            }
+
+                            return (
+                              <g key={node.id}>
+                                <circle 
+                                  cx={pos.x} cy={pos.y} r={r}
+                                  fill={fill}
+                                  stroke={stroke}
+                                  strokeWidth="1.5"
+                                />
+                                <text 
+                                  x={pos.x} y={pos.y + 3} 
+                                  textAnchor="middle" 
+                                  fontSize="7.5" 
+                                  fontWeight="bold"
+                                  fill="var(--color-text)"
+                                >
+                                  {node.label}
+                                </text>
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      </div>
+                    </>
                   ) : (
-                    <div style={{ padding: '24px 0', fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
-                      Generic Simulator uses all-to-all connectivity. No coupling constraints applied.
-                    </div>
+                    <>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-subtle)' }}>Hardware Coupling Map Network</h4>
+                      {trace?.couplingMap ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '200px' }}>
+                          <svg width="100%" height="100%" viewBox="0 0 360 180" style={{ maxWidth: '360px' }}>
+                            {/* Draw coupling connections */}
+                            {trace.couplingMap.map(([n1, n2], idx) => {
+                              const p1 = couplingPositions[n1];
+                              const p2 = couplingPositions[n2];
+                              if (!p1 || !p2) return null;
+                              return (
+                                <line 
+                                  key={idx}
+                                  x1={p1.x} y1={p1.y}
+                                  x2={p2.x} y2={p2.y}
+                                  stroke="var(--color-border)"
+                                  strokeWidth="2"
+                                />
+                              );
+                            })}
+
+                            {/* Draw Qubit nodes */}
+                            {couplingNodes.map(node => {
+                              const pos = couplingPositions[node];
+                              if (!pos) return null;
+                              const logicalName = logicalLayoutMap 
+                                ? Object.keys(logicalLayoutMap).find(k => logicalLayoutMap[k] === node)
+                                : null;
+
+                              return (
+                                <g key={node}>
+                                  <circle 
+                                    cx={pos.x} cy={pos.y} r="14"
+                                    fill={logicalName ? 'var(--color-primary-dim)' : 'var(--color-surface-2)'}
+                                    stroke={logicalName ? 'var(--color-primary)' : 'var(--color-border)'}
+                                    strokeWidth="2"
+                                  />
+                                  <text 
+                                    x={pos.x} y={pos.y + 4} 
+                                    textAnchor="middle" 
+                                    fontSize="10" 
+                                    fontWeight="bold"
+                                    fill="var(--color-text)"
+                                  >
+                                    {node}
+                                  </text>
+                                  {logicalName && (
+                                    <text 
+                                      x={pos.x} y={pos.y - 18} 
+                                      textAnchor="middle" 
+                                      fontSize="8" 
+                                      fill="var(--color-primary)"
+                                      fontWeight="600"
+                                    >
+                                      {logicalName}
+                                    </text>
+                                  )}
+                                </g>
+                              );
+                            })}
+                          </svg>
+                        </div>
+                      ) : (
+                        <div style={{ padding: '24px 0', fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
+                          Generic Simulator uses all-to-all connectivity. No coupling constraints applied.
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 

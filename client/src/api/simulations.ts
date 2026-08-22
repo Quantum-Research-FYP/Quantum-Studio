@@ -181,6 +181,10 @@ export interface TranspileTraceResponse {
   stages: TranspileStageSummary[];
   couplingMap: Array<[number, number]> | null;
   logicalToPhysicalLayout: Record<string, number> | null;
+  dag?: {
+    nodes: Array<{ id: string; label: string; type: string }>;
+    edges: Array<{ source: string; target: string; label: string }>;
+  } | null;
 }
 
 export interface TranspileTraceInput {

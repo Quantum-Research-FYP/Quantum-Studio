@@ -599,6 +599,7 @@ class TranspileTraceResponse(BaseModel):
     stages: list[TranspileStageSummary]
     couplingMap: list[list[int]] | None = None
     logicalToPhysicalLayout: dict[str, int] | None = None
+    dag: dict[str, Any] | None = None
 
 
 # Maps Qiskit Pass Name to one of the 6 stages defined in the educational specifications
@@ -739,6 +740,79 @@ def _diff_gates(ops_before: dict[str, int], ops_after: dict[str, int]) -> list[s
             sign = "+" if diff > 0 else ""
             changed.append(f"{k}: {sign}{diff}")
     return sorted(changed)
+
+
+def _serialize_dag(circuit) -> dict:
+    try:
+        from qiskit.converters import circuit_to_dag
+        dag = circuit_to_dag(circuit)
+        
+        nodes = []
+        edges = []
+        
+        for node in dag.nodes():
+            try:
+                node_id = str(node._node_id)
+            except Exception:
+                node_id = str(hash(node))
+                
+            label = ""
+            type_ = "gate"
+            
+            if hasattr(node, 'type'):
+                if node.type == "op":
+                    label = getattr(node, 'name', 'Gate').upper()
+                    type_ = "gate"
+                elif node.type == "in":
+                    wire = getattr(node, 'wire', None)
+                    if wire:
+                        label = f"{wire.register.name}[{wire.index}]" if hasattr(wire, 'register') else str(wire)
+                    else:
+                        label = "In"
+                    type_ = "in"
+                elif node.type == "out":
+                    wire = getattr(node, 'wire', None)
+                    if wire:
+                        label = f"{wire.register.name}[{wire.index}]" if hasattr(wire, 'register') else str(wire)
+                    else:
+                        label = "Out"
+                    type_ = "out"
+            else:
+                label = str(node)
+                
+            nodes.append({"id": node_id, "label": label, "type": type_})
+            
+        for edge in dag.edges():
+            try:
+                if isinstance(edge, tuple):
+                    src_node = edge[0]
+                    dest_node = edge[1]
+                    wire = edge[2] if len(edge) > 2 else None
+                else:
+                    src_node = getattr(edge, 'src', None)
+                    dest_node = getattr(edge, 'dest', None)
+                    wire = getattr(edge, 'wire', None)
+                    
+                if src_node and dest_node:
+                    src_id = str(getattr(src_node, '_node_id', hash(src_node)))
+                    dest_id = str(getattr(dest_node, '_node_id', hash(dest_node)))
+                    
+                    wire_label = ""
+                    if wire:
+                        wire_label = f"{wire.register.name}[{wire.index}]" if hasattr(wire, 'register') else str(wire)
+                        
+                    edges.append({
+                        "source": src_id,
+                        "target": dest_id,
+                        "label": wire_label
+                    })
+            except Exception:
+                pass
+                
+        return {"nodes": nodes, "edges": edges}
+    except Exception as e:
+        print(f"[transpile-trace] Failed to serialize DAG: {e}")
+        return {"nodes": [], "edges": []}
 
 
 def _safe_qasm_dump(circ) -> str:
@@ -1032,6 +1106,7 @@ def transpile_trace(req: TranspileTraceRequest):
         stages = _group_trace_into_stages(collector, qc.size(), qc.depth())
         coupling_map = _extract_coupling_map(backend)
         layout = _extract_layout(transpiled)
+        dag_data = _serialize_dag(qc)
 
         return TranspileTraceResponse(
             originalQasm=collector.initial_qasm,
@@ -1043,7 +1118,8 @@ def transpile_trace(req: TranspileTraceRequest):
             totalExecutionTimeMs=total_time_ms,
             stages=stages,
             couplingMap=coupling_map,
-            logicalToPhysicalLayout=layout
+            logicalToPhysicalLayout=layout,
+            dag=dag_data
         )
     except Exception as exc:
         raise HTTPException(
