@@ -3,13 +3,19 @@ import { createSimulationRepository } from './repository.js';
 import { createSpinqRepository } from '../integrations/spinq-repository.js';
 import type { CodeType } from './repository.js';
 import { getResourceLimits } from './validation.js';
+import { getSimulationServiceUrl, fetchWithRetry, pingSimulationService } from './sim-fetch.js';
 
 interface RunnerOptions {
   /** Max concurrent simulation processes (default: 2). */
   maxConcurrent?: number;
   /** Polling interval in ms for checking the queue (default: 1000). */
   pollIntervalMs?: number;
+  /** Keep-alive ping interval in ms (default: 5 minutes). Set 0 to disable. */
+  keepAliveIntervalMs?: number;
 }
+
+/** Default keep-alive interval: 5 minutes. */
+const DEFAULT_KEEP_ALIVE_MS = 5 * 60 * 1000;
 
 /**
  * Create an in-process job runner that polls for queued simulation jobs,
@@ -21,9 +27,11 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
   const maxConcurrent =
     parseInt(process.env.SIM_MAX_CONCURRENT_JOBS || '', 10) || options?.maxConcurrent || 2;
   const pollIntervalMs = options?.pollIntervalMs ?? 1000;
+  const keepAliveIntervalMs = options?.keepAliveIntervalMs ?? DEFAULT_KEEP_ALIVE_MS;
 
   let activeJobs = 0;
   let pollTimer: ReturnType<typeof setInterval> | null = null;
+  let keepAliveTimer: ReturnType<typeof setInterval> | null = null;
   let stopped = false;
 
   /** Try to dequeue and run jobs up to the concurrency limit. */
@@ -96,24 +104,55 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
     }
   }
 
+  // -------------------------------------------------------------------------
+  // Keep-alive: periodically ping the simulation service to prevent cold starts
+  // -------------------------------------------------------------------------
+
+  async function keepAlivePing(): Promise<void> {
+    // Skip pinging while a job is actively running — service is obviously warm.
+    if (activeJobs > 0) return;
+
+    const ok = await pingSimulationService();
+    if (ok) {
+      console.log('[keep-alive] Simulation service is responsive.');
+    } else {
+      console.warn('[keep-alive] Simulation service is unreachable — it may be cold-starting.');
+    }
+  }
+
   return {
-    /** Start the polling loop. */
+    /** Start the polling loop and the keep-alive pinger. */
     start(): void {
       if (pollTimer) return;
       stopped = false;
+
+      // Job queue polling
       pollTimer = setInterval(() => {
         tryProcessQueue().catch(logError);
       }, pollIntervalMs);
       // Also run immediately on start to pick up any jobs left from a prior run
       tryProcessQueue().catch(logError);
+
+      // Keep-alive pinging (prevents Render free-tier spin-down)
+      if (keepAliveIntervalMs > 0) {
+        // Fire an initial ping on startup so the service is warm ASAP
+        keepAlivePing().catch(logError);
+        keepAliveTimer = setInterval(() => {
+          keepAlivePing().catch(logError);
+        }, keepAliveIntervalMs);
+      }
     },
 
-    /** Stop the polling loop. Active jobs will still finish. */
+    /** Stop the polling loop and keep-alive. Active jobs will still finish. */
     stop(): void {
       stopped = true;
       if (pollTimer) {
         clearInterval(pollTimer);
         pollTimer = null;
+      }
+      if (keepAliveTimer) {
+        clearInterval(keepAliveTimer);
+        keepAliveTimer = null;
       }
     },
 
@@ -147,7 +186,7 @@ interface SimulationError {
 
 type SimulationResult = SimulationSuccess | SimulationError;
 
-/** Call the FastAPI simulation microservice via HTTP. */
+/** Call the FastAPI simulation microservice via HTTP with retry logic. */
 async function runPythonSimulation(
   qasmInput: string,
   shots: number,
@@ -157,17 +196,20 @@ async function runPythonSimulation(
   provider?: string,
   spinqConfig?: Record<string, any>
 ): Promise<SimulationResult> {
-  const serviceUrl = (process.env.SIMULATION_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
+  const serviceUrl = getSimulationServiceUrl();
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const response = await fetch(`${serviceUrl}/simulate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ qasm: qasmInput, shots, mode: codeType, noiseConfig, provider: provider || 'simulator', spinqConfig }),
-      signal: controller.signal,
-    });
+    const response = await fetchWithRetry(
+      `${serviceUrl}/simulate`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qasm: qasmInput, shots, mode: codeType, noiseConfig, provider: provider || 'simulator', spinqConfig }),
+      },
+      { signal: controller.signal },
+    );
 
     const data = (await response.json()) as Record<string, unknown>;
 
@@ -186,7 +228,7 @@ async function runPythonSimulation(
       throw new Error('EXECUTION_TIMEOUT');
     }
     const msg = err instanceof Error ? err.message : String(err);
-    console.error('Simulation service unreachable:', msg);
+    console.error('Simulation service unreachable after retries:', msg);
     return {
       error: true,
       errorCode: 'EXECUTION_RUNTIME_ERROR',

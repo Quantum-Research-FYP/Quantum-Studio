@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import type { Db } from 'mongodb';
 import { createSimulationRepository } from './repository.js';
 import { validateSubmission, getResourceLimits } from './validation.js';
+import { getSimulationServiceUrl, fetchWithRetry } from './sim-fetch.js';
 
 /** Compute probability for each bitstring as count / shots, rounded to 4 decimal places. */
 function computeProbabilities(
@@ -146,17 +147,20 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
           return;
         }
 
-        const serviceUrl = (process.env.SIMULATION_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
+        const serviceUrl = getSimulationServiceUrl();
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 10000); // 10s timeout for stepper
+        const timer = setTimeout(() => controller.abort(), 30_000); // 30s timeout for stepper (increased for cold starts)
 
         try {
-          const response = await fetch(`${serviceUrl}/simulate-stepper`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code }),
-            signal: controller.signal,
-          });
+          const response = await fetchWithRetry(
+            `${serviceUrl}/simulate-stepper`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ code }),
+            },
+            { signal: controller.signal },
+          );
 
           const data = await response.json();
 
@@ -171,7 +175,7 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
             res.status(408).json({ error: 'Stepper simulation timed out.', errorCode: 'EXECUTION_TIMEOUT' });
             return;
           }
-          console.error('Simulation service unreachable:', err);
+          console.error('Simulation service unreachable after retries:', err);
           res.status(503).json({
             error: 'Cannot reach the simulation service.',
             errorCode: 'EXECUTION_RUNTIME_ERROR',
@@ -198,17 +202,20 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
           return;
         }
 
-        const serviceUrl = (process.env.SIMULATION_SERVICE_URL ?? 'http://localhost:8000').replace(/\/$/, '');
+        const serviceUrl = getSimulationServiceUrl();
         const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 15000); // 15s timeout for analysis
+        const timer = setTimeout(() => controller.abort(), 45_000); // 45s timeout for analysis (increased for cold starts)
 
         try {
-          const response = await fetch(`${serviceUrl}/analyze`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ qasm, shots: shots || 1000, mode: mode || 'qasm', noiseConfig }),
-            signal: controller.signal,
-          });
+          const response = await fetchWithRetry(
+            `${serviceUrl}/analyze`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ qasm, shots: shots || 1000, mode: mode || 'qasm', noiseConfig }),
+            },
+            { signal: controller.signal },
+          );
 
           const data = await response.json();
 
@@ -223,7 +230,7 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
             res.status(408).json({ error: 'Analysis simulation timed out.', errorCode: 'EXECUTION_TIMEOUT' });
             return;
           }
-          console.error('Simulation service unreachable:', err);
+          console.error('Simulation service unreachable after retries:', err);
           res.status(503).json({
             error: 'Cannot reach the simulation service.',
             errorCode: 'EXECUTION_RUNTIME_ERROR',

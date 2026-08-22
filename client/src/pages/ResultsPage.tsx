@@ -788,13 +788,16 @@ function ErrorBanner({
   error: { errorCode: string; message: string };
   isIbm: boolean;
 }) {
+  const isColdStart = error.message?.toLowerCase().includes('cannot reach the simulation service');
   const guidance: Record<string, string> = {
     VALIDATION_MAX_QUBITS: 'Try reducing the number of qubits in your circuit.',
     VALIDATION_MAX_SHOTS: 'Try reducing the number of shots.',
     VALIDATION_MAX_DEPTH: 'Try simplifying your circuit to reduce gate depth.',
     VALIDATION_SYNTAX: 'Check your OpenQASM syntax for errors.',
     EXECUTION_TIMEOUT: 'Try a simpler circuit or fewer shots.',
-    EXECUTION_RUNTIME_ERROR: 'Check your circuit for errors and try again.',
+    EXECUTION_RUNTIME_ERROR: isColdStart
+      ? 'The simulation service is warming up. Please wait a moment and try again.'
+      : 'Check your circuit for errors and try again.',
     IBM_EXECUTION_ERROR:
       'The hardware execution encountered an error. Try running on the simulator instead.',
     PROVIDER_UNAVAILABLE:
@@ -823,13 +826,16 @@ function ErrorBanner({
 }
 
 function SimErrorBanner({ error }: { error: { errorCode: string; message: string } }) {
+  const isColdStart = error.message?.toLowerCase().includes('cannot reach the simulation service');
   const guidance: Record<string, string> = {
     VALIDATION_MAX_QUBITS: 'Try reducing the number of qubits in your circuit.',
     VALIDATION_MAX_SHOTS: 'Try reducing the number of shots.',
     VALIDATION_MAX_DEPTH: 'Try simplifying your circuit to reduce gate depth.',
     VALIDATION_SYNTAX: 'Check your OpenQASM syntax for errors.',
     EXECUTION_TIMEOUT: 'Try a simpler circuit or fewer shots.',
-    EXECUTION_RUNTIME_ERROR: 'Check your circuit for errors and try again.',
+    EXECUTION_RUNTIME_ERROR: isColdStart
+      ? 'The simulation service is warming up. Please wait a moment and try again.'
+      : 'Check your circuit for errors and try again.',
   };
   const hint = guidance[error.errorCode];
   return (
