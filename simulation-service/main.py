@@ -312,22 +312,10 @@ def _get_ibm_fake_backend(backend_name: str) -> Any:
     """
     FALLBACK ONLY. Returns a GenericBackendV2 with the correct native
     2-qubit gate for the target backend's processor family.
-
-    What this gets RIGHT:
-      - Gate decomposition: cx / other gates are converted to ecr (Eagle)
-        or cz (Heron) — the correct native 2Q gate for this family.
-
-    What this gets WRONG (and why it will still fail on real hardware):
-      - Coupling map: GenericBackendV2 generates a RANDOM topology.
-        ibm_fez, ibm_kingston, and ibm_marrakesh are all Heron r2 /
-        156 qubits, but their qubit connectivity is DIFFERENT per machine.
-        Routing against a random coupling map will place 2Q gates on qubit
-        pairs that don't exist on the real device.
-
-    The correct path is ALWAYS A: QiskitRuntimeService(token=...).backend(name),
-    which returns the live backend with its exact coupling map.
-    This fallback exists only for local dev / testing without credentials.
     """
+    if backend_name in ("aer_simulator", "simulator", "local", "basic_simulator", "spinq"):
+        return None
+
     print(
         f"[transpile-ibm] WARNING: Using GenericBackendV2 fallback for '{backend_name}'. "
         "Coupling map is RANDOM — qubit routing will not match the real QPU. "
@@ -743,19 +731,20 @@ def _diff_gates(ops_before: dict[str, int], ops_after: dict[str, int]) -> list[s
 
 
 def _serialize_dag(circuit) -> dict:
+    if circuit is None:
+        return {"nodes": [], "edges": []}
     try:
         from qiskit.converters import circuit_to_dag
         dag = circuit_to_dag(circuit)
         
         nodes = []
         edges = []
+        node_id_map = {}
         
-        for node in dag.nodes():
-            try:
-                node_id = str(node._node_id)
-            except Exception:
-                node_id = str(hash(node))
-                
+        for idx, node in enumerate(dag.nodes()):
+            node_id = f"node_{idx}"
+            node_id_map[node] = node_id
+            
             label = ""
             type_ = "gate"
             
@@ -766,14 +755,18 @@ def _serialize_dag(circuit) -> dict:
                 elif node.type == "in":
                     wire = getattr(node, 'wire', None)
                     if wire:
-                        label = f"{wire.register.name}[{wire.index}]" if hasattr(wire, 'register') else str(wire)
+                        reg_name = getattr(wire.register, 'name', 'q') if hasattr(wire, 'register') and wire.register else 'q'
+                        idx_val = getattr(wire, 'index', 0)
+                        label = f"{reg_name}[{idx_val}]"
                     else:
                         label = "In"
                     type_ = "in"
                 elif node.type == "out":
                     wire = getattr(node, 'wire', None)
                     if wire:
-                        label = f"{wire.register.name}[{wire.index}]" if hasattr(wire, 'register') else str(wire)
+                        reg_name = getattr(wire.register, 'name', 'q') if hasattr(wire, 'register') and wire.register else 'q'
+                        idx_val = getattr(wire, 'index', 0)
+                        label = f"{reg_name}[{idx_val}]"
                     else:
                         label = "Out"
                     type_ = "out"
@@ -793,13 +786,15 @@ def _serialize_dag(circuit) -> dict:
                     dest_node = getattr(edge, 'dest', None)
                     wire = getattr(edge, 'wire', None)
                     
-                if src_node and dest_node:
-                    src_id = str(getattr(src_node, '_node_id', hash(src_node)))
-                    dest_id = str(getattr(dest_node, '_node_id', hash(dest_node)))
+                if src_node in node_id_map and dest_node in node_id_map:
+                    src_id = node_id_map[src_node]
+                    dest_id = node_id_map[dest_node]
                     
                     wire_label = ""
                     if wire:
-                        wire_label = f"{wire.register.name}[{wire.index}]" if hasattr(wire, 'register') else str(wire)
+                        reg_name = getattr(wire.register, 'name', 'q') if hasattr(wire, 'register') and wire.register else 'q'
+                        idx_val = getattr(wire, 'index', 0)
+                        wire_label = f"{reg_name}[{idx_val}]"
                         
                     edges.append({
                         "source": src_id,
@@ -817,12 +812,8 @@ def _serialize_dag(circuit) -> dict:
 
 def _safe_qasm_dump(circ) -> str:
     """
-    Safely dumps a circuit to OpenQASM 3.
-    If the circuit contains physical qubits (which are not part of any register, 
-    often produced during Qiskit mapping/routing passes), standard qasm3.dumps()
-    will fail with QASM3ExporterError. 
-    This function detects that failure and wraps the circuit's gates in a 
-    standard register-backed QuantumCircuit before dumping.
+    Safely dumps a circuit to OpenQASM 3 / OpenQASM 2 text.
+    Handles circuits containing physical or anonymous qubits without throwing QASM3ExporterError.
     """
     if circ is None:
         return ""
@@ -830,45 +821,51 @@ def _safe_qasm_dump(circ) -> str:
         from qiskit import qasm3
         return qasm3.dumps(circ)
     except Exception:
-        try:
-            from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
-            from qiskit import qasm3
+        pass
+
+    try:
+        from qiskit import QuantumCircuit, QuantumRegister, ClassicalRegister
+        from qiskit import qasm3
+        
+        num_qubits = len(circ.qubits)
+        num_clbits = len(circ.clbits)
+        
+        qr = QuantumRegister(num_qubits, "q")
+        cr = ClassicalRegister(num_clbits, "c") if num_clbits > 0 else None
+        
+        safe_circ = QuantumCircuit(qr)
+        if cr:
+            safe_circ.add_register(cr)
             
-            num_qubits = circ.num_qubits
-            num_clbits = circ.num_clbits
+        qubit_map = {q: qr[i] for i, q in enumerate(circ.qubits)}
+        clbit_map = {c: cr[i] for i, c in enumerate(circ.clbits)} if cr else {}
+        
+        for inst in circ.data:
+            safe_inst_qubits = [qubit_map[q] for q in inst.qubits if q in qubit_map]
+            safe_inst_clbits = [clbit_map[c] for c in inst.clbits if c in clbit_map]
+            safe_circ.append(inst.operation, safe_inst_qubits, safe_inst_clbits)
             
-            qr = QuantumRegister(num_qubits, "q")
-            cr = ClassicalRegister(num_clbits, "c") if num_clbits > 0 else None
-            
-            safe_circ = QuantumCircuit(qr)
-            if cr:
-                safe_circ.add_register(cr)
-                
-            for inst in circ.data:
-                q_indices = [circ.find_bit(q).index for q in inst.qubits]
-                c_indices = [circ.find_bit(c).index for c in inst.clbits]
-                
-                safe_inst_qubits = [qr[i] for i in q_indices]
-                safe_inst_clbits = [cr[i] for i in c_indices] if cr else []
-                
-                safe_circ.append(inst.operation, safe_inst_qubits, safe_inst_clbits)
-                
-            return qasm3.dumps(safe_circ)
-        except Exception as e:
-            print(f"[transpile-trace] safe_qasm_dump fallback failed: {e}")
-            return ""
+        return qasm3.dumps(safe_circ)
+    except Exception as e:
+        print(f"[transpile-trace] safe_qasm_dump qasm3 fallback failed: {e}")
+
+    try:
+        from qiskit import qasm2
+        return qasm2.dumps(circ)
+    except Exception:
+        pass
+
+    try:
+        return str(circ.draw(output='text'))
+    except Exception:
+        return ""
 
 
 class TranspileTraceCollector:
     def __init__(self, initial_circuit):
-        from qiskit import qasm3
         self.trace = []
         self.current_circuit = initial_circuit
-        try:
-            self.initial_qasm = qasm3.dumps(initial_circuit)
-        except Exception:
-            # Fallback to empty if dump fails
-            self.initial_qasm = ""
+        self.initial_qasm = _safe_qasm_dump(initial_circuit)
         self.current_qasm = self.initial_qasm
         self.current_gates = initial_circuit.size()
         self.current_depth = initial_circuit.depth()
@@ -1072,16 +1069,17 @@ def transpile_trace(req: TranspileTraceRequest):
             detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": "No circuit was produced."},
         )
 
-    # Load backend
+    # Load backend (skip hardware topologies for simulators)
     backend = None
-    if req.ibm_token and req.ibm_channel:
+    is_simulator = req.backend in ("aer_simulator", "simulator", "local", "basic_simulator", "spinq")
+    if not is_simulator and req.ibm_token and req.ibm_channel:
         try:
             backend = _get_real_backend_cached(
                 req.ibm_channel, req.ibm_token, req.ibm_instance, req.backend
             )
         except Exception:
             backend = None
-    if backend is None:
+    if not is_simulator and backend is None:
         backend = _get_ibm_fake_backend(req.backend)
 
     # Run Qiskit transpile with callback

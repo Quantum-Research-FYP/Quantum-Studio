@@ -91,16 +91,27 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const body = await res.json().catch(() => null);
 
   if (!res.ok) {
-    const apiErr = body as (ApiError & { detail?: { message?: string; errorCode?: string } }) | null;
-    const errMsg = apiErr?.error || apiErr?.detail?.message || 'An error occurred.';
+    let errMsg = 'An error occurred.';
+    if (typeof body?.error === 'string' && body.error) {
+      errMsg = body.error;
+    } else if (typeof body?.message === 'string' && body.message) {
+      errMsg = body.message;
+    } else if (typeof body?.detail === 'string' && body.detail) {
+      errMsg = body.detail;
+    } else if (typeof body?.detail?.message === 'string' && body.detail.message) {
+      errMsg = body.detail.message;
+    } else if (Array.isArray(body?.detail) && body.detail.length > 0) {
+      errMsg = body.detail.map((d: any) => d.msg || d.message || JSON.stringify(d)).join('; ');
+    }
+
     const err = new Error(errMsg) as Error & {
       status: number;
       errorCode?: string;
       details?: ApiError['details'];
     };
     err.status = res.status;
-    err.errorCode = apiErr?.errorCode || apiErr?.detail?.errorCode;
-    err.details = apiErr?.details;
+    err.errorCode = body?.errorCode || body?.detail?.errorCode;
+    err.details = body?.details;
     throw err;
   }
 
