@@ -440,7 +440,7 @@ export default function CircuitBuilderPage() {
               isRunning || 
               errors.length > 0 || 
               circuit.operations.length === 0 ||
-              (executionConfig.provider === 'ibm' && credentialStatus !== 'valid')
+              (executionConfig.provider === 'ibm' && (credentialStatus !== 'valid' || !executionConfig.backend))
             }
             aria-label="Run circuit"
           >

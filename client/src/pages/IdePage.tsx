@@ -565,7 +565,7 @@ export default function IdePage() {
               className="btn btn--primary"
               style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px' }}
               onClick={handleRun}
-              disabled={execution.loading || (selectedProvider === 'ibm_quantum' && credentialStatus !== 'valid')}
+              disabled={execution.loading || (selectedProvider === 'ibm_quantum' && (credentialStatus !== 'valid' || !selectedBackend))}
             >
               {execution.loading ? (
                 <>Running...</>
