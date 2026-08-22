@@ -110,7 +110,7 @@ class SimulateRequest(BaseModel):
     shots: int = Field(..., ge=1, le=100_000, description="Number of shots (1–100 000)")
     mode: Literal["qasm", "python"] = Field("qasm", description="Input mode: qasm (default) or python")
     noiseConfig: dict[str, Any] | None = Field(None, description="Optional noise configuration")
-    provider: Literal["local", "spinq"] = Field("local", description="Backend provider: local or spinq")
+    provider: Literal["local", "spinq", "simulator"] = Field("local", description="Backend provider: local, spinq, or simulator")
     spinqConfig: dict[str, Any] | None = Field(None, description="Optional SpinQ QC configuration")
 
 
@@ -1612,8 +1612,7 @@ def _run_spinq_simulation(qasm_text: str, shots: int, spinq_config: dict | None 
     circuit = None
     # 1. Try to load QASM using qiskit -> spinqit if possible
     try:
-        from qiskit import QuantumCircuit
-        qc = QuantumCircuit.from_qasm_str(qasm_text)
+        qc = _parse_qasm(qasm_text)
         from spinqit.interface.qiskit import to_spinqit
         circuit = to_spinqit(qc)
     except Exception:
