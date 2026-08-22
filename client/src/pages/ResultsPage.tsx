@@ -8,6 +8,7 @@ import { listJobs } from '../api/execution';
 import ProbabilityBarChart from '../components/results/ProbabilityBarChart';
 import ResultsTable from '../components/results/ResultsTable';
 import ExportButtons from '../components/results/ExportButtons';
+import { TranspilationPanel } from '../components/results/TranspilationPanel';
 
 const DEFAULT_MAX_DISPLAY = 20;
 
@@ -366,6 +367,9 @@ function SimulationResultsView({ jobId }: { jobId: string }) {
           showAll={showAll}
           maxDisplay={maxDisplay}
           canShowAll={canShowAll}
+          qasm={job.qasmInput || ''}
+          codeType={job.codeType || 'qasm'}
+          backendName={job.backend}
           onToggleChart={() => setShowChart((v) => !v)}
           onToggleTable={() => setShowTable((v) => !v)}
           onToggleShowAll={() => setShowAll((v) => !v)}
@@ -479,6 +483,9 @@ function ExecutionResultsView({ jobId }: { jobId: string }) {
           showAll={showAll}
           maxDisplay={maxDisplay}
           canShowAll={canShowAll}
+          qasm={job.qasmInput || ''}
+          codeType={job.codeType || 'qasm'}
+          backendName={job.backend}
           onToggleChart={() => setShowChart((v) => !v)}
           onToggleTable={() => setShowTable((v) => !v)}
           onToggleShowAll={() => setShowAll((v) => !v)}
@@ -506,6 +513,9 @@ function CompletedResults({
   showAll,
   maxDisplay,
   canShowAll,
+  qasm,
+  codeType,
+  backendName,
   onToggleChart,
   onToggleTable,
   onToggleShowAll,
@@ -517,10 +527,14 @@ function CompletedResults({
   showAll: boolean;
   maxDisplay: number | undefined;
   canShowAll: boolean;
+  qasm: string;
+  codeType: 'qasm' | 'python';
+  backendName: string;
   onToggleChart: () => void;
   onToggleTable: () => void;
   onToggleShowAll: () => void;
 }) {
+  const [showTranspile, setShowTranspile] = useState(false);
   return (
     <>
       <div className="results-toggles">
@@ -540,6 +554,14 @@ function CompletedResults({
         >
           {showTable ? 'Hide table' : 'Show table'}
         </button>
+        <button
+          type="button"
+          className={`btn btn--ghost results-toggle ${showTranspile ? 'results-toggle--active' : ''}`}
+          onClick={() => setShowTranspile((v) => !v)}
+          aria-pressed={showTranspile}
+        >
+          {showTranspile ? 'Hide compilation trace' : 'Show compilation trace'}
+        </button>
         {canShowAll && (
           <button
             type="button"
@@ -551,6 +573,15 @@ function CompletedResults({
           </button>
         )}
       </div>
+
+      {showTranspile && (
+        <div className="results-chart-container" style={{ marginBottom: '24px' }}>
+          <h2 className="results-section__title">Transparent Transpilation Trace</h2>
+          <div style={{ backgroundColor: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '24px' }}>
+            <TranspilationPanel qasm={qasm} codeType={codeType} backendName={backendName} />
+          </div>
+        </div>
+      )}
 
       {showChart && (
         <div className="results-chart-container">

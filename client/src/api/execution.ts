@@ -33,6 +33,8 @@ export interface ExecutionJobResponse {
   status: string;
   backend: string;
   shots: number;
+  qasmInput?: string;
+  codeType?: 'qasm' | 'python';
   createdAt: string;
   updatedAt: string;
   startedAt?: string | null;

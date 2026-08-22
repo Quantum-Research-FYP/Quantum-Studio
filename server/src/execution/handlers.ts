@@ -258,6 +258,8 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
         status: job.status,
         backend: job.backend,
         shots: job.shots,
+        qasmInput: job.qasmInput,
+        codeType: job.codeType,
         createdAt: job.createdAt,
         updatedAt: job.updatedAt,
       });
@@ -314,6 +316,8 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
         status: updatedJob.status,
         backend: updatedJob.backend,
         shots: updatedJob.shots,
+        qasmInput: updatedJob.qasmInput,
+        codeType: updatedJob.codeType,
         createdAt: updatedJob.createdAt,
         updatedAt: updatedJob.updatedAt,
         startedAt: updatedJob.startedAt,

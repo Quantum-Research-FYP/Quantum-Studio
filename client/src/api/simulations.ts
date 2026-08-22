@@ -9,6 +9,8 @@ export interface JobResponse {
   status: JobStatus;
   shots: number;
   backend: string;
+  qasmInput?: string;
+  codeType?: 'qasm' | 'python';
   createdAt: string;
   updatedAt: string;
   startedAt: string | null;

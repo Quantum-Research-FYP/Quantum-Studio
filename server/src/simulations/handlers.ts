@@ -47,6 +47,8 @@ function formatJobResponse(job: {
   cancelledAt: string | null;
   errorCode: string | null;
   errorMessageSafe: string | null;
+  qasmInput?: string;
+  codeType?: string;
 }) {
   const base: Record<string, unknown> = {
     jobId: job.id,
@@ -54,6 +56,8 @@ function formatJobResponse(job: {
     status: job.status,
     shots: job.shots,
     backend: job.backend,
+    qasmInput: job.qasmInput,
+    codeType: job.codeType,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
     startedAt: job.startedAt,
