@@ -34,6 +34,121 @@ function nextId(): string {
   return `qasm-op-${_opId++}`;
 }
 
+// ---------------------------------------------------------------------------
+// Safe math expression evaluator (replaces eval())
+//
+// Handles the subset of arithmetic that appears in QASM gate parameters:
+//   numeric literals, pi/π, +, -, *, /, unary minus, parentheses.
+// ---------------------------------------------------------------------------
+
+/**
+ * Tokenises a math expression string into a flat token array.
+ * Tokens: numbers (as strings), operators (+, -, *, /), parens, 'pi'/'π'.
+ */
+function tokenise(expr: string): string[] {
+  const tokens: string[] = [];
+  let i = 0;
+  while (i < expr.length) {
+    const ch = expr[i];
+    if (/\s/.test(ch)) { i++; continue; }
+    // Number (including decimals and scientific notation like 1e-3)
+    if (/[0-9.]/.test(ch)) {
+      let num = '';
+      while (i < expr.length && /[0-9.eE+\-]/.test(expr[i])) {
+        // Only allow +/- immediately after e/E (scientific notation)
+        if ((expr[i] === '+' || expr[i] === '-') && !/[eE]/.test(expr[i - 1] ?? '')) break;
+        num += expr[i++];
+      }
+      tokens.push(num);
+      continue;
+    }
+    // pi / π constant
+    if (ch === 'π' || (ch === 'p' && expr[i + 1] === 'i')) {
+      tokens.push('pi');
+      i += ch === 'π' ? 1 : 2;
+      continue;
+    }
+    // Operators and parens
+    if ('+-*/()'.includes(ch)) { tokens.push(ch); i++; continue; }
+    // Unknown char — skip
+    i++;
+  }
+  return tokens;
+}
+
+/** Recursive-descent parser for the token stream. */
+class MathParser {
+  private tokens: string[];
+  private pos = 0;
+
+  constructor(tokens: string[]) { this.tokens = tokens; }
+
+  private peek(): string | undefined { return this.tokens[this.pos]; }
+  private consume(): string { return this.tokens[this.pos++]; }
+
+  /** entry: expression = term (('+' | '-') term)* */
+  parse(): number { return this.parseExpr(); }
+
+  private parseExpr(): number {
+    let left = this.parseTerm();
+    while (this.peek() === '+' || this.peek() === '-') {
+      const op = this.consume();
+      const right = this.parseTerm();
+      left = op === '+' ? left + right : left - right;
+    }
+    return left;
+  }
+
+  /** term = unary (('*' | '/') unary)* */
+  private parseTerm(): number {
+    let left = this.parseUnary();
+    while (this.peek() === '*' || this.peek() === '/') {
+      const op = this.consume();
+      const right = this.parseUnary();
+      left = op === '*' ? left * right : left / right;
+    }
+    return left;
+  }
+
+  /** unary = '-' unary | primary */
+  private parseUnary(): number {
+    if (this.peek() === '-') { this.consume(); return -this.parseUnary(); }
+    if (this.peek() === '+') { this.consume(); return this.parseUnary(); }
+    return this.parsePrimary();
+  }
+
+  /** primary = number | 'pi' | '(' expr ')' */
+  private parsePrimary(): number {
+    const tok = this.peek();
+    if (tok === undefined) return 0;
+    if (tok === 'pi') { this.consume(); return Math.PI; }
+    if (tok === '(') {
+      this.consume(); // '('
+      const val = this.parseExpr();
+      if (this.peek() === ')') this.consume(); // ')'
+      return val;
+    }
+    const n = parseFloat(this.consume());
+    return isNaN(n) ? 0 : n;
+  }
+}
+
+/**
+ * Safely evaluates a QASM gate parameter expression like "pi/2" or "3.14159".
+ * Returns 0 on any parse failure — never throws.
+ */
+function evalMathExpr(expr: string): number {
+  try {
+    const tokens = tokenise(expr.trim());
+    if (tokens.length === 0) return 0;
+    return new MathParser(tokens).parse();
+  } catch {
+    return 0;
+  }
+}
+
+// ---------------------------------------------------------------------------
+
 /**
  * Parses a QASM string (v2 or v3) into a CircuitModel.
  * Returns an empty circuit on failure.
@@ -202,14 +317,11 @@ function _parseGateInstruction(
   const paramsStr = gateMatch[2] || '';
   const wiresStr = gateMatch[3] || '';
 
-  // Parse numeric params (ignore symbolic, pi, π)
+  // Parse numeric params using the safe math expression evaluator (no eval())
   const params: number[] = paramsStr
     ? paramsStr
         .split(',')
-        .map(s => {
-          const v = s.trim().replace(/π|pi/gi, String(Math.PI));
-          try { return parseFloat(eval(v)); } catch { return 0; }
-        })
+        .map(s => evalMathExpr(s.trim()))
         .filter(n => !isNaN(n))
     : [];
 
