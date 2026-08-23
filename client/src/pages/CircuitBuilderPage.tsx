@@ -29,6 +29,7 @@ import AiDraftPanel from '../components/circuit-builder/AiDraftPanel';
 import AiImportBanner from '../components/circuit-builder/AiImportBanner';
 import type { AiImportInfo } from '../components/circuit-builder/AiImportBanner';
 import StateVisualizer from '../components/circuit-builder/StateVisualizer';
+import TranspilationEngine from '../components/circuit-builder/TranspilationEngine';
 import { useStepSimulation } from '../hooks/useStepSimulation';
 import { useCircuitHistory } from '../hooks/useCircuitHistory';
 import { useExperiment } from '../hooks/useExperiment';
@@ -97,6 +98,7 @@ export default function CircuitBuilderPage() {
   const [credentialStatus, setCredentialStatus] = useState<'unknown' | 'missing' | 'invalid' | 'valid'>('unknown');
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
+  const [isTranspilationModalOpen, setIsTranspilationModalOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -446,6 +448,14 @@ export default function CircuitBuilderPage() {
           >
             {isRunning ? 'Submitting...' : 'Run'}
           </button>
+          <button
+            className="btn btn--secondary btn--sm"
+            onClick={() => setIsTranspilationModalOpen(true)}
+            disabled={errors.length > 0 || circuit.operations.length === 0}
+            aria-label="Run with Animated Transpilation"
+          >
+            Run with Animated Transpilation
+          </button>
           {experiment.lastSavedAt && (
             <span className="builder__save-status">
               Saved {new Date(experiment.lastSavedAt).toLocaleTimeString()}
@@ -542,6 +552,12 @@ export default function CircuitBuilderPage() {
           <AiDraftPanel circuitCode={code} onClose={() => setShowAiPanel(false)} />
         </div>
       )}
+
+      <TranspilationEngine
+        isOpen={isTranspilationModalOpen}
+        onClose={() => setIsTranspilationModalOpen(false)}
+        circuit={circuit}
+      />
     </div>
   );
 }
