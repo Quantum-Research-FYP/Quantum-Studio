@@ -29,7 +29,7 @@ import AiDraftPanel from '../components/circuit-builder/AiDraftPanel';
 import AiImportBanner from '../components/circuit-builder/AiImportBanner';
 import type { AiImportInfo } from '../components/circuit-builder/AiImportBanner';
 import StateVisualizer from '../components/circuit-builder/StateVisualizer';
-import TranspilationSimulationModal from '../components/circuit-builder/TranspilationSimulationModal';
+import TranspilationEngine from '../components/circuit-builder/TranspilationEngine';
 import { useStepSimulation } from '../hooks/useStepSimulation';
 import { useCircuitHistory } from '../hooks/useCircuitHistory';
 import { useExperiment } from '../hooks/useExperiment';
@@ -553,7 +553,7 @@ export default function CircuitBuilderPage() {
         </div>
       )}
 
-      <TranspilationSimulationModal
+      <TranspilationEngine
         isOpen={isTranspilationModalOpen}
         onClose={() => setIsTranspilationModalOpen(false)}
         circuit={circuit}

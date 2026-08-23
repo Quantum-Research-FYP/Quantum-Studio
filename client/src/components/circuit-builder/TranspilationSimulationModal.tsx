@@ -35,7 +35,7 @@ export default function TranspilationSimulationModal({
       return;
     }
 
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
 
     const advancePhase = () => {
       setCurrentPhaseIndex((prev) => {
