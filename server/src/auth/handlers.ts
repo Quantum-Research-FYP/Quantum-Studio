@@ -219,7 +219,7 @@ export function createAuthHandlers(pool: Db) {
         }
 
         const email = rawEmail.trim().toLowerCase();
-        
+
         // Find or create user
         let user = await users.findOne({ email });
         const now = new Date();
@@ -251,7 +251,7 @@ export function createAuthHandlers(pool: Db) {
                 moodleUsername: username,
                 updatedAt: now,
               },
-            }
+            },
           );
         }
 
@@ -273,10 +273,10 @@ export function createAuthHandlers(pool: Db) {
         res.status(500).json({ error: 'Google SSO is not configured.' });
         return;
       }
-      
+
       const appUrl = process.env.APP_URL || 'http://localhost:5173';
       const redirectUri = `${appUrl}/api/auth/google/callback`;
-      
+
       const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
       url.searchParams.set('client_id', clientId);
       url.searchParams.set('redirect_uri', redirectUri);
@@ -284,16 +284,16 @@ export function createAuthHandlers(pool: Db) {
       url.searchParams.set('scope', 'email profile');
       url.searchParams.set('access_type', 'offline');
       url.searchParams.set('prompt', 'consent');
-      
+
       res.redirect(url.toString());
     },
 
     /** GET /api/auth/google/callback */
     async googleCallback(req: Request, res: Response): Promise<void> {
       const { code, error } = req.query;
-      
+
       const appUrl = process.env.APP_URL || 'http://localhost:5173';
-      
+
       if (error) {
         res.redirect(`${appUrl}/login?error=google_sso_failed`);
         return;
@@ -302,11 +302,11 @@ export function createAuthHandlers(pool: Db) {
         res.status(400).send('Invalid request');
         return;
       }
-      
+
       const clientId = process.env.GOOGLE_CLIENT_ID;
       const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
       const redirectUri = `${appUrl}/api/auth/google/callback`;
-      
+
       try {
         const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
           method: 'POST',
@@ -319,27 +319,39 @@ export function createAuthHandlers(pool: Db) {
             grant_type: 'authorization_code',
           }),
         });
-        
-        const tokenData = await tokenRes.json() as any;
+
+        const tokenData = (await tokenRes.json()) as {
+          error_description?: string;
+          error?: string;
+          access_token?: string;
+        };
         if (!tokenRes.ok) {
-          throw new Error(tokenData.error_description || tokenData.error || 'Failed to exchange code');
+          throw new Error(
+            tokenData.error_description || tokenData.error || 'Failed to exchange code',
+          );
         }
-        
+
         const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
           headers: { Authorization: `Bearer ${tokenData.access_token}` },
         });
-        
-        const userData = await userRes.json() as any;
-        if (!userRes.ok) {
+
+        const userData = (await userRes.json()) as {
+          error?: { message?: string };
+          email?: string;
+          id?: string;
+          given_name?: string;
+          family_name?: string;
+        };
+        if (!userRes.ok || !userData.email) {
           throw new Error(userData.error?.message || 'Failed to fetch user profile');
         }
-        
+
         const email = normalizeEmail(userData.email);
         const googleId = userData.id;
-        
+
         let user = await users.findOne({ email });
         const now = new Date();
-        
+
         if (!user) {
           const userId = uuid();
           user = {
@@ -364,10 +376,10 @@ export function createAuthHandlers(pool: Db) {
                 googleUserId: googleId,
                 updatedAt: now,
               },
-            }
+            },
           );
         }
-        
+
         await createSession(pool, user._id as string, req, res);
         res.redirect(appUrl);
       } catch (err) {
@@ -383,15 +395,15 @@ export function createAuthHandlers(pool: Db) {
         res.status(500).json({ error: 'GitHub SSO is not configured.' });
         return;
       }
-      
+
       const appUrl = process.env.APP_URL || 'http://localhost:5173';
       const redirectUri = `${appUrl}/api/auth/github/callback`;
-      
+
       const url = new URL('https://github.com/login/oauth/authorize');
       url.searchParams.set('client_id', clientId);
       url.searchParams.set('redirect_uri', redirectUri);
       url.searchParams.set('scope', 'user:email');
-      
+
       res.redirect(url.toString());
     },
 
@@ -399,7 +411,7 @@ export function createAuthHandlers(pool: Db) {
     async githubCallback(req: Request, res: Response): Promise<void> {
       const { code, error } = req.query;
       const appUrl = process.env.APP_URL || 'http://localhost:5173';
-      
+
       if (error) {
         res.redirect(`${appUrl}/login?error=github_sso_failed`);
         return;
@@ -408,10 +420,10 @@ export function createAuthHandlers(pool: Db) {
         res.status(400).send('Invalid request');
         return;
       }
-      
+
       const clientId = process.env.GITHUB_CLIENT_ID;
       const clientSecret = process.env.GITHUB_CLIENT_SECRET;
-      
+
       try {
         const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
           method: 'POST',
@@ -425,45 +437,51 @@ export function createAuthHandlers(pool: Db) {
             code,
           }),
         });
-        
-        const tokenData = await tokenRes.json() as any;
+
+        const tokenData = (await tokenRes.json()) as {
+          error_description?: string;
+          error?: string;
+          access_token?: string;
+        };
         if (tokenData.error) {
           throw new Error(tokenData.error_description || tokenData.error);
         }
-        
+
         const userRes = await fetch('https://api.github.com/user', {
           headers: {
             Authorization: `Bearer ${tokenData.access_token}`,
             Accept: 'application/json',
           },
         });
-        const userData = await userRes.json() as any;
-        
+        const userData = (await userRes.json()) as { id?: number | string; name?: string };
+
         const emailsRes = await fetch('https://api.github.com/user/emails', {
           headers: {
             Authorization: `Bearer ${tokenData.access_token}`,
             Accept: 'application/json',
           },
         });
-        const emailsData = await emailsRes.json() as any;
-        
-        const primaryEmailObj = emailsData.find((e: any) => e.primary) || emailsData[0];
+        const emailsData = (await emailsRes.json()) as Array<{ email?: string; primary?: boolean }>;
+
+        const primaryEmailObj = Array.isArray(emailsData)
+          ? emailsData.find((e) => e.primary) || emailsData[0]
+          : undefined;
         if (!primaryEmailObj || !primaryEmailObj.email) {
           throw new Error('No email found for GitHub user');
         }
-        
+
         const email = normalizeEmail(primaryEmailObj.email);
         const githubId = String(userData.id);
-        
+
         let user = await users.findOne({ email });
         const now = new Date();
-        
+
         if (!user) {
           const userId = uuid();
           const nameParts = (userData.name || '').split(' ');
           const firstname = nameParts[0] || '';
           const lastname = nameParts.slice(1).join(' ') || '';
-          
+
           user = {
             _id: userId,
             email,
@@ -486,10 +504,10 @@ export function createAuthHandlers(pool: Db) {
                 githubUserId: githubId,
                 updatedAt: now,
               },
-            }
+            },
           );
         }
-        
+
         await createSession(pool, user._id as string, req, res);
         res.redirect(appUrl);
       } catch (err) {

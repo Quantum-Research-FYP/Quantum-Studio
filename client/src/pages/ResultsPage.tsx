@@ -50,7 +50,10 @@ function AllRunsHistoryView() {
   }, []);
 
   return (
-    <div className="page" style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'left', padding: '40px 24px' }}>
+    <div
+      className="page"
+      style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'left', padding: '40px 24px' }}
+    >
       <style>{`
         .run-history-premium-header {
           display: flex;
@@ -182,14 +185,28 @@ function AllRunsHistoryView() {
 
       <div className="run-history-premium-header">
         <div>
-          <h1 className="page__title" style={{ textAlign: 'left', marginBottom: '8px' }}>Run History</h1>
-          <p className="page__subtitle" style={{ textAlign: 'left', color: 'var(--color-text-muted)', fontSize: '1.1rem', margin: 0 }}>
+          <h1 className="page__title" style={{ textAlign: 'left', marginBottom: '8px' }}>
+            Run History
+          </h1>
+          <p
+            className="page__subtitle"
+            style={{
+              textAlign: 'left',
+              color: 'var(--color-text-muted)',
+              fontSize: '1.1rem',
+              margin: 0,
+            }}
+          >
             A complete log of your quantum circuit executions on simulators and hardware.
           </p>
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
-          <Link to="/builder" className="btn btn--ghost">Builder</Link>
-          <Link to="/ide" className="btn btn--primary">Run Circuit</Link>
+          <Link to="/builder" className="btn btn--ghost">
+            Builder
+          </Link>
+          <Link to="/ide" className="btn btn--primary">
+            Run Circuit
+          </Link>
         </div>
       </div>
 
@@ -206,57 +223,133 @@ function AllRunsHistoryView() {
       )}
 
       {!loading && !error && jobs.length === 0 && (
-        <div style={{ padding: '80px 0', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '16px', border: '1px dashed rgba(255,255,255,0.1)' }}>
+        <div
+          style={{
+            padding: '80px 0',
+            textAlign: 'center',
+            background: 'rgba(255,255,255,0.02)',
+            borderRadius: '16px',
+            border: '1px dashed rgba(255,255,255,0.1)',
+          }}
+        >
           <div style={{ opacity: 0.5, marginBottom: '16px' }}>
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
             </svg>
           </div>
           <h3 style={{ fontSize: '1.25rem', color: '#fff', marginBottom: '8px' }}>No runs yet</h3>
-          <p style={{ color: 'var(--color-text-muted)', marginBottom: '24px', maxWidth: '400px', margin: '0 auto 24px' }}>
-            You haven't executed any quantum circuits. Run a circuit from the Builder or the IDE to see your history here.
+          <p
+            style={{
+              color: 'var(--color-text-muted)',
+              marginBottom: '24px',
+              maxWidth: '400px',
+              margin: '0 auto 24px',
+            }}
+          >
+            You haven't executed any quantum circuits. Run a circuit from the Builder or the IDE to
+            see your history here.
           </p>
-          <Link to="/ide" className="btn btn--primary">Get Started in IDE</Link>
+          <Link to="/ide" className="btn btn--primary">
+            Get Started in IDE
+          </Link>
         </div>
       )}
 
       {!loading && jobs.length > 0 && (
         <div className="run-history-premium-list">
           {jobs.map((job) => (
-            <div 
-              key={job.jobId} 
+            <div
+              key={job.jobId}
               className="run-history-premium-card"
               onClick={() => navigate(`/results?jobId=${job.jobId}`)}
             >
               <div className="run-card-left">
                 <div className="run-card-header">
                   <span className={`run-card-status-pill status-pill--${job.status}`}>
-                    <span style={{ display: 'inline-block', width: '6px', height: '6px', borderRadius: '50%', background: 'currentColor' }}></span>
+                    <span
+                      style={{
+                        display: 'inline-block',
+                        width: '6px',
+                        height: '6px',
+                        borderRadius: '50%',
+                        background: 'currentColor',
+                      }}
+                    ></span>
                     {job.status}
                   </span>
                   <h3 className="run-card-title">
                     {job.provider === 'ibm_quantum' ? 'IBM Quantum Hardware' : 'Local Simulator'}
                   </h3>
                 </div>
-                
+
                 <div className="run-card-meta">
                   <div className="run-card-meta-item">
                     <span className="run-card-meta-icon" style={{ display: 'flex' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="3"></circle>
+                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                      </svg>
                     </span>
                     <span>{job.backend}</span>
                   </div>
                   <div className="run-card-meta-item">
                     <span className="run-card-meta-icon" style={{ display: 'flex' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <circle cx="12" cy="12" r="6"></circle>
+                        <circle cx="12" cy="12" r="2"></circle>
+                      </svg>
                     </span>
                     <span>{job.shots.toLocaleString()} shots</span>
                   </div>
                   <div className="run-card-meta-item">
                     <span className="run-card-meta-icon" style={{ display: 'flex' }}>
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <line x1="4" y1="9" x2="20" y2="9"></line>
+                        <line x1="4" y1="15" x2="20" y2="15"></line>
+                        <line x1="10" y1="3" x2="8" y2="21"></line>
+                        <line x1="16" y1="3" x2="14" y2="21"></line>
+                      </svg>
                     </span>
-                    <span style={{ fontFamily: 'monospace', opacity: 0.8 }}>{job.jobId.substring(0, 8)}...</span>
+                    <span style={{ fontFamily: 'monospace', opacity: 0.8 }}>
+                      {job.jobId.substring(0, 8)}...
+                    </span>
                   </div>
                 </div>
               </div>
@@ -264,16 +357,35 @@ function AllRunsHistoryView() {
               <div className="run-card-right">
                 <div className="run-card-dates">
                   <span className="date-label">Submitted</span>
-                  <span className="date-value">{new Date(job.createdAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                  <span className="date-value">
+                    {new Date(job.createdAt).toLocaleString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
                 </div>
                 {job.completedAt && (
                   <div className="run-card-dates">
                     <span className="date-label">Completed</span>
-                    <span className="date-value">{new Date(job.completedAt).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    <span className="date-value">
+                      {new Date(job.completedAt).toLocaleString(undefined, {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
                   </div>
                 )}
                 <div className="run-card-action">
-                  <button className="btn btn--ghost btn--sm" style={{ border: '1px solid rgba(255,255,255,0.2)' }}>View Results →</button>
+                  <button
+                    className="btn btn--ghost btn--sm"
+                    style={{ border: '1px solid rgba(255,255,255,0.2)' }}
+                  >
+                    View Results →
+                  </button>
                 </div>
               </div>
             </div>
@@ -391,17 +503,8 @@ function SimulationResultsView({ jobId }: { jobId: string }) {
 // ---------------------------------------------------------------------------
 
 function ExecutionResultsView({ jobId }: { jobId: string }) {
-  const {
-    job,
-    viewState,
-    outcomes,
-    error,
-    polling,
-    cancelling,
-    cancelError,
-    loadJob,
-    cancel,
-  } = useExecution();
+  const { job, viewState, outcomes, error, polling, cancelling, cancelError, loadJob, cancel } =
+    useExecution();
 
   const [showChart, setShowChart] = useState(true);
   const [showTable, setShowTable] = useState(true);
@@ -462,9 +565,7 @@ function ExecutionResultsView({ jobId }: { jobId: string }) {
 
       {viewState === 'pending' && <PendingBanner job={job} polling={polling} />}
       {viewState === 'cancelled' && <CancelledBanner job={job} />}
-      {viewState === 'failed' && job.error && (
-        <ErrorBanner error={job.error} isIbm={isIbm} />
-      )}
+      {viewState === 'failed' && job.error && <ErrorBanner error={job.error} isIbm={isIbm} />}
 
       {viewState === 'empty-results' && (
         <div className="results-empty" role="status">
@@ -577,7 +678,14 @@ function CompletedResults({
       {showTranspile && (
         <div className="results-chart-container" style={{ marginBottom: '24px' }}>
           <h2 className="results-section__title">Transparent Transpilation Trace</h2>
-          <div style={{ backgroundColor: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: '12px', padding: '24px' }}>
+          <div
+            style={{
+              backgroundColor: 'var(--color-surface-2)',
+              border: '1px solid var(--color-border)',
+              borderRadius: '12px',
+              padding: '24px',
+            }}
+          >
             <TranspilationPanel qasm={qasm} codeType={codeType} backendName={backendName} />
           </div>
         </div>
@@ -791,9 +899,7 @@ function PendingBanner({ job, polling }: { job: ExecutionJobResponse; polling: b
           ? `Job ${statusLabel}. Hardware queues may take longer than simulation.`
           : 'Results pending — waiting for the simulation to complete...'}
       </p>
-      {polling && (
-        <p className="results-pending__polling">Checking for updates automatically.</p>
-      )}
+      {polling && <p className="results-pending__polling">Checking for updates automatically.</p>}
     </div>
   );
 }

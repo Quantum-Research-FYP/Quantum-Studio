@@ -73,11 +73,7 @@ export function createAuditRepository(pool: Db) {
       return docToEntry(doc as unknown as Record<string, unknown>);
     },
 
-    async getByEntity(
-      entityType: string,
-      entityId: string,
-      limit = 50,
-    ): Promise<AuditLogEntry[]> {
+    async getByEntity(entityType: string, entityId: string, limit = 50): Promise<AuditLogEntry[]> {
       const docs = await auditLog
         .find({ entityType, entityId })
         .sort({ createdAt: -1 })

@@ -7,32 +7,38 @@ export function setupQasmLanguage(monacoInstance: typeof monaco) {
   // Register a tokens provider for the language
   monacoInstance.languages.setMonarchTokensProvider('qasm', {
     keywords: [
-      'OPENQASM', 'include', 'qreg', 'creg', 'measure', 'reset',
-      'barrier', 'gate', 'opaque', 'if'
+      'OPENQASM',
+      'include',
+      'qreg',
+      'creg',
+      'measure',
+      'reset',
+      'barrier',
+      'gate',
+      'opaque',
+      'if',
     ],
 
-    operators: [
-      '==', '!=', '->'
-    ],
+    operators: ['==', '!=', '->'],
 
-    symbols:  /[=><!~?:&|+\-*\/\^%]+/,
+    symbols: /[=><!~?:&|+\-*/^%]+/,
 
     tokenizer: {
       root: [
         // identifiers and keywords
         [/[a-z_$][\w$]*/, { cases: { '@keywords': 'keyword', '@default': 'identifier' } }],
-        [/[A-Z][\w\$]*/, 'type.identifier' ],  // to show class names nicely
+        [/[A-Z][\w$]*/, 'type.identifier'], // to show class names nicely
 
         // whitespace
         { include: '@whitespace' },
 
         // delimiters and operators
-        [/[{}()\[\]]/, '@brackets'],
+        [/[{}()[\]]/, '@brackets'],
         [/[<>](?!@symbols)/, '@brackets'],
-        [/@symbols/, { cases: { '@operators': 'operator', '@default': '' } } ],
+        [/@symbols/, { cases: { '@operators': 'operator', '@default': '' } }],
 
         // numbers
-        [/\d*\.\d+([eE][\-+]?\d+)?/, 'number.float'],
+        [/\d*\.\d+([eE][-+]?\d+)?/, 'number.float'],
         [/0[xX][0-9a-fA-F]+/, 'number.hex'],
         [/\d+/, 'number'],
 
@@ -40,34 +46,34 @@ export function setupQasmLanguage(monacoInstance: typeof monaco) {
         [/[;,.]/, 'delimiter'],
 
         // strings
-        [/"([^"\\]|\\.)*$/, 'string.invalid' ],  // non-teminated string
-        [/"/,  { token: 'string.quote', bracket: '@open', next: '@string' } ],
+        [/"([^"\\]|\\.)*$/, 'string.invalid'], // non-teminated string
+        [/"/, { token: 'string.quote', bracket: '@open', next: '@string' }],
       ],
 
       string: [
-        [/[^\\"]+/,  'string'],
-        [/\\./,      'string.escape.invalid'],
-        [/"/,        { token: 'string.quote', bracket: '@close', next: '@pop' } ]
+        [/[^\\"]+/, 'string'],
+        [/\\./, 'string.escape.invalid'],
+        [/"/, { token: 'string.quote', bracket: '@close', next: '@pop' }],
       ],
 
       whitespace: [
         [/[ \t\r\n]+/, 'white'],
-        [/\/\*/,       'comment', '@comment' ],
-        [/\/\/.*$/,    'comment'],
+        [/\/\*/, 'comment', '@comment'],
+        [/\/\/.*$/, 'comment'],
       ],
 
       comment: [
-        [/[^\/*]+/, 'comment' ],
-        [/\/\*/,    'comment', '@push' ],    // nested comment
-        ["\\*/",    'comment', '@pop'  ],
-        [/[\/*]/,   'comment' ]
+        [/[^/*]+/, 'comment'],
+        [/\/\*/, 'comment', '@push'], // nested comment
+        ['\\*/', 'comment', '@pop'],
+        [/[/*]/, 'comment'],
       ],
     },
   });
 
   // Autocomplete basic QASM gates
   monacoInstance.languages.registerCompletionItemProvider('qasm', {
-    provideCompletionItems: (model: monaco.editor.ITextModel, position: monaco.Position) => {
+    provideCompletionItems: (_model: monaco.editor.ITextModel, _position: monaco.Position) => {
       const suggestions = [
         {
           label: 'OPENQASM',
@@ -116,9 +122,9 @@ export function setupQasmLanguage(monacoInstance: typeof monaco) {
           insertText: 'rx(${1:pi/2}) q[${2:0}];',
           insertTextRules: monacoInstance.languages.CompletionItemInsertTextRule.InsertAsSnippet,
           documentation: 'RX rotation',
-        }
+        },
       ];
-      return { suggestions: suggestions as any };
-    }
+      return { suggestions: suggestions as monaco.languages.CompletionItem[] };
+    },
   });
 }

@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useEffect, useState } from 'react';
+import { useMemo, useRef } from 'react';
 
 interface ProbabilityBarChartProps {
   amplitudes: Record<string, { re: number; im: number }>;
@@ -6,7 +6,7 @@ interface ProbabilityBarChartProps {
 
 export default function ProbabilityBarChart({ amplitudes }: ProbabilityBarChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   const states = useMemo(() => {
     return Object.entries(amplitudes)
       .map(([state, complex]) => {
@@ -32,8 +32,8 @@ export default function ProbabilityBarChart({ amplitudes }: ProbabilityBarChartP
         <div className="prob-barchart__header">
           <span className="prob-barchart__title">
             Probabilities
-            <button 
-              className="info-btn" 
+            <button
+              className="info-btn"
               data-tooltip="Shows the measurement probability for each computational basis state."
               aria-label="Info"
             >
@@ -56,8 +56,8 @@ export default function ProbabilityBarChart({ amplitudes }: ProbabilityBarChartP
       <div className="prob-barchart__header">
         <span className="prob-barchart__title">
           Probabilities
-          <button 
-            className="info-btn" 
+          <button
+            className="info-btn"
             data-tooltip="Shows the measurement probability for each computational basis state."
             aria-label="Info"
           >
@@ -65,7 +65,7 @@ export default function ProbabilityBarChart({ amplitudes }: ProbabilityBarChartP
           </button>
         </span>
       </div>
-      
+
       <div className="prob-barchart__layout">
         {/* Y Axis */}
         <div className="prob-barchart__y-axis">
@@ -76,20 +76,28 @@ export default function ProbabilityBarChart({ amplitudes }: ProbabilityBarChartP
           ))}
           <div className="prob-barchart__y-label">Probability (%)</div>
         </div>
-        
+
         {/* Chart Area */}
         <div className="prob-barchart__chart-area">
           {/* Horizontal Grid Lines */}
           <div className="prob-barchart__grid">
             {yAxisTicks.map((tick) => (
-              <div key={`grid-${tick}`} className="prob-barchart__grid-line" style={{ bottom: `${tick}%` }} />
+              <div
+                key={`grid-${tick}`}
+                className="prob-barchart__grid-line"
+                style={{ bottom: `${tick}%` }}
+              />
             ))}
           </div>
-          
+
           {/* Bars */}
           <div className="prob-barchart__bars-container">
             {states.map(({ state, prob, phase }) => (
-              <div key={state} className="prob-barchart__bar-group" title={`|${state}⟩: ${(prob * 100).toFixed(2)}%\nPhase: ${(phase * 180 / Math.PI).toFixed(1)}°`}>
+              <div
+                key={state}
+                className="prob-barchart__bar-group"
+                title={`|${state}⟩: ${(prob * 100).toFixed(2)}%\nPhase: ${((phase * 180) / Math.PI).toFixed(1)}°`}
+              >
                 <div className="prob-barchart__bar-wrapper">
                   <div
                     className="prob-barchart__bar"
@@ -107,7 +115,7 @@ export default function ProbabilityBarChart({ amplitudes }: ProbabilityBarChartP
           </div>
         </div>
       </div>
-      
+
       <div className="prob-barchart__footer">
         <div className="prob-barchart__x-axis-title">Computational basis states</div>
       </div>

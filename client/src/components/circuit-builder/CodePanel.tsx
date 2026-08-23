@@ -40,8 +40,8 @@ export default function CodePanel({ code, framework, onFrameworkChange }: CodePa
       <div className="code-panel__header">
         <h3 className="code-panel__title">
           Code
-          <button 
-            className="info-btn" 
+          <button
+            className="info-btn"
             data-tooltip="Generated code for the quantum circuit in the selected framework."
             data-tooltip-pos="left"
             aria-label="Info"
@@ -65,7 +65,7 @@ export default function CodePanel({ code, framework, onFrameworkChange }: CodePa
               padding: '4px',
               borderRadius: '4px',
               color: 'var(--color-text-subtle)',
-              transition: 'color 0.2s ease, background 0.2s ease'
+              transition: 'color 0.2s ease, background 0.2s ease',
             }}
             onMouseOver={(e) => {
               e.currentTarget.style.color = 'var(--color-text)';
@@ -77,11 +77,29 @@ export default function CodePanel({ code, framework, onFrameworkChange }: CodePa
             }}
           >
             {copied ? (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <polyline points="20 6 9 17 4 12"></polyline>
               </svg>
             ) : (
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
                 <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
                 <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
               </svg>
@@ -102,7 +120,7 @@ export default function CodePanel({ code, framework, onFrameworkChange }: CodePa
               padding: '4px',
               borderRadius: '4px',
               color: 'var(--color-text-subtle)',
-              transition: 'color 0.2s ease, background 0.2s ease'
+              transition: 'color 0.2s ease, background 0.2s ease',
             }}
             onMouseOver={(e) => {
               e.currentTarget.style.color = 'var(--color-text)';
@@ -113,25 +131,34 @@ export default function CodePanel({ code, framework, onFrameworkChange }: CodePa
               e.currentTarget.style.background = 'transparent';
             }}
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
               <polyline points="7 10 12 15 17 10"></polyline>
               <line x1="12" y1="15" x2="12" y2="3"></line>
             </svg>
           </button>
-          <select 
-            value={framework} 
+          <select
+            value={framework}
             onChange={(e) => onFrameworkChange(e.target.value as Framework)}
             className="code-panel__selector"
             aria-label="Select framework"
           >
-          <option value="qiskit">Qiskit</option>
-          <option value="spinqit">SpinQit</option>
-          <option value="cirq">Cirq</option>
-          <option value="pennylane">PennyLane</option>
-          <option value="braket">Amazon Braket</option>
-          <option value="tket">TKET</option>
-          <option value="qasm">OpenQASM</option>
+            <option value="qiskit">Qiskit</option>
+            <option value="spinqit">SpinQit</option>
+            <option value="cirq">Cirq</option>
+            <option value="pennylane">PennyLane</option>
+            <option value="braket">Amazon Braket</option>
+            <option value="tket">TKET</option>
+            <option value="qasm">OpenQASM</option>
           </select>
         </div>
       </div>

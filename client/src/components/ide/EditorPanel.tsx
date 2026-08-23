@@ -26,7 +26,7 @@ export default function EditorPanel({ code, language, onChange, error }: EditorP
   // Handle error markers
   useEffect(() => {
     if (!monaco || !editorRef.current) return;
-    
+
     const model = editorRef.current.getModel();
     if (!model) return;
 
@@ -46,7 +46,16 @@ export default function EditorPanel({ code, language, onChange, error }: EditorP
   }, [error, monaco]);
 
   return (
-    <div className="editor-panel" style={{ width: '100%', height: '100%', border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+    <div
+      className="editor-panel"
+      style={{
+        width: '100%',
+        height: '100%',
+        border: '1px solid var(--color-border)',
+        borderRadius: '8px',
+        overflow: 'hidden',
+      }}
+    >
       <Editor
         height="100%"
         language={language}

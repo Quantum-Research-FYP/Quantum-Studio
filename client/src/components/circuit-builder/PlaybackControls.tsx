@@ -59,11 +59,21 @@ export default function PlaybackControls({
           <IconStepBack />
         </button>
         {isPlaying ? (
-          <button className="playback-controls__btn" onClick={onPause} title="Pause" aria-label="Pause">
+          <button
+            className="playback-controls__btn"
+            onClick={onPause}
+            title="Pause"
+            aria-label="Pause"
+          >
             <IconPause />
           </button>
         ) : (
-          <button className="playback-controls__btn" onClick={onPlay} title="Play" aria-label="Play">
+          <button
+            className="playback-controls__btn"
+            onClick={onPlay}
+            title="Play"
+            aria-label="Play"
+          >
             <IconPlay />
           </button>
         )}

@@ -20,11 +20,11 @@ beforeAll(async () => {
   db = client.db('test_quantum');
   await ensureIndexes(db);
   app = createApp(db);
-}, 60_000);
+}, 180_000);
 
 afterAll(async () => {
-  await client.close();
-  await mongod.stop();
+  if (client) await client.close();
+  if (mongod) await mongod.stop();
 }, 30_000);
 
 beforeEach(async () => {

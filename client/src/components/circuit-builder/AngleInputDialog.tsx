@@ -3,16 +3,16 @@ import type { GateParamSpec } from '../../circuit';
 import { formatAngleDisplay } from '../../circuit';
 
 const PRESETS = [
-  { label: '0',    value: 0 },
-  { label: 'π/8',  value: Math.PI / 8 },
-  { label: 'π/4',  value: Math.PI / 4 },
-  { label: 'π/3',  value: Math.PI / 3 },
-  { label: 'π/2',  value: Math.PI / 2 },
-  { label: 'π',    value: Math.PI },
-  { label: '3π/2', value: 3 * Math.PI / 2 },
+  { label: '0', value: 0 },
+  { label: 'π/8', value: Math.PI / 8 },
+  { label: 'π/4', value: Math.PI / 4 },
+  { label: 'π/3', value: Math.PI / 3 },
+  { label: 'π/2', value: Math.PI / 2 },
+  { label: 'π', value: Math.PI },
+  { label: '3π/2', value: (3 * Math.PI) / 2 },
   { label: '-π/4', value: -Math.PI / 4 },
   { label: '-π/2', value: -Math.PI / 2 },
-  { label: '-π',   value: -Math.PI },
+  { label: '-π', value: -Math.PI },
 ];
 
 interface AngleInputDialogProps {

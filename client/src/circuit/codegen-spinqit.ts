@@ -3,10 +3,21 @@ import { PARAMETERIZED_GATES } from './types';
 import { formatAngleQiskit } from './angle-format';
 
 const SPINQIT_GATES: Partial<Record<GateType, string>> = {
-  H: 'H', X: 'X', Y: 'Y', Z: 'Z',
-  S: 'S', T: 'T',
-  RX: 'Rx', RY: 'Ry', RZ: 'Rz', P: 'P', U: 'U',
-  CX: 'CX', CZ: 'CZ', CY: 'CY', SWAP: 'SWAP',
+  H: 'H',
+  X: 'X',
+  Y: 'Y',
+  Z: 'Z',
+  S: 'S',
+  T: 'T',
+  RX: 'Rx',
+  RY: 'Ry',
+  RZ: 'Rz',
+  P: 'P',
+  U: 'U',
+  CX: 'CX',
+  CZ: 'CZ',
+  CY: 'CY',
+  SWAP: 'SWAP',
   CCX: 'CCX',
   MEASURE: 'Measure',
 };
@@ -69,7 +80,7 @@ function emitOperation(op: Operation): string {
   }
 
   const q = op.targets.qubits;
-  
+
   if (q.length === 1) {
     if (PARAMETERIZED_GATES.has(op.type)) {
       if (op.type === 'U') {

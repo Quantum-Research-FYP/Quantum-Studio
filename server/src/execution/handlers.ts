@@ -156,11 +156,15 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
       // Validate common fields
       if (!qasm || typeof qasm !== 'string' || qasm.trim().length === 0) {
         const label = resolvedCodeType === 'python' ? 'Python code' : 'QASM string';
-        res.status(400).json({ error: `A non-empty ${label} is required.`, errorCode: 'INVALID_INPUT' });
+        res
+          .status(400)
+          .json({ error: `A non-empty ${label} is required.`, errorCode: 'INVALID_INPUT' });
         return;
       }
       if (!shots || typeof shots !== 'number' || shots < 1 || shots > 100000) {
-        res.status(400).json({ error: 'Shots must be between 1 and 100,000.', errorCode: 'INVALID_INPUT' });
+        res
+          .status(400)
+          .json({ error: 'Shots must be between 1 and 100,000.', errorCode: 'INVALID_INPUT' });
         return;
       }
 
@@ -193,7 +197,9 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
 
       // IBM Quantum path
       if (provider !== 'ibm_quantum') {
-        res.status(400).json({ error: `Unsupported provider: ${provider}`, errorCode: 'INVALID_PROVIDER' });
+        res
+          .status(400)
+          .json({ error: `Unsupported provider: ${provider}`, errorCode: 'INVALID_PROVIDER' });
         return;
       }
 
@@ -203,7 +209,10 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
       }
 
       if (!backend || typeof backend !== 'string') {
-        res.status(400).json({ error: 'A backend target is required for IBM Quantum jobs.', errorCode: 'INVALID_INPUT' });
+        res.status(400).json({
+          error: 'A backend target is required for IBM Quantum jobs.',
+          errorCode: 'INVALID_INPUT',
+        });
         return;
       }
 
@@ -215,10 +224,15 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
 
       if (!ibmResult.ok) {
         const statusCode =
-          ibmResult.error.errorCode === 'INVALID_TOKEN' ? 401 :
-            ibmResult.error.errorCode === 'PROVIDER_RATE_LIMITED' ? 429 :
-              ibmResult.error.errorCode === 'TRANSPILATION_ERROR' ? 422 :
-                ibmResult.error.errorCode === 'UNSUPPORTED_FRAMEWORK' ? 422 : 502;
+          ibmResult.error.errorCode === 'INVALID_TOKEN'
+            ? 401
+            : ibmResult.error.errorCode === 'PROVIDER_RATE_LIMITED'
+              ? 429
+              : ibmResult.error.errorCode === 'TRANSPILATION_ERROR'
+                ? 422
+                : ibmResult.error.errorCode === 'UNSUPPORTED_FRAMEWORK'
+                  ? 422
+                  : 502;
         ibmErrorResponse(res, statusCode, ibmResult.error.errorCode, ibmResult.error.message);
         return;
       }
@@ -299,7 +313,12 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
         }
 
         if (shouldRefreshFromProvider(job)) {
-          await refreshJobFromProvider(userId, job.id, job.providerJobId, job.status as ExecutionJobStatus);
+          await refreshJobFromProvider(
+            userId,
+            job.id,
+            job.providerJobId,
+            job.status as ExecutionJobStatus,
+          );
         }
       }
 
@@ -373,8 +392,12 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
 
           if (!cancelResult.ok) {
             // Provider cancel failed — report but don't block
-            ibmErrorResponse(res, 502, cancelResult.error.errorCode,
-              `Cancellation request failed: ${cancelResult.error.message}. Job remains in current state.`);
+            ibmErrorResponse(
+              res,
+              502,
+              cancelResult.error.errorCode,
+              `Cancellation request failed: ${cancelResult.error.message}. Job remains in current state.`,
+            );
             return;
           }
 

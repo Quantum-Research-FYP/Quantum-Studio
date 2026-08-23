@@ -132,9 +132,6 @@ export const VALID_STATUS_TRANSITIONS: Record<ExecutionJobStatus, ExecutionJobSt
 };
 
 /** Check whether a status transition is valid. */
-export function isValidTransition(
-  from: ExecutionJobStatus,
-  to: ExecutionJobStatus,
-): boolean {
+export function isValidTransition(from: ExecutionJobStatus, to: ExecutionJobStatus): boolean {
   return VALID_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
 }

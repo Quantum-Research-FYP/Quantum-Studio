@@ -32,7 +32,9 @@ export const Button: React.FC<ButtonProps> = ({
       {isLoading ? (
         <>
           <span className="btn-spinner" aria-hidden="true" />
-          <span className="btn-content--hidden" style={{ opacity: 0 }}>{children}</span>
+          <span className="btn-content--hidden" style={{ opacity: 0 }}>
+            {children}
+          </span>
         </>
       ) : (
         children

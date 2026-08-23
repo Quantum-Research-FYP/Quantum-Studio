@@ -42,7 +42,9 @@ setInterval(() => {
  * @returns `{ allowed: true }` if under the limit, or
  *          `{ allowed: false, retryAfterSeconds }` if rate limited.
  */
-export function checkPollRateLimit(userId: string): { allowed: true } | { allowed: false; retryAfterSeconds: number } {
+export function checkPollRateLimit(
+  userId: string,
+): { allowed: true } | { allowed: false; retryAfterSeconds: number } {
   const now = Date.now();
   const windowStart = now - WINDOW_MS;
 

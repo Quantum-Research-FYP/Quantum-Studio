@@ -5,10 +5,7 @@ import { createAiHandlers } from '../handlers.js';
 import { createRateLimiter } from '../rate-limiter.js';
 import type { AiConfig, AiProvider, AiProviderResponse } from '../types.js';
 
-function createTestApp(
-  provider: AiProvider,
-  configOverrides: Partial<AiConfig> = {},
-) {
+function createTestApp(provider: AiProvider, configOverrides: Partial<AiConfig> = {}) {
   const app = express();
   app.use(express.json());
 
@@ -87,9 +84,7 @@ describe('AI Draft Handlers', () => {
     it('returns 503 when feature is disabled', async () => {
       const app = createTestApp(createMockProvider(), { enabled: false });
 
-      const res = await request(app)
-        .post('/api/ai/draft')
-        .send({ prompt: 'Create a Bell state' });
+      const res = await request(app).post('/api/ai/draft').send({ prompt: 'Create a Bell state' });
 
       expect(res.status).toBe(503);
       expect(res.body.errorCode).toBe('AI_FEATURE_DISABLED');
@@ -131,9 +126,7 @@ describe('AI Draft Handlers', () => {
       });
 
       // First request succeeds
-      const res1 = await request(app)
-        .post('/api/ai/draft')
-        .send({ prompt: 'Create a circuit' });
+      const res1 = await request(app).post('/api/ai/draft').send({ prompt: 'Create a circuit' });
       expect(res1.status).toBe(200);
 
       // Second request is rate limited
@@ -148,13 +141,15 @@ describe('AI Draft Handlers', () => {
 
     it('returns 502 when provider throws', async () => {
       const failingProvider = createMockProvider({
-        generateDraft: vi.fn().mockRejectedValue(new Error('AI provider is temporarily unavailable. Please try again later.')),
+        generateDraft: vi
+          .fn()
+          .mockRejectedValue(
+            new Error('AI provider is temporarily unavailable. Please try again later.'),
+          ),
       });
       const app = createTestApp(failingProvider);
 
-      const res = await request(app)
-        .post('/api/ai/draft')
-        .send({ prompt: 'Create a circuit' });
+      const res = await request(app).post('/api/ai/draft').send({ prompt: 'Create a circuit' });
 
       expect(res.status).toBe(502);
       expect(res.body.errorCode).toBe('AI_PROVIDER_ERROR');
@@ -164,15 +159,15 @@ describe('AI Draft Handlers', () => {
 
     it('returns 408 on timeout (AbortError)', async () => {
       const timeoutProvider = createMockProvider({
-        generateDraft: vi.fn().mockRejectedValue(
-          Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }),
-        ),
+        generateDraft: vi
+          .fn()
+          .mockRejectedValue(
+            Object.assign(new Error('The operation was aborted'), { name: 'AbortError' }),
+          ),
       });
       const app = createTestApp(timeoutProvider);
 
-      const res = await request(app)
-        .post('/api/ai/draft')
-        .send({ prompt: 'Create a circuit' });
+      const res = await request(app).post('/api/ai/draft').send({ prompt: 'Create a circuit' });
 
       expect(res.status).toBe(408);
       expect(res.body.errorCode).toBe('AI_TIMEOUT');
@@ -182,9 +177,7 @@ describe('AI Draft Handlers', () => {
       const provider = createMockProvider();
       const app = createTestApp(provider);
 
-      await request(app)
-        .post('/api/ai/draft')
-        .send({ prompt: '   Create a Bell state   ' });
+      await request(app).post('/api/ai/draft').send({ prompt: '   Create a Bell state   ' });
 
       expect(provider.generateDraft).toHaveBeenCalledWith(
         'Create a Bell state',
@@ -195,9 +188,7 @@ describe('AI Draft Handlers', () => {
     it('includes requestId in all error responses', async () => {
       const app = createTestApp(createMockProvider(), { enabled: false });
 
-      const res = await request(app)
-        .post('/api/ai/draft')
-        .send({ prompt: 'test' });
+      const res = await request(app).post('/api/ai/draft').send({ prompt: 'test' });
 
       expect(res.body.requestId).toMatch(
         /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,

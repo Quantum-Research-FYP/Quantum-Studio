@@ -26,10 +26,7 @@ function compareOperations(a: Operation, b: Operation): number {
  * JSON.stringify emits keys in insertion order, so we construct
  * objects with keys in the canonical order.
  */
-function buildSerializable(
-  circuit: CircuitModel,
-  sortedOps: Operation[],
-): Record<string, unknown> {
+function buildSerializable(circuit: CircuitModel, sortedOps: Operation[]): Record<string, unknown> {
   const result: Record<string, unknown> = {
     schemaVersion: circuit.schemaVersion,
     qubits: circuit.qubits,
@@ -93,9 +90,7 @@ function validateCircuitModel(data: unknown): CircuitModel {
   const obj = data as Record<string, unknown>;
 
   if (obj.schemaVersion !== 1) {
-    throw new Error(
-      `Unsupported schema version: ${String(obj.schemaVersion)} (expected 1)`,
-    );
+    throw new Error(`Unsupported schema version: ${String(obj.schemaVersion)} (expected 1)`);
   }
 
   if (typeof obj.qubits !== 'number' || !Number.isInteger(obj.qubits) || obj.qubits < 0) {
@@ -145,9 +140,7 @@ function validateOperation(
   }
 
   if (typeof obj.type !== 'string' || !GATE_TYPES.includes(obj.type as GateType)) {
-    throw new Error(
-      `Operation [${index}] has invalid type: ${String(obj.type)}`,
-    );
+    throw new Error(`Operation [${index}] has invalid type: ${String(obj.type)}`);
   }
 
   if (typeof obj.time !== 'number' || !Number.isInteger(obj.time) || obj.time < 0) {

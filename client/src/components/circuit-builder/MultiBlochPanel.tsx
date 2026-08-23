@@ -15,9 +15,11 @@ export default function MultiBlochPanel({ amplitudes, qubitCount }: MultiBlochPa
       // Assuming little-endian bitstring convention (like Qiskit),
       // Qubit 0 corresponds to the right-most bit of the string.
       const charIndex = qubitCount - 1 - q;
-      
-      let p00 = 0, p11 = 0;
-      let p01Re = 0, p01Im = 0;
+
+      let p00 = 0,
+        p11 = 0;
+      let p01Re = 0,
+        p01Im = 0;
 
       for (const s of states) {
         if (charIndex >= 0 && charIndex < s.length) {
@@ -44,7 +46,7 @@ export default function MultiBlochPanel({ amplitudes, qubitCount }: MultiBlochPa
       vectors.push({
         x: 2 * p01Re,
         y: -2 * p01Im,
-        z: p00 - p11
+        z: p00 - p11,
       });
     }
 

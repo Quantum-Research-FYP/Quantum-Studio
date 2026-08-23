@@ -56,10 +56,7 @@ export function createApp(database: Db, onJobCreated?: () => void) {
   });
 
   app.use('/api/auth', createAuthRouter(database));
-  app.use(
-    '/api/v1/simulations',
-    createSimulationsRouter(database, onJobCreated),
-  );
+  app.use('/api/v1/simulations', createSimulationsRouter(database, onJobCreated));
   app.use('/api/experiments', createExperimentsRouter(database));
   app.use('/api/experiments', createShareManagementRouter(database));
   app.use('/api/shared', createSharedRouter(database));
@@ -74,7 +71,9 @@ export function createApp(database: Db, onJobCreated?: () => void) {
 
 // Start server (skipped when imported as a module for testing)
 const isMainModule =
-  process.argv[1] && import.meta.url.startsWith('file:') && fileURLToPath(import.meta.url) === process.argv[1];
+  process.argv[1] &&
+  import.meta.url.startsWith('file:') &&
+  fileURLToPath(import.meta.url) === process.argv[1];
 if (isMainModule || process.env.START_SERVER === 'true') {
   connectMongo()
     .then(async (database) => {

@@ -82,10 +82,7 @@ export function createIntegrationsRepository(pool: Db) {
       return docToMasked(result as unknown as Record<string, unknown>);
     },
 
-    async getSettings(
-      userId: string,
-      provider: string,
-    ): Promise<IntegrationSettingsMasked | null> {
+    async getSettings(userId: string, provider: string): Promise<IntegrationSettingsMasked | null> {
       const doc = await settings.findOne({ userId, provider });
       if (!doc) return null;
       return docToMasked(doc as unknown as Record<string, unknown>);

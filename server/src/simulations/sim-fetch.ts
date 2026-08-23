@@ -62,7 +62,7 @@ export async function fetchWithRetry(
         const delay = initialDelayMs * Math.pow(2, attempt);
         console.warn(
           `[sim-fetch] Attempt ${attempt + 1}/${maxRetries + 1} failed — ` +
-          `retrying in ${delay}ms …  (${err instanceof Error ? err.message : String(err)})`,
+            `retrying in ${delay}ms …  (${err instanceof Error ? err.message : String(err)})`,
         );
         await sleep(delay);
       }

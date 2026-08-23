@@ -102,9 +102,7 @@ export function migrateExperimentPayload(experiment: Experiment): Experiment {
   for (let v = experiment.schemaVersion; v < CURRENT_SCHEMA_VERSION; v++) {
     const migrate = MIGRATIONS[v];
     if (!migrate) {
-      throw new Error(
-        `Missing migration from schema version ${v} to ${v + 1}.`,
-      );
+      throw new Error(`Missing migration from schema version ${v} to ${v + 1}.`);
     }
     payload = migrate(payload);
   }

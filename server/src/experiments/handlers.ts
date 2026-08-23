@@ -123,8 +123,15 @@ export function createExperimentHandlers(pool: Db) {
     async createExperiment(req: Request, res: Response): Promise<void> {
       try {
         const userId = req.user!.id;
-        const { name, circuitJson, description, tags, runSettingsJson, latestResultJson, aiProvenance } =
-          req.body ?? {};
+        const {
+          name,
+          circuitJson,
+          description,
+          tags,
+          runSettingsJson,
+          latestResultJson,
+          aiProvenance,
+        } = req.body ?? {};
 
         const nameError = validateName(name);
         if (nameError) {
@@ -158,13 +165,10 @@ export function createExperimentHandlers(pool: Db) {
             runSettingsJson && typeof runSettingsJson === 'object' ? runSettingsJson : undefined,
           latestResultJson:
             latestResultJson && typeof latestResultJson === 'object' ? latestResultJson : undefined,
-          aiProvenance:
-            aiProvenance && typeof aiProvenance === 'object' ? aiProvenance : undefined,
+          aiProvenance: aiProvenance && typeof aiProvenance === 'object' ? aiProvenance : undefined,
         });
 
-        console.log(
-          `[experiment] action=create userId=${userId} experimentId=${experiment.id}`,
-        );
+        console.log(`[experiment] action=create userId=${userId} experimentId=${experiment.id}`);
 
         setETag(res, experiment.rowVersion);
         res.status(201).json(formatExperiment(experiment));
@@ -217,9 +221,7 @@ export function createExperimentHandlers(pool: Db) {
         // Migrate in-memory if needed (defer-save: not written back to DB)
         const migrated = migrateExperimentPayload(experiment);
 
-        console.log(
-          `[experiment] action=load userId=${userId} experimentId=${experimentId}`,
-        );
+        console.log(`[experiment] action=load userId=${userId} experimentId=${experimentId}`);
 
         setETag(res, migrated.rowVersion);
         res.status(200).json(formatExperiment(migrated));
@@ -235,7 +237,10 @@ export function createExperimentHandlers(pool: Db) {
         const userId = req.user!.id;
 
         const page = Math.max(1, parseInt(req.query.page as string, 10) || 1);
-        const pageSize = Math.min(100, Math.max(1, parseInt(req.query.pageSize as string, 10) || 20));
+        const pageSize = Math.min(
+          100,
+          Math.max(1, parseInt(req.query.pageSize as string, 10) || 20),
+        );
         const sortBy = (['updated_at', 'created_at', 'name'] as const).includes(
           req.query.sortBy as 'updated_at' | 'created_at' | 'name',
         )
@@ -306,13 +311,17 @@ export function createExperimentHandlers(pool: Db) {
           name: (name as string).trim(),
           circuitJson,
           expectedRowVersion,
-          description: description !== undefined ? (typeof description === 'string' ? description.trim() : null) : undefined,
+          description:
+            description !== undefined
+              ? typeof description === 'string'
+                ? description.trim()
+                : null
+              : undefined,
           tags: tags !== undefined ? tags : undefined,
           schemaVersion: typeof schemaVersion === 'number' ? schemaVersion : undefined,
           runSettingsJson: runSettingsJson !== undefined ? runSettingsJson : undefined,
           latestResultJson: latestResultJson !== undefined ? latestResultJson : undefined,
-          aiProvenance:
-            aiProvenance && typeof aiProvenance === 'object' ? aiProvenance : undefined,
+          aiProvenance: aiProvenance && typeof aiProvenance === 'object' ? aiProvenance : undefined,
         });
 
         if (!updated) {
@@ -333,9 +342,7 @@ export function createExperimentHandlers(pool: Db) {
           return;
         }
 
-        console.log(
-          `[experiment] action=update userId=${userId} experimentId=${experimentId}`,
-        );
+        console.log(`[experiment] action=update userId=${userId} experimentId=${experimentId}`);
 
         setETag(res, updated.rowVersion);
         res.status(200).json(formatExperiment(updated));
@@ -368,7 +375,12 @@ export function createExperimentHandlers(pool: Db) {
           return;
         }
 
-        const renamed = await repo.rename(experimentId, userId, (name as string).trim(), expectedRowVersion);
+        const renamed = await repo.rename(
+          experimentId,
+          userId,
+          (name as string).trim(),
+          expectedRowVersion,
+        );
 
         if (!renamed) {
           const exists = await repo.exists(experimentId, userId);
@@ -387,9 +399,7 @@ export function createExperimentHandlers(pool: Db) {
           return;
         }
 
-        console.log(
-          `[experiment] action=rename userId=${userId} experimentId=${experimentId}`,
-        );
+        console.log(`[experiment] action=rename userId=${userId} experimentId=${experimentId}`);
 
         setETag(res, renamed.rowVersion);
         res.status(200).json(formatExperiment(renamed));
@@ -414,9 +424,7 @@ export function createExperimentHandlers(pool: Db) {
           return;
         }
 
-        console.log(
-          `[experiment] action=delete userId=${userId} experimentId=${experimentId}`,
-        );
+        console.log(`[experiment] action=delete userId=${userId} experimentId=${experimentId}`);
 
         res.status(204).send();
       } catch (err) {
@@ -440,9 +448,7 @@ export function createExperimentHandlers(pool: Db) {
           return;
         }
 
-        console.log(
-          `[experiment] action=export-raw userId=${userId} experimentId=${experimentId}`,
-        );
+        console.log(`[experiment] action=export-raw userId=${userId} experimentId=${experimentId}`);
 
         res.setHeader('Content-Type', 'application/json; charset=utf-8');
         res.setHeader(

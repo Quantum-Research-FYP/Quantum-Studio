@@ -1,7 +1,11 @@
 declare module 'monaco-editor' {
   export namespace editor {
     interface ITextModel {
-      getWordUntilPosition(position: Position): { word: string; startColumn: number; endColumn: number };
+      getWordUntilPosition(position: Position): {
+        word: string;
+        startColumn: number;
+        endColumn: number;
+      };
       getLineMaxColumn(lineNumber: number): number;
     }
 
@@ -20,7 +24,7 @@ declare module 'monaco-editor' {
       setValue(value: string): void;
     }
 
-    interface IStandaloneEditorConstructionOptions {}
+    type IStandaloneEditorConstructionOptions = Record<string, unknown>;
 
     function setModelMarkers(model: ITextModel, owner: string, markers: IMarkerData[]): void;
   }
@@ -49,7 +53,10 @@ declare module 'monaco-editor' {
     }
     function register(language: { id: string }): void;
     function setMonarchTokensProvider(languageId: string, languageDef: unknown): void;
-    function registerCompletionItemProvider(languageId: string, provider: CompletionItemProvider): void;
+    function registerCompletionItemProvider(
+      languageId: string,
+      provider: CompletionItemProvider,
+    ): void;
   }
 
   export enum MarkerSeverity {

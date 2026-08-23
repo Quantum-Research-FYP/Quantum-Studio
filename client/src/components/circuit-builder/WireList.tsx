@@ -37,7 +37,12 @@ export default function WireList({
           <span className="wire-list__count" aria-live="polite">
             {qubits}
           </span>
-          <button type="button" className="wire-list__btn" aria-label="Add qubit" onClick={onAddQubit}>
+          <button
+            type="button"
+            className="wire-list__btn"
+            aria-label="Add qubit"
+            onClick={onAddQubit}
+          >
             +
           </button>
         </div>

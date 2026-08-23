@@ -11,8 +11,11 @@ export function createSpinqHandlers(pool: Db) {
       try {
         const settings = await repo.getSettings(userId);
         res.status(200).json({ settings });
-      } catch (err: any) {
-        res.status(500).json({ error: 'Failed to retrieve SpinQ settings.', message: err.message });
+      } catch (err: unknown) {
+        res.status(500).json({
+          error: 'Failed to retrieve SpinQ settings.',
+          message: err instanceof Error ? err.message : String(err),
+        });
       }
     },
 
@@ -21,7 +24,9 @@ export function createSpinqHandlers(pool: Db) {
       const { ip, port, username, password } = req.body;
 
       if (!ip || !port || !username) {
-        res.status(400).json({ error: 'Missing required SpinQ config fields (ip, port, username).' });
+        res
+          .status(400)
+          .json({ error: 'Missing required SpinQ config fields (ip, port, username).' });
         return;
       }
 
@@ -30,13 +35,16 @@ export function createSpinqHandlers(pool: Db) {
           ip,
           port: Number(port),
           username,
-          password
+          password,
         };
         const settings = await repo.upsertSettings(userId, payload);
         res.status(200).json({ settings });
-      } catch (err: any) {
-        res.status(500).json({ error: 'Failed to save SpinQ settings.', message: err.message });
+      } catch (err: unknown) {
+        res.status(500).json({
+          error: 'Failed to save SpinQ settings.',
+          message: err instanceof Error ? err.message : String(err),
+        });
       }
-    }
+    },
   };
 }

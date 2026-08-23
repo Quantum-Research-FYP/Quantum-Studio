@@ -20,30 +20,50 @@ interface DiracNotationProps {
 // ---------------------------------------------------------------------------
 
 const GATE_MATRICES: Partial<Record<GateType, string>> = {
-  H:    '\\frac{1}{\\sqrt{2}}\\begin{pmatrix} 1 & 1 \\\\ 1 & -1 \\end{pmatrix}',
-  X:    '\\begin{pmatrix} 0 & 1 \\\\ 1 & 0 \\end{pmatrix}',
-  Y:    '\\begin{pmatrix} 0 & -i \\\\ i & 0 \\end{pmatrix}',
-  Z:    '\\begin{pmatrix} 1 & 0 \\\\ 0 & -1 \\end{pmatrix}',
-  S:    '\\begin{pmatrix} 1 & 0 \\\\ 0 & i \\end{pmatrix}',
-  SDG:  '\\begin{pmatrix} 1 & 0 \\\\ 0 & -i \\end{pmatrix}',
-  T:    '\\begin{pmatrix} 1 & 0 \\\\ 0 & e^{i\\pi/4} \\end{pmatrix}',
-  TDG:  '\\begin{pmatrix} 1 & 0 \\\\ 0 & e^{-i\\pi/4} \\end{pmatrix}',
-  SX:   '\\frac{1}{2}\\begin{pmatrix} 1+i & 1-i \\\\ 1-i & 1+i \\end{pmatrix}',
-  ID:   '\\begin{pmatrix} 1 & 0 \\\\ 0 & 1 \\end{pmatrix}',
-  CX:   '\\begin{pmatrix} 1&0&0&0 \\\\ 0&1&0&0 \\\\ 0&0&0&1 \\\\ 0&0&1&0 \\end{pmatrix}',
-  CZ:   '\\begin{pmatrix} 1&0&0&0 \\\\ 0&1&0&0 \\\\ 0&0&1&0 \\\\ 0&0&0&-1 \\end{pmatrix}',
+  H: '\\frac{1}{\\sqrt{2}}\\begin{pmatrix} 1 & 1 \\\\ 1 & -1 \\end{pmatrix}',
+  X: '\\begin{pmatrix} 0 & 1 \\\\ 1 & 0 \\end{pmatrix}',
+  Y: '\\begin{pmatrix} 0 & -i \\\\ i & 0 \\end{pmatrix}',
+  Z: '\\begin{pmatrix} 1 & 0 \\\\ 0 & -1 \\end{pmatrix}',
+  S: '\\begin{pmatrix} 1 & 0 \\\\ 0 & i \\end{pmatrix}',
+  SDG: '\\begin{pmatrix} 1 & 0 \\\\ 0 & -i \\end{pmatrix}',
+  T: '\\begin{pmatrix} 1 & 0 \\\\ 0 & e^{i\\pi/4} \\end{pmatrix}',
+  TDG: '\\begin{pmatrix} 1 & 0 \\\\ 0 & e^{-i\\pi/4} \\end{pmatrix}',
+  SX: '\\frac{1}{2}\\begin{pmatrix} 1+i & 1-i \\\\ 1-i & 1+i \\end{pmatrix}',
+  ID: '\\begin{pmatrix} 1 & 0 \\\\ 0 & 1 \\end{pmatrix}',
+  CX: '\\begin{pmatrix} 1&0&0&0 \\\\ 0&1&0&0 \\\\ 0&0&0&1 \\\\ 0&0&1&0 \\end{pmatrix}',
+  CZ: '\\begin{pmatrix} 1&0&0&0 \\\\ 0&1&0&0 \\\\ 0&0&1&0 \\\\ 0&0&0&-1 \\end{pmatrix}',
   SWAP: '\\begin{pmatrix} 1&0&0&0 \\\\ 0&0&1&0 \\\\ 0&1&0&0 \\\\ 0&0&0&1 \\end{pmatrix}',
-  CCX:  '\\text{Toffoli}_{8\\times8}',
+  CCX: '\\text{Toffoli}_{8\\times8}',
 };
 
 const GATE_NAMES: Partial<Record<GateType, string>> = {
-  H: 'Hadamard', X: 'Pauli\\text{-}X', Y: 'Pauli\\text{-}Y', Z: 'Pauli\\text{-}Z',
-  S: 'S\\text{-Phase}', SDG: 'S^{\\dagger}', T: 'T\\text{-Gate}', TDG: 'T^{\\dagger}',
-  SX: '\\sqrt{X}', SXDG: '\\sqrt{X}^{\\dagger}', ID: 'Identity',
-  CX: 'CNOT', CZ: 'CZ', CY: 'CY', CH: 'CH', SWAP: 'SWAP',
-  CRX: 'CR_X', CRY: 'CR_Y', CRZ: 'CR_Z', CP: 'CPhase',
-  CCX: 'Toffoli', CSWAP: 'Fredkin',
-  RX: 'R_X', RY: 'R_Y', RZ: 'R_Z', P: 'Phase', U: 'U',
+  H: 'Hadamard',
+  X: 'Pauli\\text{-}X',
+  Y: 'Pauli\\text{-}Y',
+  Z: 'Pauli\\text{-}Z',
+  S: 'S\\text{-Phase}',
+  SDG: 'S^{\\dagger}',
+  T: 'T\\text{-Gate}',
+  TDG: 'T^{\\dagger}',
+  SX: '\\sqrt{X}',
+  SXDG: '\\sqrt{X}^{\\dagger}',
+  ID: 'Identity',
+  CX: 'CNOT',
+  CZ: 'CZ',
+  CY: 'CY',
+  CH: 'CH',
+  SWAP: 'SWAP',
+  CRX: 'CR_X',
+  CRY: 'CR_Y',
+  CRZ: 'CR_Z',
+  CP: 'CPhase',
+  CCX: 'Toffoli',
+  CSWAP: 'Fredkin',
+  RX: 'R_X',
+  RY: 'R_Y',
+  RZ: 'R_Z',
+  P: 'Phase',
+  U: 'U',
   MEASURE: 'Measure',
 };
 
@@ -203,22 +223,24 @@ export default function DiracNotation({
     for (const op of currentOperations) {
       if (op.type === 'MEASURE') continue;
       const name = GATE_NAMES[op.type] ?? op.type;
-      const qubits = op.targets.qubits.map(q => `q_{${q}}`).join(',\\,');
+      const qubits = op.targets.qubits.map((q) => `q_{${q}}`).join(',\\,');
       // Include angle params if present
       if (op.params) {
         const paramEntries = Object.entries(op.params);
         if (paramEntries.length > 0) {
-          const paramStr = paramEntries.map(([k, v]) => {
-            // Try to express as a fraction of pi
-            const ratio = v / Math.PI;
-            if (Math.abs(ratio - 1) < 1e-6) return `${k}=\\pi`;
-            if (Math.abs(ratio + 1) < 1e-6) return `${k}=-\\pi`;
-            if (Math.abs(ratio - 0.5) < 1e-6) return `${k}=\\pi/2`;
-            if (Math.abs(ratio + 0.5) < 1e-6) return `${k}=-\\pi/2`;
-            if (Math.abs(ratio - 0.25) < 1e-6) return `${k}=\\pi/4`;
-            if (Math.abs(ratio + 0.25) < 1e-6) return `${k}=-\\pi/4`;
-            return `${k}=${v.toFixed(3)}`;
-          }).join(',\\;');
+          const paramStr = paramEntries
+            .map(([k, v]) => {
+              // Try to express as a fraction of pi
+              const ratio = v / Math.PI;
+              if (Math.abs(ratio - 1) < 1e-6) return `${k}=\\pi`;
+              if (Math.abs(ratio + 1) < 1e-6) return `${k}=-\\pi`;
+              if (Math.abs(ratio - 0.5) < 1e-6) return `${k}=\\pi/2`;
+              if (Math.abs(ratio + 0.5) < 1e-6) return `${k}=-\\pi/2`;
+              if (Math.abs(ratio - 0.25) < 1e-6) return `${k}=\\pi/4`;
+              if (Math.abs(ratio + 0.25) < 1e-6) return `${k}=-\\pi/4`;
+              return `${k}=${v.toFixed(3)}`;
+            })
+            .join(',\\;');
           parts.push(`\\textbf{${name}}(${paramStr})\\;\\text{on}\\;${qubits}`);
         } else {
           parts.push(`\\textbf{${name}}\\;\\text{on}\\;${qubits}`);
@@ -245,10 +267,14 @@ export default function DiracNotation({
         const s = Math.sin(theta / 2).toFixed(4);
 
         switch (op.type) {
-          case 'RX': return `R_X(\\theta) = \\begin{pmatrix} ${c} & -i \\cdot ${s} \\\\ -i \\cdot ${s} & ${c} \\end{pmatrix}`;
-          case 'RY': return `R_Y(\\theta) = \\begin{pmatrix} ${c} & -${s} \\\\ ${s} & ${c} \\end{pmatrix}`;
-          case 'RZ': return `R_Z(\\theta) = \\begin{pmatrix} e^{-i\\theta/2} & 0 \\\\ 0 & e^{i\\theta/2} \\end{pmatrix}`;
-          case 'P':  return `P(\\lambda) = \\begin{pmatrix} 1 & 0 \\\\ 0 & e^{i\\lambda} \\end{pmatrix}`;
+          case 'RX':
+            return `R_X(\\theta) = \\begin{pmatrix} ${c} & -i \\cdot ${s} \\\\ -i \\cdot ${s} & ${c} \\end{pmatrix}`;
+          case 'RY':
+            return `R_Y(\\theta) = \\begin{pmatrix} ${c} & -${s} \\\\ ${s} & ${c} \\end{pmatrix}`;
+          case 'RZ':
+            return `R_Z(\\theta) = \\begin{pmatrix} e^{-i\\theta/2} & 0 \\\\ 0 & e^{i\\theta/2} \\end{pmatrix}`;
+          case 'P':
+            return `P(\\lambda) = \\begin{pmatrix} 1 & 0 \\\\ 0 & e^{i\\lambda} \\end{pmatrix}`;
         }
       }
 
@@ -286,17 +312,15 @@ export default function DiracNotation({
         <span className="dirac-notation__title">
           <span className="dirac-notation__icon">∑</span>
           Mathematical State
-          <button 
-            className="info-btn" 
+          <button
+            className="info-btn"
             data-tooltip="Displays the quantum state vector and active gate matrices in mathematical Dirac notation."
             aria-label="Info"
           >
             !
           </button>
         </span>
-        <span className="dirac-notation__step-badge">
-          Step {currentStep}
-        </span>
+        <span className="dirac-notation__step-badge">Step {currentStep}</span>
       </div>
 
       {isEmpty ? (

@@ -61,9 +61,7 @@ describe('deserialize', () => {
       schemaVersion: 1,
       qubits: 2,
       clbits: 1,
-      operations: [
-        { id: 'op1', type: 'H', targets: { qubits: [0] }, time: 0 },
-      ],
+      operations: [{ id: 'op1', type: 'H', targets: { qubits: [0] }, time: 0 }],
     });
     const circuit = deserialize(json);
     expect(circuit.schemaVersion).toBe(1);
@@ -81,9 +79,9 @@ describe('deserialize', () => {
   });
 
   it('throws on invalid qubit count', () => {
-    expect(() =>
-      deserialize('{"schemaVersion":1,"qubits":-1,"clbits":0,"operations":[]}'),
-    ).toThrow(/Invalid qubits/);
+    expect(() => deserialize('{"schemaVersion":1,"qubits":-1,"clbits":0,"operations":[]}')).toThrow(
+      /Invalid qubits/,
+    );
   });
 
   it('throws on invalid operation type', () => {

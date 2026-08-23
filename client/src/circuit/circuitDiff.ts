@@ -78,7 +78,7 @@ export function computeCircuitDiff(before: CircuitModel, after: CircuitModel): C
   }
 
   // Match removed ops against genuinely new after ops to detect modified/moved
-  const unmatchedAfter = afterOps.filter(op => !usedAfter.has(opKey(op)));
+  const unmatchedAfter = afterOps.filter((op) => !usedAfter.has(opKey(op)));
 
   const matchedRemoved = new Set<string>();
   const matchedAfter = new Set<string>();
@@ -113,24 +113,26 @@ export function computeCircuitDiff(before: CircuitModel, after: CircuitModel): C
   }
 
   // Anything removed that wasn't matched as modified/moved is truly removed
-  const trulyRemoved = removed.filter(op => !matchedRemoved.has(opKey(op)));
+  const trulyRemoved = removed.filter((op) => !matchedRemoved.has(opKey(op)));
 
   // Anything in unmatchedAfter that wasn't matched is truly added
-  const trulyAdded = unmatchedAfter.filter(op => !matchedAfter.has(opKey(op)));
+  const trulyAdded = unmatchedAfter.filter((op) => !matchedAfter.has(opKey(op)));
   added.push(...trulyAdded);
 
   // Build annotated views
   const beforeAnnotated: AnnotatedOp[] = [];
   for (const op of beforeOps) {
     const key = opKey(op);
-    if (unchanged.some(u => opKey(u) === key)) {
+    if (unchanged.some((u) => opKey(u) === key)) {
       beforeAnnotated.push({ op, status: 'unchanged' });
     } else {
-      const mod = modified.find(m => opKey(m.before) === key);
+      const mod = modified.find((m) => opKey(m.before) === key);
       if (mod) {
         beforeAnnotated.push({ op, status: 'modified', previousType: undefined });
       } else {
-        const mov = moved.find(m => m.fromTime === op.time && typeQubitsKey(m.op) === typeQubitsKey(op));
+        const mov = moved.find(
+          (m) => m.fromTime === op.time && typeQubitsKey(m.op) === typeQubitsKey(op),
+        );
         if (mov) {
           beforeAnnotated.push({ op, status: 'moved', previousTime: op.time });
         } else {
@@ -143,16 +145,16 @@ export function computeCircuitDiff(before: CircuitModel, after: CircuitModel): C
   const afterAnnotated: AnnotatedOp[] = [];
   for (const op of afterOps) {
     const key = opKey(op);
-    if (unchanged.some(u => opKey(u) === key)) {
+    if (unchanged.some((u) => opKey(u) === key)) {
       afterAnnotated.push({ op, status: 'unchanged' });
-    } else if (trulyAdded.some(a => opKey(a) === key)) {
+    } else if (trulyAdded.some((a) => opKey(a) === key)) {
       afterAnnotated.push({ op, status: 'added' });
     } else {
-      const mod = modified.find(m => opKey(m.after) === key);
+      const mod = modified.find((m) => opKey(m.after) === key);
       if (mod) {
         afterAnnotated.push({ op, status: 'modified', previousType: mod.before.type });
       } else {
-        const mov = moved.find(m => opKey(m.op) === key);
+        const mov = moved.find((m) => opKey(m.op) === key);
         if (mov) {
           afterAnnotated.push({ op, status: 'moved', previousTime: mov.fromTime });
         } else {
@@ -185,7 +187,10 @@ export function diffSummary(diff: CircuitDiff): string {
 }
 
 /** Compute percentage change, formatted nicely */
-export function formatMetricChange(before: number, after: number): {
+export function formatMetricChange(
+  before: number,
+  after: number,
+): {
   label: string;
   direction: 'increase' | 'decrease' | 'none';
   pct: string;

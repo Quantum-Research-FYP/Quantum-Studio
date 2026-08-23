@@ -19,11 +19,11 @@ beforeAll(async () => {
   db = client.db('test_experiments');
   await ensureIndexes(db);
   app = createApp(db);
-}, 60_000);
+}, 180_000);
 
 afterAll(async () => {
-  await client.close();
-  await mongod.stop();
+  if (client) await client.close();
+  if (mongod) await mongod.stop();
 }, 30_000);
 
 beforeEach(async () => {
@@ -40,9 +40,7 @@ async function createUserSession(
   email = 'tester@example.com',
   password = 'securePassword!1',
 ): Promise<{ cookie: string; userId: string }> {
-  const res = await request(app)
-    .post('/api/auth/signup')
-    .send({ email, password });
+  const res = await request(app).post('/api/auth/signup').send({ email, password });
 
   const cookies = res.headers['set-cookie'] as unknown as string[];
   return { cookie: cookies[0], userId: res.body.user.id };
@@ -144,9 +142,7 @@ describe('GET /api/experiments (list)', () => {
       .set('Cookie', cookie)
       .send({ name: 'Exp 2', circuitJson: validCircuit });
 
-    const res = await request(app)
-      .get('/api/experiments')
-      .set('Cookie', cookie);
+    const res = await request(app).get('/api/experiments').set('Cookie', cookie);
 
     expect(res.status).toBe(200);
     expect(res.body.items).toHaveLength(2);
@@ -250,13 +246,9 @@ describe('DELETE /api/experiments/:id (soft delete)', () => {
       .set('Cookie', cookie)
       .send({ name: 'Deletable', circuitJson: validCircuit });
 
-    await request(app)
-      .delete(`/api/experiments/${createRes.body.id}`)
-      .set('Cookie', cookie);
+    await request(app).delete(`/api/experiments/${createRes.body.id}`).set('Cookie', cookie);
 
-    const listRes = await request(app)
-      .get('/api/experiments')
-      .set('Cookie', cookie);
+    const listRes = await request(app).get('/api/experiments').set('Cookie', cookie);
 
     expect(listRes.body.items).toHaveLength(0);
     expect(listRes.body.total).toBe(0);
@@ -268,7 +260,7 @@ describe('DELETE /api/experiments/:id (soft delete)', () => {
 // ---------------------------------------------------------------------------
 
 describe('access control (user isolation)', () => {
-  it('cannot read another user\'s experiment', async () => {
+  it("cannot read another user's experiment", async () => {
     const { cookie: ownerCookie } = await createUserSession('owner@example.com');
     const { cookie: otherCookie } = await createUserSession('other@example.com');
 
@@ -284,7 +276,7 @@ describe('access control (user isolation)', () => {
     expect(res.status).toBe(404);
   });
 
-  it('cannot update another user\'s experiment', async () => {
+  it("cannot update another user's experiment", async () => {
     const { cookie: ownerCookie } = await createUserSession('owner@example.com');
     const { cookie: otherCookie } = await createUserSession('other@example.com');
 
@@ -302,7 +294,7 @@ describe('access control (user isolation)', () => {
     expect(res.status).toBe(404);
   });
 
-  it('cannot delete another user\'s experiment', async () => {
+  it("cannot delete another user's experiment", async () => {
     const { cookie: ownerCookie } = await createUserSession('owner@example.com');
     const { cookie: otherCookie } = await createUserSession('other@example.com');
 
@@ -339,16 +331,12 @@ describe('access control (user isolation)', () => {
       .set('Cookie', bobCookie)
       .send({ name: 'Bob Exp', circuitJson: validCircuit });
 
-    const aliceList = await request(app)
-      .get('/api/experiments')
-      .set('Cookie', aliceCookie);
+    const aliceList = await request(app).get('/api/experiments').set('Cookie', aliceCookie);
 
     expect(aliceList.body.items).toHaveLength(1);
     expect(aliceList.body.items[0].name).toBe('Alice Exp');
 
-    const bobList = await request(app)
-      .get('/api/experiments')
-      .set('Cookie', bobCookie);
+    const bobList = await request(app).get('/api/experiments').set('Cookie', bobCookie);
 
     expect(bobList.body.items).toHaveLength(1);
     expect(bobList.body.items[0].name).toBe('Bob Exp');

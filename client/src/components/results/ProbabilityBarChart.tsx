@@ -33,17 +33,11 @@ export default function ProbabilityBarChart({
     };
   }, [outcomes, maxDisplay]);
 
-  const maxProb = useMemo(
-    () => Math.max(...displayed.map((o) => o.probability), 0),
-    [displayed],
-  );
+  const maxProb = useMemo(() => Math.max(...displayed.map((o) => o.probability), 0), [displayed]);
 
   const barAreaWidth = MIN_CHART_WIDTH - LABEL_WIDTH - VALUE_WIDTH - CHART_PADDING * 2;
   const svgHeight =
-    CHART_PADDING * 2 +
-    displayed.length * (BAR_HEIGHT + BAR_GAP) -
-    BAR_GAP +
-    (truncated ? 30 : 0);
+    CHART_PADDING * 2 + displayed.length * (BAR_HEIGHT + BAR_GAP) - BAR_GAP + (truncated ? 30 : 0);
 
   const descText = `Bar chart showing measurement probabilities for ${totalCount} outcome${totalCount !== 1 ? 's' : ''}. Sorted by probability descending.${truncated ? ` Showing top ${maxDisplay} of ${totalCount}.` : ''}`;
 

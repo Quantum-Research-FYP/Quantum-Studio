@@ -9,7 +9,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { generateOpenQasm } from '../circuit';
 import type { CircuitModel } from '../circuit';
-import type { TranspileTraceResponse, TranspileStageSummary, TranspilePassTrace } from '../api/simulations';
+import type {
+  TranspileTraceResponse,
+  TranspileStageSummary,
+  TranspilePassTrace,
+} from '../api/simulations';
 import { getTranspileTrace } from '../api/simulations';
 import { qasmToCircuitModel } from '../circuit/qasmToCircuitModel';
 import { computeCircuitDiff } from '../circuit/circuitDiff';
@@ -20,8 +24,8 @@ export type EngineStatus = 'idle' | 'loading' | 'ready' | 'error';
 export interface FlatPass {
   stageIndex: number;
   stageName: string;
-  passIndex: number;           // index within stage
-  globalIndex: number;         // index across all passes
+  passIndex: number; // index within stage
+  globalIndex: number; // index across all passes
   pass: TranspilePassTrace;
   inputCircuit: CircuitModel;
   outputCircuit: CircuitModel;
@@ -50,12 +54,7 @@ export interface TranspilationEngineActions {
   jumpToStage: (stageIndex: number) => void;
 }
 
-const STAGE_ORDER = ['Analysis', 'Optimization', 'Translation', 'Mapping', 'Routing', 'Scheduling'];
-
-function flattenPasses(
-  stages: TranspileStageSummary[],
-  originalQasm: string
-): FlatPass[] {
+function flattenPasses(stages: TranspileStageSummary[], originalQasm: string): FlatPass[] {
   const flat: FlatPass[] = [];
 
   // The "before" circuit for the very first pass is the original circuit
@@ -92,7 +91,7 @@ function flattenPasses(
 
 export function useTranspilationEngine(
   circuit: CircuitModel,
-  isOpen: boolean
+  isOpen: boolean,
 ): TranspilationEngineState & TranspilationEngineActions {
   const [status, setStatus] = useState<EngineStatus>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -141,7 +140,7 @@ export function useTranspilationEngine(
       });
 
       // Filter out empty stages, keep only ones with passes
-      const nonEmptyStages = result.stages.filter(s => s.passes.length > 0);
+      const nonEmptyStages = result.stages.filter((s) => s.passes.length > 0);
       const fullResult = { ...result, stages: nonEmptyStages };
 
       const flat = flattenPasses(nonEmptyStages, result.originalQasm);
@@ -149,8 +148,8 @@ export function useTranspilationEngine(
       setFlatPasses(flat);
       setSelectedGlobalIndex(0);
       setStatus('ready');
-    } catch (err: any) {
-      setError(err?.message ?? 'Transpilation trace failed.');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Transpilation trace failed.');
       setStatus('error');
     }
   }, [circuit]);
@@ -175,7 +174,7 @@ export function useTranspilationEngine(
     if (flatPasses.length === 0) return;
     setIsPlaying(true);
     playIntervalRef.current = setInterval(() => {
-      setSelectedGlobalIndex(prev => {
+      setSelectedGlobalIndex((prev) => {
         if (prev >= flatPasses.length - 1) {
           stopPlayback();
           return prev;
@@ -187,17 +186,20 @@ export function useTranspilationEngine(
 
   const pause = useCallback(() => stopPlayback(), [stopPlayback]);
 
-  const selectPass = useCallback((idx: number) => {
-    stopPlayback();
-    setSelectedGlobalIndex(Math.max(0, Math.min(idx, flatPasses.length - 1)));
-  }, [flatPasses.length, stopPlayback]);
+  const selectPass = useCallback(
+    (idx: number) => {
+      stopPlayback();
+      setSelectedGlobalIndex(Math.max(0, Math.min(idx, flatPasses.length - 1)));
+    },
+    [flatPasses.length, stopPlayback],
+  );
 
   const nextPass = useCallback(() => {
-    setSelectedGlobalIndex(prev => Math.min(prev + 1, flatPasses.length - 1));
+    setSelectedGlobalIndex((prev) => Math.min(prev + 1, flatPasses.length - 1));
   }, [flatPasses.length]);
 
   const prevPass = useCallback(() => {
-    setSelectedGlobalIndex(prev => Math.max(prev - 1, 0));
+    setSelectedGlobalIndex((prev) => Math.max(prev - 1, 0));
   }, []);
 
   const reset = useCallback(() => {
@@ -205,16 +207,32 @@ export function useTranspilationEngine(
     setSelectedGlobalIndex(0);
   }, [stopPlayback]);
 
-  const jumpToStage = useCallback((stageIndex: number) => {
-    const fp = flatPasses.find(p => p.stageIndex === stageIndex);
-    if (fp) selectPass(fp.globalIndex);
-  }, [flatPasses, selectPass]);
+  const jumpToStage = useCallback(
+    (stageIndex: number) => {
+      const fp = flatPasses.find((p) => p.stageIndex === stageIndex);
+      if (fp) selectPass(fp.globalIndex);
+    },
+    [flatPasses, selectPass],
+  );
 
   const selectedPass = flatPasses[selectedGlobalIndex] ?? null;
 
   return {
-    status, error, trace, flatPasses, selectedGlobalIndex,
-    isPlaying, originalCircuit, selectedPass,
-    run, selectPass, nextPass, prevPass, play, pause, reset, jumpToStage,
+    status,
+    error,
+    trace,
+    flatPasses,
+    selectedGlobalIndex,
+    isPlaying,
+    originalCircuit,
+    selectedPass,
+    run,
+    selectPass,
+    nextPass,
+    prevPass,
+    play,
+    pause,
+    reset,
+    jumpToStage,
   };
 }

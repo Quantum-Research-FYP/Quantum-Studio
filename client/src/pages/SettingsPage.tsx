@@ -9,11 +9,7 @@ import {
   type IbmSettingsResponse,
   type SpinqSettingsResponse,
 } from '../api/integrations';
-import {
-  getGitHubStatus,
-  disconnectGitHub,
-  type GitHubStatus,
-} from '../api/github';
+import { getGitHubStatus, disconnectGitHub, type GitHubStatus } from '../api/github';
 
 type ViewState = 'loading' | 'no-settings' | 'has-settings' | 'error';
 type SettingsTab = 'ibm' | 'spinq' | 'github';
@@ -43,20 +39,27 @@ export default function SettingsPage() {
 
   // --- SpinQ state ---
   const [spinqViewState, setSpinqViewState] = useState<ViewState>('loading');
-  const [spinqSettings, setSpinqSettings] = useState<SpinqSettingsResponse['settings'] | null>(null);
+  const [spinqSettings, setSpinqSettings] = useState<SpinqSettingsResponse['settings'] | null>(
+    null,
+  );
   const [spinqIp, setSpinqIp] = useState('');
   const [spinqPort, setSpinqPort] = useState('');
   const [spinqUsername, setSpinqUsername] = useState('');
   const [spinqPassword, setSpinqPassword] = useState('');
   const [spinqShowPassword, setSpinqShowPassword] = useState(false);
   const [spinqSaving, setSpinqSaving] = useState(false);
-  const [spinqMessage, setSpinqMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [spinqMessage, setSpinqMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
 
   // --- GitHub state ---
   const [ghStatus, setGhStatus] = useState<GitHubStatus | null>(null);
   const [ghLoading, setGhLoading] = useState(true);
   const [ghDisconnecting, setGhDisconnecting] = useState(false);
-  const [ghMessage, setGhMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [ghMessage, setGhMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(
+    null,
+  );
 
   // --- Check URL params for GitHub callback result ---
   useEffect(() => {
@@ -70,7 +73,10 @@ export default function SettingsPage() {
     } else if (githubResult === 'error') {
       setActiveTab('github');
       const reason = params.get('reason') || 'unknown';
-      setGhMessage({ type: 'error', text: `GitHub connection failed: ${reason.replace(/_/g, ' ')}` });
+      setGhMessage({
+        type: 'error',
+        text: `GitHub connection failed: ${reason.replace(/_/g, ' ')}`,
+      });
       window.history.replaceState({}, '', '/settings');
     }
   }, []);
@@ -196,7 +202,12 @@ export default function SettingsPage() {
     setSpinqMessage(null);
 
     try {
-      const data = await saveSpinqSettings(spinqIp.trim(), parseInt(spinqPort, 10), spinqUsername.trim(), spinqPassword || undefined);
+      const data = await saveSpinqSettings(
+        spinqIp.trim(),
+        parseInt(spinqPort, 10),
+        spinqUsername.trim(),
+        spinqPassword || undefined,
+      );
       setSpinqSettings(data.settings);
       setSpinqPassword('');
       setSpinqShowPassword(false);
@@ -216,7 +227,8 @@ export default function SettingsPage() {
   }
 
   async function handleDisconnectGitHub() {
-    if (!confirm('Disconnect your GitHub account? You will need to reconnect to push code.')) return;
+    if (!confirm('Disconnect your GitHub account? You will need to reconnect to push code.'))
+      return;
 
     setGhDisconnecting(true);
     setGhMessage(null);
@@ -272,7 +284,9 @@ export default function SettingsPage() {
             type="button"
             onClick={() => setActiveTab('ibm')}
           >
-            <span className="settings-nav__icon" aria-hidden="true">⚛</span>
+            <span className="settings-nav__icon" aria-hidden="true">
+              ⚛
+            </span>
             IBM Quantum
           </button>
           <button
@@ -280,7 +294,9 @@ export default function SettingsPage() {
             type="button"
             onClick={() => setActiveTab('spinq')}
           >
-            <span className="settings-nav__icon" aria-hidden="true">⚛</span>
+            <span className="settings-nav__icon" aria-hidden="true">
+              ⚛
+            </span>
             SpinQ Quantum
           </button>
           <button
@@ -312,11 +328,14 @@ export default function SettingsPage() {
                   <div className="settings-panel__title-row">
                     <h2 className="settings-panel__title">IBM Quantum Integration</h2>
                     {featureDisabled && (
-                      <span className="settings-badge settings-badge--disabled">Server disabled</span>
+                      <span className="settings-badge settings-badge--disabled">
+                        Server disabled
+                      </span>
                     )}
                   </div>
                   <p className="settings-panel__desc">
-                    Connect your IBM Quantum account to run experiments on real quantum hardware backends.
+                    Connect your IBM Quantum account to run experiments on real quantum hardware
+                    backends.
                   </p>
                 </div>
 
@@ -350,7 +369,9 @@ export default function SettingsPage() {
                         className={`settings-status-dot ${statusCfg.className}`}
                         aria-hidden="true"
                       />
-                      <span className="settings-connection-card__status-label">{statusCfg.label}</span>
+                      <span className="settings-connection-card__status-label">
+                        {statusCfg.label}
+                      </span>
                       {settings.validationErrorCode && (
                         <span className="settings-connection-card__error-code">
                           {settings.validationErrorCode}
@@ -359,9 +380,13 @@ export default function SettingsPage() {
                     </div>
                     <div className="settings-meta-grid">
                       <span className="settings-meta-grid__label">Last validated</span>
-                      <span className="settings-meta-grid__value">{formatDate(settings.lastValidatedAt)}</span>
+                      <span className="settings-meta-grid__value">
+                        {formatDate(settings.lastValidatedAt)}
+                      </span>
                       <span className="settings-meta-grid__label">Credentials saved</span>
-                      <span className="settings-meta-grid__value">{formatDate(settings.updatedAt)}</span>
+                      <span className="settings-meta-grid__value">
+                        {formatDate(settings.updatedAt)}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -406,13 +431,27 @@ export default function SettingsPage() {
                           aria-label={showToken ? 'Hide token' : 'Show token'}
                         >
                           {showToken ? (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
                               <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
                               <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
                               <line x1="1" y1="1" x2="23" y2="23" />
                             </svg>
                           ) : (
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                            >
                               <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                               <circle cx="12" cy="12" r="3" />
                             </svg>
@@ -486,7 +525,8 @@ export default function SettingsPage() {
                     <h2 className="settings-panel__title">SpinQ Hardware Integration</h2>
                   </div>
                   <p className="settings-panel__desc">
-                    Configure your SpinQ Gemini Mini Pro quantum computer's network and account details.
+                    Configure your SpinQ Gemini Mini Pro quantum computer's network and account
+                    details.
                   </p>
                 </div>
 
@@ -508,16 +548,25 @@ export default function SettingsPage() {
                 {spinqViewState === 'has-settings' && spinqSettings && (
                   <div className="settings-connection-card">
                     <div className="settings-connection-card__status-row">
-                      <span className="settings-status-dot settings-status--valid" aria-hidden="true" />
-                      <span className="settings-connection-card__status-label">Configuration Saved</span>
+                      <span
+                        className="settings-status-dot settings-status--valid"
+                        aria-hidden="true"
+                      />
+                      <span className="settings-connection-card__status-label">
+                        Configuration Saved
+                      </span>
                     </div>
                     <div className="settings-meta-grid">
                       <span className="settings-meta-grid__label">Target IP</span>
-                      <span className="settings-meta-grid__value">{spinqSettings.ip}:{spinqSettings.port}</span>
+                      <span className="settings-meta-grid__value">
+                        {spinqSettings.ip}:{spinqSettings.port}
+                      </span>
                       <span className="settings-meta-grid__label">Username</span>
                       <span className="settings-meta-grid__value">{spinqSettings.username}</span>
                       <span className="settings-meta-grid__label">Last updated</span>
-                      <span className="settings-meta-grid__value">{formatDate(spinqSettings.updatedAt)}</span>
+                      <span className="settings-meta-grid__value">
+                        {formatDate(spinqSettings.updatedAt)}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -529,12 +578,16 @@ export default function SettingsPage() {
                 >
                   <div className="settings-token-form__header">
                     <h3 className="settings-token-form__title">
-                      {spinqViewState === 'has-settings' ? 'Update Configuration' : 'Configure Connection'}
+                      {spinqViewState === 'has-settings'
+                        ? 'Update Configuration'
+                        : 'Configure Connection'}
                     </h3>
                   </div>
 
                   <div className="form-field">
-                    <label className="form-field__label" htmlFor="spinq-ip-input">IP Address</label>
+                    <label className="form-field__label" htmlFor="spinq-ip-input">
+                      IP Address
+                    </label>
                     <input
                       id="spinq-ip-input"
                       className="form-field__input"
@@ -547,7 +600,9 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="form-field">
-                    <label className="form-field__label" htmlFor="spinq-port-input">Port</label>
+                    <label className="form-field__label" htmlFor="spinq-port-input">
+                      Port
+                    </label>
                     <input
                       id="spinq-port-input"
                       className="form-field__input"
@@ -560,7 +615,9 @@ export default function SettingsPage() {
                   </div>
 
                   <div className="form-field">
-                    <label className="form-field__label" htmlFor="spinq-username-input">Username</label>
+                    <label className="form-field__label" htmlFor="spinq-username-input">
+                      Username
+                    </label>
                     <input
                       id="spinq-username-input"
                       className="form-field__input"
@@ -574,7 +631,8 @@ export default function SettingsPage() {
 
                   <div className="form-field">
                     <label className="form-field__label" htmlFor="spinq-password-input">
-                      Password {spinqViewState === 'has-settings' && '(Leave blank to keep existing)'}
+                      Password{' '}
+                      {spinqViewState === 'has-settings' && '(Leave blank to keep existing)'}
                     </label>
                     <div className="form-field__input-wrap">
                       <input
@@ -594,13 +652,27 @@ export default function SettingsPage() {
                         aria-label={spinqShowPassword ? 'Hide password' : 'Show password'}
                       >
                         {spinqShowPassword ? (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
                             <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
                             <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
                             <line x1="1" y1="1" x2="23" y2="23" />
                           </svg>
                         ) : (
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                          >
                             <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
                             <circle cx="12" cy="12" r="3" />
                           </svg>
@@ -635,11 +707,14 @@ export default function SettingsPage() {
                   <div className="settings-panel__title-row">
                     <h2 className="settings-panel__title">GitHub Integration</h2>
                     {ghStatus && !ghStatus.enabled && (
-                      <span className="settings-badge settings-badge--disabled">Server disabled</span>
+                      <span className="settings-badge settings-badge--disabled">
+                        Server disabled
+                      </span>
                     )}
                   </div>
                   <p className="settings-panel__desc">
-                    Connect your GitHub account to push circuits to repositories and import code from your projects.
+                    Connect your GitHub account to push circuits to repositories and import code
+                    from your projects.
                   </p>
                 </div>
 
@@ -672,7 +747,10 @@ export default function SettingsPage() {
                       )}
                       <div className="github-profile__info">
                         <div className="github-profile__name-row">
-                          <span className="settings-status-dot settings-status--valid" aria-hidden="true" />
+                          <span
+                            className="settings-status-dot settings-status--valid"
+                            aria-hidden="true"
+                          />
                           <strong className="github-profile__username">
                             {ghStatus.name || ghStatus.username}
                           </strong>
@@ -692,7 +770,9 @@ export default function SettingsPage() {
                     </div>
                     <div className="settings-meta-grid" style={{ marginTop: 16 }}>
                       <span className="settings-meta-grid__label">Connected since</span>
-                      <span className="settings-meta-grid__value">{formatDate(ghStatus.linkedAt || null)}</span>
+                      <span className="settings-meta-grid__value">
+                        {formatDate(ghStatus.linkedAt || null)}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -708,7 +788,8 @@ export default function SettingsPage() {
                       <h3 className="github-connect-section__title">Connect Your GitHub Account</h3>
                       <p className="github-connect-section__desc">
                         Authorize Quantum Studio to access your repositories. This lets you push
-                        circuit code (.py, .qasm) directly from the IDE and import files from your projects.
+                        circuit code (.py, .qasm) directly from the IDE and import files from your
+                        projects.
                       </p>
                       <ul className="github-connect-section__features">
                         <li>Push Qiskit & OpenQASM code to any repository</li>
@@ -720,7 +801,13 @@ export default function SettingsPage() {
                         className="btn btn--github"
                         onClick={handleConnectGitHub}
                       >
-                        <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" style={{ marginRight: 8 }}>
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 16 16"
+                          fill="currentColor"
+                          style={{ marginRight: 8 }}
+                        >
                           <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
                         </svg>
                         Connect with GitHub

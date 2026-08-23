@@ -81,7 +81,12 @@ export interface SpinqSettingsResponse {
   };
 }
 
-export function saveSpinqSettings(ip: string, port: number, username: string, password?: string): Promise<SpinqSettingsResponse> {
+export function saveSpinqSettings(
+  ip: string,
+  port: number,
+  username: string,
+  password?: string,
+): Promise<SpinqSettingsResponse> {
   return request('/api/integrations/spinq/settings', {
     method: 'POST',
     body: JSON.stringify({ ip, port, username, password }),

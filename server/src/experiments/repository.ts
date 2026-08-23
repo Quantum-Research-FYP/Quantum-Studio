@@ -225,12 +225,7 @@ export function createExperimentRepository(pool: Db) {
       userId: string,
       options: ExperimentListOptions = {},
     ): Promise<PaginatedResult<ExperimentListItem>> {
-      const {
-        page = 1,
-        pageSize = 20,
-        sortBy = 'updated_at',
-        sortOrder = 'desc',
-      } = options;
+      const { page = 1, pageSize = 20, sortBy = 'updated_at', sortOrder = 'desc' } = options;
 
       const field = SORT_FIELD_MAP[sortBy] ?? 'updatedAt';
       const direction = sortOrder === 'asc' ? 1 : -1;

@@ -25,7 +25,12 @@ interface CircuitCanvasProps {
   circuit: CircuitModel;
   selectedGate: GateType | null;
   errorOperationIds: Set<string>;
-  onPlaceGate: (type: GateType, targets: OperationTargets, time: number, params?: Record<string, number>) => void;
+  onPlaceGate: (
+    type: GateType,
+    targets: OperationTargets,
+    time: number,
+    params?: Record<string, number>,
+  ) => void;
   onDeleteGate: (operationId: string) => void;
   currentStep?: number;
 }
@@ -41,9 +46,17 @@ const IDLE: PlacementState = { stage: 'idle' };
 
 /** Gates that need multi-click qubit selection. */
 const MULTI_QUBIT_GATES = new Set<GateType>([
-  'CX', 'CZ', 'CY', 'CH', 'SWAP',
-  'CRX', 'CRY', 'CRZ', 'CP',
-  'CCX', 'CSWAP',
+  'CX',
+  'CZ',
+  'CY',
+  'CH',
+  'SWAP',
+  'CRX',
+  'CRY',
+  'CRZ',
+  'CP',
+  'CCX',
+  'CSWAP',
 ]);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -72,25 +85,44 @@ function getGateLabel(op: Operation, wirePrefix: string, wireIndex: number): str
   const q = op.targets.qubits;
 
   switch (op.type) {
-    case 'CX':    return q[0] === wireIndex ? '●' : '⊕';
-    case 'CZ':    return '●';
-    case 'CY':    return q[0] === wireIndex ? '●' : 'Y';
-    case 'CH':    return q[0] === wireIndex ? '●' : 'H';
-    case 'SWAP':  return '×';
-    case 'CRX':   return q[0] === wireIndex ? '●' : 'Rx';
-    case 'CRY':   return q[0] === wireIndex ? '●' : 'Ry';
-    case 'CRZ':   return q[0] === wireIndex ? '●' : 'Rz';
-    case 'CP':    return q[0] === wireIndex ? '●' : 'P';
-    case 'CCX':   return q[2] === wireIndex ? '⊕' : '●';
-    case 'CSWAP': return q[0] === wireIndex ? '●' : '×';
-    case 'MEASURE': return 'M';
-    case 'RX':  return 'Rx';
-    case 'RY':  return 'Ry';
-    case 'RZ':  return 'Rz';
-    case 'P':   return 'P';
-    case 'U':   return 'U';
-    case 'ID':  return 'I';
-    default:    return op.type;
+    case 'CX':
+      return q[0] === wireIndex ? '●' : '⊕';
+    case 'CZ':
+      return '●';
+    case 'CY':
+      return q[0] === wireIndex ? '●' : 'Y';
+    case 'CH':
+      return q[0] === wireIndex ? '●' : 'H';
+    case 'SWAP':
+      return '×';
+    case 'CRX':
+      return q[0] === wireIndex ? '●' : 'Rx';
+    case 'CRY':
+      return q[0] === wireIndex ? '●' : 'Ry';
+    case 'CRZ':
+      return q[0] === wireIndex ? '●' : 'Rz';
+    case 'CP':
+      return q[0] === wireIndex ? '●' : 'P';
+    case 'CCX':
+      return q[2] === wireIndex ? '⊕' : '●';
+    case 'CSWAP':
+      return q[0] === wireIndex ? '●' : '×';
+    case 'MEASURE':
+      return 'M';
+    case 'RX':
+      return 'Rx';
+    case 'RY':
+      return 'Ry';
+    case 'RZ':
+      return 'Rz';
+    case 'P':
+      return 'P';
+    case 'U':
+      return 'U';
+    case 'ID':
+      return 'I';
+    default:
+      return op.type;
   }
 }
 
@@ -101,16 +133,16 @@ function hintText(ps: PlacementState): string {
   const step = ps.qubits.length + 1;
 
   const stepNames: Partial<Record<GateType, string[]>> = {
-    CX:   ['control', 'target'],
-    CZ:   ['qubit 1', 'qubit 2'],
-    CY:   ['control', 'target'],
-    CH:   ['control', 'target'],
+    CX: ['control', 'target'],
+    CZ: ['qubit 1', 'qubit 2'],
+    CY: ['control', 'target'],
+    CH: ['control', 'target'],
     SWAP: ['qubit 1', 'qubit 2'],
-    CRX:  ['control', 'target'],
-    CRY:  ['control', 'target'],
-    CRZ:  ['control', 'target'],
-    CP:   ['control', 'target'],
-    CCX:  ['control 1', 'control 2', 'target'],
+    CRX: ['control', 'target'],
+    CRY: ['control', 'target'],
+    CRZ: ['control', 'target'],
+    CP: ['control', 'target'],
+    CCX: ['control 1', 'control 2', 'target'],
     CSWAP: ['control', 'swap qubit 1', 'swap qubit 2'],
   };
   const label = stepNames[ps.gate]?.[step - 1] ?? `qubit ${step}`;
@@ -260,7 +292,9 @@ export default function CircuitCanvas({
           >
             {label}
             {hasError && (
-              <span className="circuit-canvas__error-badge" aria-hidden="true">!</span>
+              <span className="circuit-canvas__error-badge" aria-hidden="true">
+                !
+              </span>
             )}
           </button>
         </td>
@@ -281,8 +315,12 @@ export default function CircuitCanvas({
       'circuit-canvas__cell',
       canPlace ? 'circuit-canvas__cell--placeable' : '',
       chosen ? 'circuit-canvas__cell--pending' : '',
-      currentStep !== undefined && time === currentStep - 1 ? 'circuit-canvas__cell--current-step' : '',
-    ].filter(Boolean).join(' ');
+      currentStep !== undefined && time === currentStep - 1
+        ? 'circuit-canvas__cell--current-step'
+        : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
 
     return (
       <td
@@ -304,7 +342,11 @@ export default function CircuitCanvas({
         }
       >
         <span className="circuit-canvas__wire" />
-        {chosen && <span className="circuit-canvas__pending-marker" aria-hidden="true">●</span>}
+        {chosen && (
+          <span className="circuit-canvas__pending-marker" aria-hidden="true">
+            ●
+          </span>
+        )}
       </td>
     );
   };
@@ -334,8 +376,8 @@ export default function CircuitCanvas({
             <tr>
               <th className="circuit-canvas__label-col" />
               {timeColumns.map((t) => (
-                <th 
-                  key={t} 
+                <th
+                  key={t}
                   className={`circuit-canvas__time-header${currentStep !== undefined && t === currentStep - 1 ? ' circuit-canvas__time-header--current' : ''}`}
                 >
                   {t}
@@ -346,13 +388,17 @@ export default function CircuitCanvas({
           <tbody>
             {Array.from({ length: qubits }, (_, q) => (
               <tr key={`q${q}`} className="circuit-canvas__row circuit-canvas__row--qubit">
-                <th className="circuit-canvas__wire-label" scope="row">q{q}</th>
+                <th className="circuit-canvas__wire-label" scope="row">
+                  q{q}
+                </th>
                 {timeColumns.map((t) => renderCell('q', q, t))}
               </tr>
             ))}
             {Array.from({ length: clbits }, (_, c) => (
               <tr key={`c${c}`} className="circuit-canvas__row circuit-canvas__row--clbit">
-                <th className="circuit-canvas__wire-label" scope="row">c{c}</th>
+                <th className="circuit-canvas__wire-label" scope="row">
+                  c{c}
+                </th>
                 {timeColumns.map((t) => renderCell('c', c, t))}
               </tr>
             ))}

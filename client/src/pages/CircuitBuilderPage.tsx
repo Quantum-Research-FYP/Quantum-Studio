@@ -43,7 +43,6 @@ import {
 } from '../api/execution';
 import { getIbmSettings } from '../api/integrations';
 import { getTemplateById, loadTemplateCircuit, type ExecutionConfig } from '../templates';
-import type { AiDraftResponse, AiValidationResponse } from '../api/ai';
 import type { AiProvenanceInput } from '../api/experiments';
 
 /**
@@ -92,10 +91,15 @@ export default function CircuitBuilderPage() {
   const [loadedLatestResult, setLoadedLatestResult] = useState<Record<string, unknown> | null>(
     null,
   );
-  const [executionConfig, setExecutionConfig] = useState<ExecutionConfig>({ shots: DEFAULT_SHOTS, provider: 'local' });
+  const [executionConfig, setExecutionConfig] = useState<ExecutionConfig>({
+    shots: DEFAULT_SHOTS,
+    provider: 'local',
+  });
   const [providers, setProviders] = useState<ExecutionProvider[]>([]);
   const [ibmBackends, setIbmBackends] = useState<IbmBackend[]>([]);
-  const [credentialStatus, setCredentialStatus] = useState<'unknown' | 'missing' | 'invalid' | 'valid'>('unknown');
+  const [credentialStatus, setCredentialStatus] = useState<
+    'unknown' | 'missing' | 'invalid' | 'valid'
+  >('unknown');
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [isTranspilationModalOpen, setIsTranspilationModalOpen] = useState(false);
@@ -126,7 +130,7 @@ export default function CircuitBuilderPage() {
         .then((data) => {
           setIbmBackends(data.backends);
           if (data.backends.length > 0 && !executionConfig.backend) {
-            setExecutionConfig(prev => ({ ...prev, backend: data.backends[0].name }));
+            setExecutionConfig((prev) => ({ ...prev, backend: data.backends[0].name }));
           }
         })
         .catch(() => setIbmBackends([]));
@@ -141,7 +145,7 @@ export default function CircuitBuilderPage() {
     if (stepSim.currentStep === 0) return [];
     // Step N means "after applying all gates at time column N-1"
     const timeCol = stepSim.currentStep - 1;
-    return circuit.operations.filter(op => op.time === timeCol);
+    return circuit.operations.filter((op) => op.time === timeCol);
   }, [circuit.operations, stepSim.currentStep]);
 
   // Load experiment from URL params on mount
@@ -192,7 +196,7 @@ export default function CircuitBuilderPage() {
 
   // AI Draft panel toggle and provenance state (declared early — used in save handlers)
   const [showAiPanel, setShowAiPanel] = useState(false);
-  const [aiImportInfo, setAiImportInfo] = useState<AiImportInfo | null>(null);
+  const [aiImportInfo, _setAiImportInfo] = useState<AiImportInfo | null>(null);
 
   // Save handler — prompts for name on first save
   const handleSave = useCallback(async () => {
@@ -210,7 +214,13 @@ export default function CircuitBuilderPage() {
     }
 
     const provenance = aiImportInfo ? await buildAiProvenance(aiImportInfo) : undefined;
-    await experiment.save(name || 'Untitled Experiment', circuit, loadedRunSettings, loadedLatestResult, provenance);
+    await experiment.save(
+      name || 'Untitled Experiment',
+      circuit,
+      loadedRunSettings,
+      loadedLatestResult,
+      provenance,
+    );
   }, [experiment, circuit, loadedRunSettings, loadedLatestResult, aiImportInfo]);
 
   // Save-as handler (prompt for name)
@@ -238,10 +248,12 @@ export default function CircuitBuilderPage() {
     setIsRunning(true);
     setRunError(null);
 
-    const providerVal = 
-      executionConfig.provider === 'ibm' ? 'ibm_quantum' :
-      executionConfig.provider === 'spinq' ? 'spinq' :
-      'simulator';
+    const providerVal =
+      executionConfig.provider === 'ibm'
+        ? 'ibm_quantum'
+        : executionConfig.provider === 'spinq'
+          ? 'spinq'
+          : 'simulator';
 
     try {
       const job = await submitExecutionJob({
@@ -249,13 +261,13 @@ export default function CircuitBuilderPage() {
         backend: providerVal === 'ibm_quantum' ? executionConfig.backend : undefined,
         qasm,
         shots: executionConfig.shots,
-        codeType: 'qasm'
+        codeType: 'qasm',
       });
-      
+
       // Navigate to results page immediately using unified results view
       navigate(`/results?jobId=${job.jobId}`, { replace: true });
-    } catch (err: any) {
-      setRunError(err.message || 'Failed to submit execution job.');
+    } catch (err: unknown) {
+      setRunError(err instanceof Error ? err.message : 'Failed to submit execution job.');
     } finally {
       setIsRunning(false);
     }
@@ -268,34 +280,28 @@ export default function CircuitBuilderPage() {
     [errors],
   );
 
-  const handleAiImport = useCallback(
-    (validationResult: AiValidationResponse, draft: AiDraftResponse) => {
-      if (validationResult.status === 'invalid' || !validationResult.importableCircuit) {
-        // Circuit remains unchanged — the panel shows the error messages
-        return;
-      }
-      const importedCircuit = validationResult.importableCircuit as unknown as CircuitModel;
-      push(importedCircuit);
-      setAiImportInfo({ draft, validation: validationResult });
-    },
-    [push],
-  );
-
   const handleDismissAiBanner = useCallback(() => {
-    setAiImportInfo(null);
+    _setAiImportInfo(null);
   }, []);
 
   // Code generation for export
   const code = useMemo(() => {
     switch (exportFramework) {
-      case 'cirq': return generateCirqCode(circuit);
-      case 'pennylane': return generatePennyLaneCode(circuit);
-      case 'braket': return generateBraketCode(circuit);
-      case 'tket': return generateTketCode(circuit);
-      case 'spinqit': return generateSpinqitCode(circuit);
-      case 'qasm': return generateOpenQasm(circuit) || '# Add qubits and gates to generate OpenQASM code';
+      case 'cirq':
+        return generateCirqCode(circuit);
+      case 'pennylane':
+        return generatePennyLaneCode(circuit);
+      case 'braket':
+        return generateBraketCode(circuit);
+      case 'tket':
+        return generateTketCode(circuit);
+      case 'spinqit':
+        return generateSpinqitCode(circuit);
+      case 'qasm':
+        return generateOpenQasm(circuit) || '# Add qubits and gates to generate OpenQASM code';
       case 'qiskit':
-      default: return generateQiskitCode(circuit);
+      default:
+        return generateQiskitCode(circuit);
     }
   }, [circuit, exportFramework]);
 
@@ -405,15 +411,17 @@ export default function CircuitBuilderPage() {
             className="toolbar-selector"
             style={{ width: 'auto' }}
             value={executionConfig.provider || 'local'}
-            onChange={(e) => setExecutionConfig({ 
-              ...executionConfig, 
-              provider: e.target.value as any,
-              backend: undefined
-            })}
+            onChange={(e) =>
+              setExecutionConfig({
+                ...executionConfig,
+                provider: e.target.value as ExecutionConfig['provider'],
+                backend: undefined,
+              })
+            }
             aria-label="Select Backend Provider"
           >
             <option value="local">Local Simulator</option>
-            {providers.some(p => p.id === 'ibm_quantum' && p.available) && (
+            {providers.some((p) => p.id === 'ibm_quantum' && p.available) && (
               <option value="ibm">IBM Quantum</option>
             )}
             <option value="spinq">SpinQ Gemini Mini Pro</option>
@@ -439,10 +447,11 @@ export default function CircuitBuilderPage() {
             className="btn btn--primary btn--sm"
             onClick={handleRun}
             disabled={
-              isRunning || 
-              errors.length > 0 || 
+              isRunning ||
+              errors.length > 0 ||
               circuit.operations.length === 0 ||
-              (executionConfig.provider === 'ibm' && (credentialStatus !== 'valid' || !executionConfig.backend))
+              (executionConfig.provider === 'ibm' &&
+                (credentialStatus !== 'valid' || !executionConfig.backend))
             }
             aria-label="Run circuit"
           >
@@ -498,8 +507,6 @@ export default function CircuitBuilderPage() {
         </div>
       )}
 
-
-
       {/* AI import provenance banner */}
       {aiImportInfo && (
         <AiImportBanner importInfo={aiImportInfo} onDismiss={handleDismissAiBanner} />
@@ -520,7 +527,7 @@ export default function CircuitBuilderPage() {
               onDeleteGate={handleDeleteGate}
               currentStep={stepSim.currentStep}
             />
-            
+
             <StateVisualizer
               currentStep={stepSim.currentStep}
               maxStep={stepSim.maxStep}
@@ -540,7 +547,11 @@ export default function CircuitBuilderPage() {
 
           <div className="builder__sidebar">
             <CircuitProfilerPanel circuit={circuit} />
-            <CodePanel code={code} framework={exportFramework} onFrameworkChange={setExportFramework} />
+            <CodePanel
+              code={code}
+              framework={exportFramework}
+              onFrameworkChange={setExportFramework}
+            />
             <ValidationSummaryPanel errors={errors} />
           </div>
         </div>

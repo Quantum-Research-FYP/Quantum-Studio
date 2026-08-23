@@ -196,10 +196,7 @@ export function useExecution(): UseExecutionReturn {
             );
           } else {
             // Back off on other transient errors
-            pollIntervalRef.current = Math.min(
-              pollIntervalRef.current * 1.5,
-              MAX_POLL_INTERVAL_MS,
-            );
+            pollIntervalRef.current = Math.min(pollIntervalRef.current * 1.5, MAX_POLL_INTERVAL_MS);
           }
 
           // Continue polling despite error (graceful degradation)

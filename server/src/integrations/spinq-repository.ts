@@ -44,17 +44,17 @@ export function createSpinqRepository(pool: Db) {
   return {
     async upsertSettings(
       userId: string,
-      payload: SpinqSettingsPayload
+      payload: SpinqSettingsPayload,
     ): Promise<SpinqSettingsMasked> {
       let encryptedPayload: EncryptedPayload | undefined;
-      
+
       if (payload.password) {
         encryptedPayload = encrypt(payload.password);
       }
 
       const now = new Date();
-      
-      const updateData: any = {
+
+      const updateData: Record<string, unknown> = {
         updatedAt: now,
         'spinq.ip': payload.ip,
         'spinq.port': payload.port,
@@ -76,13 +76,13 @@ export function createSpinqRepository(pool: Db) {
             createdAt: now,
             userId,
             provider,
-          }
+          },
         },
-        { upsert: true, returnDocument: 'after' }
+        { upsert: true, returnDocument: 'after' },
       );
 
       const doc = result!;
-      
+
       return {
         id: doc._id as string,
         userId: doc.userId as string,
@@ -98,7 +98,7 @@ export function createSpinqRepository(pool: Db) {
     async getSettings(userId: string): Promise<SpinqSettingsMasked | null> {
       const doc = await settings.findOne({ userId, provider });
       if (!doc) return null;
-      
+
       return {
         id: doc._id as string,
         userId: doc.userId as string,
@@ -110,17 +110,17 @@ export function createSpinqRepository(pool: Db) {
         updatedAt: (doc.updatedAt as Date).toISOString(),
       };
     },
-    
+
     async getFullSettings(userId: string): Promise<SpinqSettingsPayload | null> {
       const doc = await settings.findOne({ userId, provider });
       if (!doc) return null;
-      
+
       const payload: SpinqSettingsPayload = {
         ip: doc.spinq?.ip as string,
         port: doc.spinq?.port as number,
         username: doc.spinq?.username as string,
       };
-      
+
       if (doc.spinq?.encryptedPassword) {
         try {
           payload.password = decrypt({
@@ -132,8 +132,8 @@ export function createSpinqRepository(pool: Db) {
           // ignore
         }
       }
-      
+
       return payload;
-    }
+    },
   };
 }

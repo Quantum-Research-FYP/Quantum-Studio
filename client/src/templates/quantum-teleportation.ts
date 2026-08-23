@@ -34,6 +34,6 @@ export const quantumTeleportationTemplate: TemplateDefinition = {
     imageSrc: '/images/algorithms/quantum-teleportation.jpg',
     longDescription: `Quantum teleportation is a protocol that allows the quantum state of a qubit to be transmitted from one location to another, without physically moving the particle itself. It relies on quantum entanglement and classical communication.
 
-In this circuit, Alice wants to send a state (prepared on q0) to Bob (q2). They share an entangled pair (q1 and q2). Alice entangles her state with her half of the Bell pair, then measures both. Depending on her results, Bob applies specific gates to his qubit, recovering the exact state Alice originally had.`
-  }
+In this circuit, Alice wants to send a state (prepared on q0) to Bob (q2). They share an entangled pair (q1 and q2). Alice entangles her state with her half of the Bell pair, then measures both. Depending on her results, Bob applies specific gates to his qubit, recovering the exact state Alice originally had.`,
+  },
 };

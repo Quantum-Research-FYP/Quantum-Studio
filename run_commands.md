@@ -5,6 +5,7 @@ This file contains the commands required to run the simulation service for Quant
 ## Local Development (Python Virtual Environment)
 
 1. Navigate to the simulation service directory:
+
    ```bash
    cd simulation-service
    ```
@@ -29,6 +30,7 @@ This file contains the commands required to run the simulation service for Quant
 If you prefer to use Docker, you can build and run the container:
 
 1. Build the Docker image:
+
    ```bash
    cd simulation-service
    docker build -t quantum-simulation-service .

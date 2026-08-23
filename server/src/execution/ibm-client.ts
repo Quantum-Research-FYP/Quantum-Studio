@@ -1,7 +1,7 @@
 /**
  * IBM Quantum Runtime client abstraction.
  *
- * Supports BOTH IBM Quantum Platform (128-char API Token) AND 
+ * Supports BOTH IBM Quantum Platform (128-char API Token) AND
  * IBM Cloud (44-char API Key + Auto-resolved CRN).
  *
  * Mock mode activates when ENABLE_IBM_QUANTUM !== 'true', allowing dev/test
@@ -45,9 +45,7 @@ export interface IbmClientError {
   message: string;
 }
 
-export type IbmClientResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: IbmClientError };
+export type IbmClientResult<T> = { ok: true; data: T } | { ok: false; error: IbmClientError };
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -61,7 +59,6 @@ const IBM_TIMEOUT_MS = parseInt(process.env.IBM_QUANTUM_TIMEOUT_MS || '15000', 1
  * call (downloading calibration data); subsequent calls hit the 5-min cache.
  */
 const IBM_TRANSPILE_TIMEOUT_MS = parseInt(process.env.IBM_TRANSPILE_TIMEOUT_MS || '60000', 10);
-
 
 /** URL of the Python simulation micro-service (same host, port 8000 by default). */
 function getSimulationServiceUrl(): string {
@@ -91,7 +88,7 @@ async function resolveIbmConfig(apiKey: string): Promise<IbmConfig | null> {
     return {
       type: 'ibm_quantum',
       token: apiKey,
-      baseUrl: process.env.IBM_QUANTUM_API_URL || 'https://quantum.cloud.ibm.com/api/v1'
+      baseUrl: process.env.IBM_QUANTUM_API_URL || 'https://quantum.cloud.ibm.com/api/v1',
     };
   }
 
@@ -104,7 +101,7 @@ async function resolveIbmConfig(apiKey: string): Promise<IbmConfig | null> {
       type: 'ibm_cloud',
       token: cached.accessToken,
       crn: cached.crn,
-      baseUrl: 'https://us-east.quantum-computing.cloud.ibm.com'
+      baseUrl: 'https://us-east.quantum-computing.cloud.ibm.com',
     };
   }
 
@@ -127,15 +124,23 @@ async function resolveIbmConfig(apiKey: string): Promise<IbmConfig | null> {
     let crn = process.env.IBM_QUANTUM_CRN;
     if (!crn) {
       try {
-        const rcRes = await fetch('https://resource-controller.cloud.ibm.com/v2/resource_instances', {
-          headers: { 'Authorization': `Bearer ${iamToken}` }
-        });
+        const rcRes = await fetch(
+          'https://resource-controller.cloud.ibm.com/v2/resource_instances',
+          {
+            headers: { Authorization: `Bearer ${iamToken}` },
+          },
+        );
         if (rcRes.ok) {
-          const resources = await rcRes.json() as any;
-          const qiskitInstance = resources.resources?.find((r: any) =>
-            r.resource_id === 'quantum-computing' || r.name.includes('quantum') || (r.crn && r.crn.includes('quantum'))
+          const resources = (await rcRes.json()) as {
+            resources?: Array<{ resource_id?: string; name?: string; crn?: string }>;
+          };
+          const qiskitInstance = resources.resources?.find(
+            (r) =>
+              r.resource_id === 'quantum-computing' ||
+              (typeof r.name === 'string' && r.name.includes('quantum')) ||
+              (typeof r.crn === 'string' && r.crn.includes('quantum')),
           );
-          if (qiskitInstance) crn = qiskitInstance.crn;
+          if (qiskitInstance?.crn) crn = qiskitInstance.crn;
         }
       } catch (err) {
         console.warn('[ibm-client] Failed to auto-resolve CRN:', err);
@@ -143,17 +148,23 @@ async function resolveIbmConfig(apiKey: string): Promise<IbmConfig | null> {
     }
 
     if (!crn) {
-      console.warn('[ibm-client] No CRN found for IBM Cloud API Key. Qiskit Runtime requires a CRN.');
+      console.warn(
+        '[ibm-client] No CRN found for IBM Cloud API Key. Qiskit Runtime requires a CRN.',
+      );
       return null;
     }
 
-    iamCache.set(cacheKey, { accessToken: iamToken, expiresAt: Date.now() + expiresIn * 1000, crn });
+    iamCache.set(cacheKey, {
+      accessToken: iamToken,
+      expiresAt: Date.now() + expiresIn * 1000,
+      crn,
+    });
 
     return {
       type: 'ibm_cloud',
       token: iamToken,
       crn,
-      baseUrl: 'https://us-east.quantum-computing.cloud.ibm.com'
+      baseUrl: 'https://us-east.quantum-computing.cloud.ibm.com',
     };
   } catch (err) {
     console.error('[ibm-client] IAM resolution threw:', err);
@@ -223,7 +234,6 @@ async function transpileForIbm(
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), IBM_TRANSPILE_TIMEOUT_MS);
 
-
     const requestBody = {
       code,
       codeType,
@@ -231,9 +241,9 @@ async function transpileForIbm(
       // Pass credentials so Python can fetch the REAL coupling map from IBM.
       // Without this, transpilation uses a fake backend whose random coupling
       // map causes qubit-routing mismatches on the real QPU.
-      ibm_token:    ibmAuth?.rawApiKey   ?? null,
-      ibm_channel:  ibmAuth?.channel     ?? null,
-      ibm_instance: ibmAuth?.instance    ?? null,
+      ibm_token: ibmAuth?.rawApiKey ?? null,
+      ibm_channel: ibmAuth?.channel ?? null,
+      ibm_instance: ibmAuth?.instance ?? null,
     };
 
     const response = await fetch(url, {
@@ -245,7 +255,7 @@ async function transpileForIbm(
     clearTimeout(timeoutId);
 
     if (response.ok) {
-      const data = await response.json() as SimServiceTranspileResult;
+      const data = (await response.json()) as SimServiceTranspileResult;
       return { ok: true, data };
     }
 
@@ -253,7 +263,7 @@ async function transpileForIbm(
     let errorCode: IbmClientError['errorCode'] = 'TRANSPILATION_ERROR';
     let message = `Transpilation failed (HTTP ${response.status}).`;
     try {
-      const body = await response.json() as { detail?: { errorCode?: string; message?: string } };
+      const body = (await response.json()) as { detail?: { errorCode?: string; message?: string } };
       const detail = body?.detail;
       if (detail?.message) message = detail.message;
       if (detail?.errorCode === 'UNSUPPORTED_FRAMEWORK') errorCode = 'UNSUPPORTED_FRAMEWORK';
@@ -264,10 +274,19 @@ async function transpileForIbm(
     return { ok: false, error: { errorCode, message } };
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'AbortError') {
-      return { ok: false, error: { errorCode: 'NETWORK_ERROR', message: 'Transpilation request timed out.' } };
+      return {
+        ok: false,
+        error: { errorCode: 'NETWORK_ERROR', message: 'Transpilation request timed out.' },
+      };
     }
     console.error('[ibm-client] transpileForIbm threw:', err);
-    return { ok: false, error: { errorCode: 'NETWORK_ERROR', message: 'Could not reach simulation service for transpilation.' } };
+    return {
+      ok: false,
+      error: {
+        errorCode: 'NETWORK_ERROR',
+        message: 'Could not reach simulation service for transpilation.',
+      },
+    };
   }
 }
 
@@ -279,21 +298,36 @@ export function createIbmClient() {
   return {
     async listBackends(apiKey: string): Promise<IbmClientResult<IbmBackend[]>> {
       if (!isRealMode()) {
-        if (!apiKey.startsWith('valid-')) return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Invalid token.' } };
+        if (!apiKey.startsWith('valid-'))
+          return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Invalid token.' } };
         return { ok: true, data: MOCK_BACKENDS };
       }
 
       const config = await resolveIbmConfig(apiKey);
       if (!config) {
-        return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Failed to resolve credentials (check API Key and CRN).' } };
+        return {
+          ok: false,
+          error: {
+            errorCode: 'INVALID_TOKEN',
+            message: 'Failed to resolve credentials (check API Key and CRN).',
+          },
+        };
       }
 
       return callIbmApi<IbmBackend[]>(config, 'GET', '/backends', null, (body) => {
-        let arr: any[];
+        let arr: Array<Record<string, unknown>>;
         if (config.type === 'ibm_cloud') {
-          arr = (body as any).devices?.map((name: string) => ({ name, status: 'online', num_qubits: 127, pending_jobs: 0 })) || [];
+          arr =
+            ((body as { devices?: string[] }).devices?.map((name: string) => ({
+              name,
+              status: 'online',
+              num_qubits: 127,
+              pending_jobs: 0,
+            })) as Array<Record<string, unknown>>) || [];
         } else {
-          arr = Array.isArray(body) ? body : ((body as Record<string, unknown>).backends as unknown[]) ?? [];
+          arr = Array.isArray(body)
+            ? (body as Array<Record<string, unknown>>)
+            : ((body as { backends?: Array<Record<string, unknown>> }).backends ?? []);
         }
         return (arr as Array<Record<string, unknown>>).map((b) => ({
           name: (b.name as string) || 'unknown',
@@ -304,16 +338,27 @@ export function createIbmClient() {
       });
     },
 
-    async submitJob(apiKey: string, backend: string, qasm: string, shots: number, codeType: string = 'qasm'): Promise<IbmClientResult<IbmJobSubmission>> {
+    async submitJob(
+      apiKey: string,
+      backend: string,
+      qasm: string,
+      shots: number,
+      codeType: string = 'qasm',
+    ): Promise<IbmClientResult<IbmJobSubmission>> {
       if (!isRealMode()) {
-        if (!apiKey.startsWith('valid-')) return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Invalid token.' } };
+        if (!apiKey.startsWith('valid-'))
+          return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Invalid token.' } };
         const providerJobId = `mock-ibm-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
         mockJobStates.set(providerJobId, { status: 'INITIALIZING', createdAt: Date.now() });
         return { ok: true, data: { providerJobId } };
       }
 
       const config = await resolveIbmConfig(apiKey);
-      if (!config) return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Failed to resolve credentials.' } };
+      if (!config)
+        return {
+          ok: false,
+          error: { errorCode: 'INVALID_TOKEN', message: 'Failed to resolve credentials.' },
+        };
 
       // ------------------------------------------------------------------
       // Transpilation step: convert circuit to IBM-executable ISA QASM 3
@@ -349,10 +394,15 @@ export function createIbmClient() {
       );
     },
 
-    async getJobStatus(apiKey: string, providerJobId: string): Promise<IbmClientResult<IbmJobStatusResponse>> {
+    async getJobStatus(
+      apiKey: string,
+      providerJobId: string,
+    ): Promise<IbmClientResult<IbmJobStatusResponse>> {
       if (!isRealMode()) {
-        if (!apiKey.startsWith('valid-')) return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Invalid token.' } };
-        if (!mockJobStates.has(providerJobId)) return { ok: false, error: { errorCode: 'JOB_NOT_FOUND', message: 'Job not found.' } };
+        if (!apiKey.startsWith('valid-'))
+          return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Invalid token.' } };
+        if (!mockJobStates.has(providerJobId))
+          return { ok: false, error: { errorCode: 'JOB_NOT_FOUND', message: 'Job not found.' } };
         const status = getMockJobStatus(providerJobId);
         return {
           ok: true,
@@ -367,7 +417,11 @@ export function createIbmClient() {
       }
 
       const config = await resolveIbmConfig(apiKey);
-      if (!config) return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Failed to resolve credentials.' } };
+      if (!config)
+        return {
+          ok: false,
+          error: { errorCode: 'INVALID_TOKEN', message: 'Failed to resolve credentials.' },
+        };
 
       const statusRes = await callIbmApi<IbmJobStatusResponse>(
         config,
@@ -375,11 +429,19 @@ export function createIbmClient() {
         `/jobs/${encodeURIComponent(providerJobId)}`,
         null,
         (body) => {
-          console.log(`[ibm-client] Raw /jobs/${providerJobId} response from IBM:`, JSON.stringify(body).slice(0, 500));
-          const b = body as Record<string, any>;
-          let errorMessage = b.error_message as string | undefined;
-          if (!errorMessage && b.state && typeof b.state === 'object' && typeof b.state.reason === 'string') {
-            errorMessage = b.state.reason;
+          console.log(
+            `[ibm-client] Raw /jobs/${providerJobId} response from IBM:`,
+            JSON.stringify(body).slice(0, 500),
+          );
+          const b = body as Record<string, unknown>;
+          let errorMessage = typeof b.error_message === 'string' ? b.error_message : undefined;
+          if (
+            !errorMessage &&
+            b.state &&
+            typeof b.state === 'object' &&
+            typeof (b.state as Record<string, unknown>).reason === 'string'
+          ) {
+            errorMessage = (b.state as Record<string, unknown>).reason as string;
           }
           return {
             providerJobId: (b.id as string) || providerJobId,
@@ -406,11 +468,13 @@ export function createIbmClient() {
       // Job is completed, fetch counts via Python simulation service.
       // ------------------------------------------------------------------
       try {
-        console.log(`[ibm-client] Job ${providerJobId} is completed. Requesting python service to fetch results...`);
+        console.log(
+          `[ibm-client] Job ${providerJobId} is completed. Requesting python service to fetch results...`,
+        );
         const url = `${getSimulationServiceUrl()}/ibm-job-result`;
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), IBM_TRANSPILE_TIMEOUT_MS);
-        
+
         const payload = {
           job_id: providerJobId,
           ibm_token: apiKey,
@@ -428,7 +492,10 @@ export function createIbmClient() {
         clearTimeout(timeoutId);
 
         if (fetchRes.ok) {
-          const data = await fetchRes.json() as { counts: Record<string, number>, metadata?: Record<string, unknown> };
+          const data = (await fetchRes.json()) as {
+            counts: Record<string, number>;
+            metadata?: Record<string, unknown>;
+          };
           console.log(`[ibm-client] Python service returned counts:`, data.counts);
           statusRes.data.counts = data.counts;
           if (data.metadata) {
@@ -436,7 +503,9 @@ export function createIbmClient() {
           }
         } else {
           const errText = await fetchRes.text().catch(() => 'unknown');
-          console.error(`[ibm-client] Failed to fetch job results from python service (HTTP ${fetchRes.status}): ${errText}`);
+          console.error(
+            `[ibm-client] Failed to fetch job results from python service (HTTP ${fetchRes.status}): ${errText}`,
+          );
         }
       } catch (err) {
         console.error('[ibm-client] Error fetching job results from python service:', err);
@@ -445,13 +514,22 @@ export function createIbmClient() {
       return statusRes;
     },
 
-    async cancelJob(apiKey: string, providerJobId: string): Promise<IbmClientResult<{ cancelled: boolean }>> {
+    async cancelJob(
+      apiKey: string,
+      providerJobId: string,
+    ): Promise<IbmClientResult<{ cancelled: boolean }>> {
       if (!isRealMode()) {
-        if (!apiKey.startsWith('valid-')) return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Invalid token.' } };
+        if (!apiKey.startsWith('valid-'))
+          return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Invalid token.' } };
         const entry = mockJobStates.get(providerJobId);
-        if (!entry) return { ok: false, error: { errorCode: 'JOB_NOT_FOUND', message: 'Job not found.' } };
+        if (!entry)
+          return { ok: false, error: { errorCode: 'JOB_NOT_FOUND', message: 'Job not found.' } };
         const currentStatus = getMockJobStatus(providerJobId);
-        if (currentStatus === 'DONE' || currentStatus === 'ERROR' || currentStatus === 'CANCELLED') {
+        if (
+          currentStatus === 'DONE' ||
+          currentStatus === 'ERROR' ||
+          currentStatus === 'CANCELLED'
+        ) {
           return { ok: true, data: { cancelled: false } };
         }
         entry.status = 'CANCELLED';
@@ -459,7 +537,11 @@ export function createIbmClient() {
       }
 
       const config = await resolveIbmConfig(apiKey);
-      if (!config) return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Failed to resolve credentials.' } };
+      if (!config)
+        return {
+          ok: false,
+          error: { errorCode: 'INVALID_TOKEN', message: 'Failed to resolve credentials.' },
+        };
 
       return callIbmApi<{ cancelled: boolean }>(
         config,
@@ -524,26 +606,47 @@ async function callIbmApi<T>(
 
     if (response.status === 401 || response.status === 403) {
       console.warn(`[ibm-client] Auth rejected: ${method} ${path} → HTTP ${response.status}`);
-      return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'Authentication failed.' } };
+      return {
+        ok: false,
+        error: { errorCode: 'INVALID_TOKEN', message: 'Authentication failed.' },
+      };
     }
     if (response.status === 404) {
       console.warn(`[ibm-client] Not found: ${method} ${path} → HTTP 404`);
       return { ok: false, error: { errorCode: 'JOB_NOT_FOUND', message: 'Resource not found.' } };
     }
     if (response.status === 429) {
-      return { ok: false, error: { errorCode: 'PROVIDER_RATE_LIMITED', message: 'Rate limited by IBM Quantum.' } };
+      return {
+        ok: false,
+        error: { errorCode: 'PROVIDER_RATE_LIMITED', message: 'Rate limited by IBM Quantum.' },
+      };
     }
 
-    return { ok: false, error: { errorCode: 'PROVIDER_UNAVAILABLE', message: `IBM returned status ${response.status}.` } };
+    return {
+      ok: false,
+      error: {
+        errorCode: 'PROVIDER_UNAVAILABLE',
+        message: `IBM returned status ${response.status}.`,
+      },
+    };
   } catch (err: unknown) {
-    const cause = err instanceof Error && 'cause' in err ? (err as Error & { cause?: unknown }).cause : undefined;
-    console.error('[ibm-client] fetch threw for', method, config.baseUrl + path,
+    const cause =
+      err instanceof Error && 'cause' in err
+        ? (err as Error & { cause?: unknown }).cause
+        : undefined;
+    console.error(
+      '[ibm-client] fetch threw for',
+      method,
+      config.baseUrl + path,
       err instanceof Error ? `${err.name}: ${err.message}` : err,
       cause ? `| cause: ${cause}` : '',
     );
     if (err instanceof Error && err.name === 'AbortError') {
       return { ok: false, error: { errorCode: 'NETWORK_ERROR', message: 'Request timed out.' } };
     }
-    return { ok: false, error: { errorCode: 'NETWORK_ERROR', message: 'Network error connecting to IBM Quantum.' } };
+    return {
+      ok: false,
+      error: { errorCode: 'NETWORK_ERROR', message: 'Network error connecting to IBM Quantum.' },
+    };
   }
 }

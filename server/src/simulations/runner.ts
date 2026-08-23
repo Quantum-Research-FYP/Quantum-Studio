@@ -44,7 +44,15 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
 
       activeJobs++;
       // Run asynchronously — don't await, so we can dequeue multiple jobs
-      executeJob(job.createdByUserId, job.id, job.qasmInput, job.shots, job.codeType ?? 'qasm', job.noiseConfig, job.provider).finally(() => {
+      executeJob(
+        job.createdByUserId,
+        job.id,
+        job.qasmInput,
+        job.shots,
+        job.codeType ?? 'qasm',
+        job.noiseConfig,
+        job.provider,
+      ).finally(() => {
         activeJobs--;
         // After a job finishes, immediately check for more work
         if (!stopped) tryProcessQueue().catch(logError);
@@ -53,7 +61,15 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
   }
 
   /** Execute a single simulation job via Python subprocess. */
-  async function executeJob(userId: string, jobId: string, qasmInput: string, shots: number, codeType: CodeType = 'qasm', noiseConfig?: Record<string, any>, provider?: string): Promise<void> {
+  async function executeJob(
+    userId: string,
+    jobId: string,
+    qasmInput: string,
+    shots: number,
+    codeType: CodeType = 'qasm',
+    noiseConfig?: Record<string, unknown>,
+    provider?: string,
+  ): Promise<void> {
     const limits = getResourceLimits();
     const timeoutMs = limits.maxExecutionTimeSeconds * 1000;
 
@@ -66,7 +82,15 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
         }
       }
 
-      const result = await runPythonSimulation(qasmInput, shots, timeoutMs, codeType, noiseConfig, provider, spinqConfig);
+      const result = await runPythonSimulation(
+        qasmInput,
+        shots,
+        timeoutMs,
+        codeType,
+        noiseConfig,
+        provider,
+        spinqConfig as Record<string, unknown> | undefined,
+      );
 
       if (result.error) {
         await repo.transitionStatus(jobId, 'failed', {
@@ -192,9 +216,9 @@ async function runPythonSimulation(
   shots: number,
   timeoutMs: number,
   codeType: CodeType = 'qasm',
-  noiseConfig?: Record<string, any>,
+  noiseConfig?: Record<string, unknown>,
   provider?: string,
-  spinqConfig?: Record<string, any>
+  spinqConfig?: Record<string, unknown>,
 ): Promise<SimulationResult> {
   const serviceUrl = getSimulationServiceUrl();
   const controller = new AbortController();
@@ -206,7 +230,14 @@ async function runPythonSimulation(
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ qasm: qasmInput, shots, mode: codeType, noiseConfig, provider: provider || 'simulator', spinqConfig }),
+        body: JSON.stringify({
+          qasm: qasmInput,
+          shots,
+          mode: codeType,
+          noiseConfig,
+          provider: provider || 'simulator',
+          spinqConfig,
+        }),
       },
       { signal: controller.signal },
     );
@@ -217,8 +248,12 @@ async function runPythonSimulation(
       const detail = (data.detail ?? {}) as Record<string, unknown>;
       return {
         error: true,
-        errorCode: typeof detail.errorCode === 'string' ? detail.errorCode : 'EXECUTION_RUNTIME_ERROR',
-        message: typeof detail.message === 'string' ? detail.message : 'Simulation service returned an error.',
+        errorCode:
+          typeof detail.errorCode === 'string' ? detail.errorCode : 'EXECUTION_RUNTIME_ERROR',
+        message:
+          typeof detail.message === 'string'
+            ? detail.message
+            : 'Simulation service returned an error.',
       };
     }
 

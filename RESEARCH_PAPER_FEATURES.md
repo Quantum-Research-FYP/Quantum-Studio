@@ -1,7 +1,7 @@
 # Quantum Experiment Studio: System Architecture & Feature Reference
 
 > **Academic & Research Reference Manual**  
-> *A Comprehensive Feature Reference and Technical Specification for Quantum Circuit Design, IDE Simulation, Hardware Execution, Visual Diagnostics, and Research Paper Publication.*
+> _A Comprehensive Feature Reference and Technical Specification for Quantum Circuit Design, IDE Simulation, Hardware Execution, Visual Diagnostics, and Research Paper Publication._
 
 ---
 
@@ -51,6 +51,7 @@
 ## 1. Visual Quantum Circuit Builder Engine
 
 ### 1.1 Drag-and-Drop & Click-to-Place Circuit Canvas
+
 - **Interactive Multi-Qubit Timeline**: A drag-and-drop timeline grid allowing users to visually position, arrange, reorder, or delete quantum gates across configurable qubit wires ($N \ge 1$) and classical registers.
 - **Complete Gate Library**:
   - **Single-Qubit Gates**: Hadamard ($H$), Pauli-X ($X$), Pauli-Y ($Y$), Pauli-Z ($Z$), Phase ($S$), $S^\dagger$ ($SDG$), $\pi/8$ ($T$), $T^\dagger$ ($TDG$), Square-Root X ($SX$), $SX^\dagger$ ($SXDG$), Identity ($ID$).
@@ -60,6 +61,7 @@
   - **Measurement & Reset**: Classical register projection ($MEASURE$) and state initialization ($RESET$).
 
 ### 1.2 Multi-Framework Code Converter (6 Frameworks)
+
 Allows users to instantly convert any visually designed quantum circuit into clean, executable code across six major industry frameworks via a dropdown selector:
 
 1. **Qiskit (Python)**: Generates complete Qiskit Python scripts using `QuantumCircuit`, `AerSimulator`, gate parameters, and result execution prints.
@@ -70,7 +72,9 @@ Allows users to instantly convert any visually designed quantum circuit into cle
 6. **OpenQASM 2.0 & OpenQASM 3.0**: Exports standard OpenQASM files with register declarations (`qreg`, `creg`), include statements, and gate calls.
 
 ### 1.3 Circuit Statistics & Real-Time Profiler
+
 Provides live analytical metrics computed directly from the circuit model (`CircuitProfilerPanel.tsx`):
+
 - **Circuit Depth**: The longest computational path through the gate dependency graph.
 - **Total Gate Count**: Sum total of all placed single, double, and triple-qubit operations.
 - **T-Gate Count**: Number of non-Clifford $T$ and $T^\dagger$ gates (critical for fault-tolerant quantum resource estimation).
@@ -79,6 +83,7 @@ Provides live analytical metrics computed directly from the circuit model (`Circ
 - **Static Validation Warnings**: Real-time detection of out-of-bounds wires, disconnected multi-qubit controls, floating gates, or classical register collisions.
 
 ### 1.4 Step-by-Step Execution Stepper with Rotatable 3D Q-Sphere & Visualizers
+
 - **Time-Travel Execution Stepper**: Interactive playback controls (`PlaybackControls.tsx`) that allow users to step forward and backward time-slice by time-slice through the circuit execution history to inspect state evolution after every individual gate.
 - **Interactive 3D Rotatable Q-Sphere (`QSphere.tsx`)**:
   - Renders multi-qubit statevectors on an interactive 3D sphere that users can **mouse-rotate, tilt, and inspect from any angle**.
@@ -94,11 +99,13 @@ Provides live analytical metrics computed directly from the circuit model (`Circ
 ## 2. Browser-Based Quantum IDE (VS Code Experience)
 
 ### 2.1 VS Code-Style Editor & File System
+
 - **Monaco / CodeMirror IDE Environment**: A full-featured VS Code-style development environment (`IdePage.tsx`) supporting both **OpenQASM 2/3** and **Qiskit Python** code editing.
 - **OpenQASM Custom Language Server (`qasm-language.ts`)**: Custom syntax highlighting, tokenization, auto-completion, hover docs, and line diagnostic error squiggles.
 - **Virtual File System & Tabbed Workspace**: Built-in tree-view File Explorer (`FileExplorer.tsx`), multi-tab file editor (`EditorPanel.tsx`), file creation, renaming, deleting, and local disk upload/download.
 
 ### 2.2 Execution Backend Selection (Simulator vs. Real IBM QPU)
+
 Integrated selector panel allowing users to choose where their quantum program executes:
 
 1. **Local High-Performance Simulator**: Executes on `qiskit_aer.AerSimulator` (or basic simulator fallback) for fast statevector and shot-based simulation.
@@ -107,7 +114,9 @@ Integrated selector panel allowing users to choose where their quantum program e
    - **Per-QPU ISA Transpilation (`/transpile-ibm`)**: Converts circuits to target QPU native basis gates (`ecr` for Eagle, `cz` for Heron) using exact physical coupling maps cached for 5 minutes.
 
 ### 2.3 Parameterized Noise Simulator Panel
+
 Dedicated noise simulation panel enabling realistic hardware error modeling during simulation:
+
 - **8 Configurable Noise Channels**:
   1. Depolarizing Error (1-qubit, 2-qubit CX, 3-qubit CCX)
   2. Bit-Flip Error ($X$)
@@ -123,6 +132,7 @@ Dedicated noise simulation panel enabling realistic hardware error modeling duri
   - **Monte Carlo Noise Sweeps**: Automated noise scaling ($0.0\times$ to $2.0\times$) to plot fidelity decay curves.
 
 ### 2.4 Integrated Output Terminal & Live Visualizer Sync
+
 - **Integrated Terminal Console**: Displays standard output logs, shot counts, JSON response payloads, and compilation stack traces after running circuits.
 - **Live Statevector Visualizer Sync**: Running code in the IDE automatically parses output statevectors and updates the 3D Q-Sphere, Bloch Sphere, and Probability Histogram in real-time.
 
@@ -143,7 +153,7 @@ Built-in pre-configured quantum algorithm templates (`client/src/templates/`) th
 
 ## 4. AI-Assisted Circuit Synthesis & Provenance Tracking
 
-- **Natural Language Prompt-to-Circuit Draft Generator (`POST /api/ai/draft`)**: Converts natural language requests (e.g., *"Build a 3-qubit GHZ circuit"*) into structured `CircuitModel` JSON, code, and explanations.
+- **Natural Language Prompt-to-Circuit Draft Generator (`POST /api/ai/draft`)**: Converts natural language requests (e.g., _"Build a 3-qubit GHZ circuit"_) into structured `CircuitModel` JSON, code, and explanations.
 - **Deterministic Safety Validator (`POST /api/ai/validate`)**: Gate allowlist enforcement ($H, X, Y, Z, S, T, CX, MEASURE$) and syntax sanity checks.
 - **AI Provenance Audit Trail**: Immutable tracking of `ai_assisted` flag, provider, model name, timestamp, and SHA-256 code hash, with user opt-in privacy sharing controls (`ai_share_provenance`).
 
@@ -170,6 +180,7 @@ Quantum-Studio/
 ```
 
 ### Local Setup & Docker
+
 ```bash
 # Development Mode
 npm install
@@ -181,4 +192,4 @@ docker-compose up --build -d
 
 ---
 
-*This document serves as the formal feature reference and technical specification manual for Quantum Experiment Studio.*
+_This document serves as the formal feature reference and technical specification manual for Quantum Experiment Studio._

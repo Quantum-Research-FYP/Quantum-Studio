@@ -8,13 +8,23 @@ const SUPPORTED_GATES = ['H', 'X', 'Y', 'Z', 'S', 'T', 'CX', 'MEASURE'] as const
 type SupportedGate = (typeof SUPPORTED_GATES)[number];
 
 const GATE_QUBIT_COUNT: Record<SupportedGate, number> = {
-  H: 1, X: 1, Y: 1, Z: 1, S: 1, T: 1,
+  H: 1,
+  X: 1,
+  Y: 1,
+  Z: 1,
+  S: 1,
+  T: 1,
   CX: 2,
   MEASURE: 1,
 };
 
 const GATE_REQUIRES_CLBITS: Record<SupportedGate, boolean> = {
-  H: false, X: false, Y: false, Z: false, S: false, T: false,
+  H: false,
+  X: false,
+  Y: false,
+  Z: false,
+  S: false,
+  T: false,
   CX: false,
   MEASURE: true,
 };
@@ -141,10 +151,7 @@ export function validateAiCircuit(input: unknown, limits?: DraftResourceLimits):
 
   // operations
   if (!Array.isArray(draft.operations)) {
-    return invalid([
-      ...messages,
-      { severity: 'error', message: 'operations must be an array.' },
-    ]);
+    return invalid([...messages, { severity: 'error', message: 'operations must be an array.' }]);
   }
 
   if (draft.operations.length === 0) {

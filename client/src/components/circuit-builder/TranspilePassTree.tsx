@@ -14,24 +14,29 @@ interface Props {
 }
 
 const STAGE_ICONS: Record<string, string> = {
-  Analysis:     '🔍',
+  Analysis: '🔍',
   Optimization: '⚡',
-  Translation:  '🔄',
-  Mapping:      '📍',
-  Routing:      '🔀',
-  Scheduling:   '⏱',
+  Translation: '🔄',
+  Mapping: '📍',
+  Routing: '🔀',
+  Scheduling: '⏱',
 };
 
 const STAGE_COLORS: Record<string, string> = {
-  Analysis:     'var(--color-info)',
+  Analysis: 'var(--color-info)',
   Optimization: 'var(--color-accent)',
-  Translation:  'var(--color-primary)',
-  Mapping:      '#f59e0b',
-  Routing:      '#ec4899',
-  Scheduling:   'var(--color-success)',
+  Translation: 'var(--color-primary)',
+  Mapping: '#f59e0b',
+  Routing: '#ec4899',
+  Scheduling: 'var(--color-success)',
 };
 
-export default function TranspilePassTree({ trace, flatPasses, selectedGlobalIndex, onSelectPass }: Props) {
+export default function TranspilePassTree({
+  trace,
+  flatPasses,
+  selectedGlobalIndex,
+  onSelectPass,
+}: Props) {
   const selectedPass = flatPasses[selectedGlobalIndex];
 
   return (
@@ -39,15 +44,15 @@ export default function TranspilePassTree({ trace, flatPasses, selectedGlobalInd
       {/* Original circuit row */}
       <div className="te-tree-origin">
         <span className="te-tree-origin-label">Original Circuit</span>
-        <span className="te-tree-metric">{trace.originalGateCount}g / d{trace.originalDepth}</span>
+        <span className="te-tree-metric">
+          {trace.originalGateCount}g / d{trace.originalDepth}
+        </span>
       </div>
 
       {trace.stages.map((stage, si) => {
-        const stagePasses = flatPasses.filter(fp => fp.stageIndex === si);
+        const stagePasses = flatPasses.filter((fp) => fp.stageIndex === si);
         if (stagePasses.length === 0) return null;
         const isStageActive = selectedPass?.stageIndex === si;
-        const allDone = stagePasses.every(fp => fp.globalIndex < selectedGlobalIndex) ||
-          (isStageActive && stagePasses[stagePasses.length - 1].globalIndex <= selectedGlobalIndex);
         const color = STAGE_COLORS[stage.stageName] || 'var(--color-primary)';
         const icon = STAGE_ICONS[stage.stageName] || '◎';
         const gateChange = formatMetricChange(stage.gateCountBefore, stage.gateCountAfter);
@@ -71,7 +76,8 @@ export default function TranspilePassTree({ trace, flatPasses, selectedGlobalInd
               {stagePasses.map((fp) => {
                 const isSelected = fp.globalIndex === selectedGlobalIndex;
                 const isDone = fp.globalIndex < selectedGlobalIndex;
-                const hasDiff = fp.diff.added.length + fp.diff.removed.length + fp.diff.modified.length > 0;
+                const hasDiff =
+                  fp.diff.added.length + fp.diff.removed.length + fp.diff.modified.length > 0;
 
                 return (
                   <button
@@ -86,9 +92,15 @@ export default function TranspilePassTree({ trace, flatPasses, selectedGlobalInd
                     <span className="te-pass-name">{fp.pass.passName}</span>
                     {hasDiff && (
                       <span className="te-pass-diff-badge">
-                        {fp.diff.added.length > 0 && <span className="diff-added">+{fp.diff.added.length}</span>}
-                        {fp.diff.removed.length > 0 && <span className="diff-removed">-{fp.diff.removed.length}</span>}
-                        {fp.diff.modified.length > 0 && <span className="diff-modified">~{fp.diff.modified.length}</span>}
+                        {fp.diff.added.length > 0 && (
+                          <span className="diff-added">+{fp.diff.added.length}</span>
+                        )}
+                        {fp.diff.removed.length > 0 && (
+                          <span className="diff-removed">-{fp.diff.removed.length}</span>
+                        )}
+                        {fp.diff.modified.length > 0 && (
+                          <span className="diff-modified">~{fp.diff.modified.length}</span>
+                        )}
                       </span>
                     )}
                   </button>
@@ -102,7 +114,9 @@ export default function TranspilePassTree({ trace, flatPasses, selectedGlobalInd
       {/* Final circuit row */}
       <div className="te-tree-final">
         <span className="te-tree-origin-label">Final Hardware Circuit</span>
-        <span className="te-tree-metric">{trace.finalGateCount}g / d{trace.finalDepth}</span>
+        <span className="te-tree-metric">
+          {trace.finalGateCount}g / d{trace.finalDepth}
+        </span>
       </div>
     </div>
   );

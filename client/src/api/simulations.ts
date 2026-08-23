@@ -101,7 +101,15 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
     } else if (typeof body?.detail?.message === 'string' && body.detail.message) {
       errMsg = body.detail.message;
     } else if (Array.isArray(body?.detail) && body.detail.length > 0) {
-      errMsg = body.detail.map((d: any) => d.msg || d.message || JSON.stringify(d)).join('; ');
+      errMsg = body.detail
+        .map((d: unknown) =>
+          typeof d === 'object' && d !== null
+            ? (d as { msg?: string; message?: string }).msg ||
+              (d as { msg?: string; message?: string }).message ||
+              JSON.stringify(d)
+            : String(d),
+        )
+        .join('; ');
     }
 
     const err = new Error(errMsg) as Error & {

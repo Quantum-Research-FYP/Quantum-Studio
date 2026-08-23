@@ -195,9 +195,7 @@ function validateGateTargets(
   const requiredQubits = GATE_QUBIT_COUNT[type];
 
   if (targets.qubits.length !== requiredQubits) {
-    throw new Error(
-      `${type} requires ${requiredQubits} qubit(s), got ${targets.qubits.length}`,
-    );
+    throw new Error(`${type} requires ${requiredQubits} qubit(s), got ${targets.qubits.length}`);
   }
 
   for (const q of targets.qubits) {

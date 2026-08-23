@@ -27,8 +27,8 @@ export default function ValidationSummaryPanel({ errors }: ValidationSummaryPane
           &#9888;
         </span>
         Validation Issues ({errors.length})
-        <button 
-          className="info-btn" 
+        <button
+          className="info-btn"
           data-tooltip="Lists any errors in the current circuit design, such as invalid gate placements or unmet constraints."
           data-tooltip-pos="left"
           aria-label="Info"
@@ -48,9 +48,7 @@ export default function ValidationSummaryPanel({ errors }: ValidationSummaryPane
             </span>
             <span className="validation-panel__message">{error.message}</span>
             {error.time !== undefined && (
-              <span className="validation-panel__location">
-                (time {error.time})
-              </span>
+              <span className="validation-panel__location">(time {error.time})</span>
             )}
           </li>
         ))}

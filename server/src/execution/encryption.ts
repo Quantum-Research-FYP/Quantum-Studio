@@ -17,9 +17,7 @@ export interface EncryptedPayload {
 function getEncryptionKey(): Buffer {
   const hex = process.env.IBM_QUANTUM_ENCRYPTION_KEY;
   if (!hex || hex.length !== 64) {
-    throw new Error(
-      'IBM_QUANTUM_ENCRYPTION_KEY must be a 64-character hex string (32 bytes).',
-    );
+    throw new Error('IBM_QUANTUM_ENCRYPTION_KEY must be a 64-character hex string (32 bytes).');
   }
   return Buffer.from(hex, 'hex');
 }

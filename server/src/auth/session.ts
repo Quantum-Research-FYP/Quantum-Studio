@@ -54,10 +54,7 @@ export async function createSession(
 }
 
 /** Look up a valid (non-expired, non-revoked) session by its cookie ID. */
-export async function getValidSession(
-  pool: Db,
-  sessionId: string,
-): Promise<SessionRow | null> {
+export async function getValidSession(pool: Db, sessionId: string): Promise<SessionRow | null> {
   const sessions = pool.collection<AppDocument>(COLLECTIONS.SESSIONS);
 
   const doc = await sessions.findOne({
@@ -79,7 +76,10 @@ export async function getValidSession(
 /** Revoke a session (server-side logout). */
 export async function revokeSession(pool: Db, sessionId: string): Promise<void> {
   const sessions = pool.collection<AppDocument>(COLLECTIONS.SESSIONS);
-  await sessions.updateOne({ _id: sessionId }, { $set: { revokedAt: new Date(), updatedAt: new Date() } });
+  await sessions.updateOne(
+    { _id: sessionId },
+    { $set: { revokedAt: new Date(), updatedAt: new Date() } },
+  );
 }
 
 /** Clear the session cookie from the response. */

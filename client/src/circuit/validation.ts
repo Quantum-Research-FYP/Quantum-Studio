@@ -27,7 +27,11 @@ export function validateCircuit(circuit: CircuitModel): ValidationError[] {
 
   for (const op of circuit.operations) {
     if (seenIds.has(op.id)) {
-      errors.push({ message: `Duplicate operation ID "${op.id}"`, operationId: op.id, time: op.time });
+      errors.push({
+        message: `Duplicate operation ID "${op.id}"`,
+        operationId: op.id,
+        time: op.time,
+      });
     }
     seenIds.add(op.id);
 

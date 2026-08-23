@@ -6,12 +6,23 @@ import { formatAngleQasm } from './angle-format';
  * Parameterized and non-standard gates are handled inline in emitOperation.
  */
 const QASM_GATE: Partial<Record<GateType, string>> = {
-  H: 'h', X: 'x', Y: 'y', Z: 'z',
-  S: 's', SDG: 'sdg', T: 't', TDG: 'tdg',
+  H: 'h',
+  X: 'x',
+  Y: 'y',
+  Z: 'z',
+  S: 's',
+  SDG: 'sdg',
+  T: 't',
+  TDG: 'tdg',
   ID: 'id',
-  CX: 'cx', CZ: 'cz', CY: 'cy', CH: 'ch', SWAP: 'swap',
+  CX: 'cx',
+  CZ: 'cz',
+  CY: 'cy',
+  CH: 'ch',
+  SWAP: 'swap',
   CRZ: 'crz',
-  CCX: 'ccx', CSWAP: 'cswap',
+  CCX: 'ccx',
+  CSWAP: 'cswap',
 };
 
 /**
@@ -19,10 +30,10 @@ const QASM_GATE: Partial<Record<GateType, string>> = {
  * Keyed by gate type; definition emitted once per circuit when the gate is used.
  */
 const EXTRA_GATE_DEFS: Partial<Record<GateType, string>> = {
-  SX:   'gate sx a { u3(pi/2,-pi/2,pi/2) a; }',
+  SX: 'gate sx a { u3(pi/2,-pi/2,pi/2) a; }',
   SXDG: 'gate sxdg a { u3(-pi/2,pi/2,-pi/2) a; }',
-  CRX:  'gate crx(theta) c,t { h t; crz(theta) c,t; h t; }',
-  CRY:  'gate cry(theta) c,t { u3(theta/2,0,0) t; cx c,t; u3(-theta/2,0,0) t; cx c,t; }',
+  CRX: 'gate crx(theta) c,t { h t; crz(theta) c,t; h t; }',
+  CRY: 'gate cry(theta) c,t { u3(theta/2,0,0) t; cx c,t; u3(-theta/2,0,0) t; cx c,t; }',
 };
 
 /**
@@ -80,36 +91,60 @@ function emitOperation(op: Operation): string {
 
   switch (op.type) {
     // Standard single-qubit gates
-    case 'H': case 'X': case 'Y': case 'Z':
-    case 'S': case 'SDG': case 'T': case 'TDG':
-    case 'SX': case 'SXDG': case 'ID':
+    case 'H':
+    case 'X':
+    case 'Y':
+    case 'Z':
+    case 'S':
+    case 'SDG':
+    case 'T':
+    case 'TDG':
+    case 'SX':
+    case 'SXDG':
+    case 'ID':
       return `${QASM_GATE[op.type]} q[${q[0]}];`;
 
     // Parameterized single-qubit
-    case 'RX': return `rx(${f(getParam(op, 'theta', Math.PI / 2))}) q[${q[0]}];`;
-    case 'RY': return `ry(${f(getParam(op, 'theta', Math.PI / 2))}) q[${q[0]}];`;
-    case 'RZ': return `rz(${f(getParam(op, 'theta', Math.PI / 4))}) q[${q[0]}];`;
+    case 'RX':
+      return `rx(${f(getParam(op, 'theta', Math.PI / 2))}) q[${q[0]}];`;
+    case 'RY':
+      return `ry(${f(getParam(op, 'theta', Math.PI / 2))}) q[${q[0]}];`;
+    case 'RZ':
+      return `rz(${f(getParam(op, 'theta', Math.PI / 4))}) q[${q[0]}];`;
     // P gate = u1 in standard qelib1.inc (equivalent up to global phase)
-    case 'P':  return `u1(${f(getParam(op, 'lambda', Math.PI / 4))}) q[${q[0]}];`;
+    case 'P':
+      return `u1(${f(getParam(op, 'lambda', Math.PI / 4))}) q[${q[0]}];`;
     // U gate = u3 in standard qelib1.inc
-    case 'U':  return `u3(${f(getParam(op, 'theta', Math.PI / 2))},${f(getParam(op, 'phi', 0))},${f(getParam(op, 'lambda', Math.PI))}) q[${q[0]}];`;
+    case 'U':
+      return `u3(${f(getParam(op, 'theta', Math.PI / 2))},${f(getParam(op, 'phi', 0))},${f(getParam(op, 'lambda', Math.PI))}) q[${q[0]}];`;
 
     // Standard 2-qubit gates
-    case 'CX': case 'CZ': case 'CY': case 'CH': case 'SWAP':
+    case 'CX':
+    case 'CZ':
+    case 'CY':
+    case 'CH':
+    case 'SWAP':
       return `${QASM_GATE[op.type]} q[${q[0]}],q[${q[1]}];`;
 
     // Parameterized 2-qubit
-    case 'CRX': return `crx(${f(getParam(op, 'theta', Math.PI / 2))}) q[${q[0]}],q[${q[1]}];`;
-    case 'CRY': return `cry(${f(getParam(op, 'theta', Math.PI / 2))}) q[${q[0]}],q[${q[1]}];`;
-    case 'CRZ': return `crz(${f(getParam(op, 'theta', Math.PI / 4))}) q[${q[0]}],q[${q[1]}];`;
+    case 'CRX':
+      return `crx(${f(getParam(op, 'theta', Math.PI / 2))}) q[${q[0]}],q[${q[1]}];`;
+    case 'CRY':
+      return `cry(${f(getParam(op, 'theta', Math.PI / 2))}) q[${q[0]}],q[${q[1]}];`;
+    case 'CRZ':
+      return `crz(${f(getParam(op, 'theta', Math.PI / 4))}) q[${q[0]}],q[${q[1]}];`;
     // CP = cu1 in standard qelib1.inc
-    case 'CP':  return `cu1(${f(getParam(op, 'lambda', Math.PI / 4))}) q[${q[0]}],q[${q[1]}];`;
+    case 'CP':
+      return `cu1(${f(getParam(op, 'lambda', Math.PI / 4))}) q[${q[0]}],q[${q[1]}];`;
 
     // 3-qubit
-    case 'CCX':   return `ccx q[${q[0]}],q[${q[1]}],q[${q[2]}];`;
-    case 'CSWAP': return `cswap q[${q[0]}],q[${q[1]}],q[${q[2]}];`;
+    case 'CCX':
+      return `ccx q[${q[0]}],q[${q[1]}],q[${q[2]}];`;
+    case 'CSWAP':
+      return `cswap q[${q[0]}],q[${q[1]}],q[${q[2]}];`;
 
     // Measurement
-    case 'MEASURE': return `measure q[${q[0]}] -> c[${op.targets.clbits![0]}];`;
+    case 'MEASURE':
+      return `measure q[${q[0]}] -> c[${op.targets.clbits![0]}];`;
   }
 }

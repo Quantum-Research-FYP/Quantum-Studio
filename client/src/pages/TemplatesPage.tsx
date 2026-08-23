@@ -40,9 +40,7 @@ export default function TemplatesPage() {
     return (
       <div className="page" role="alert">
         <h1 className="page__title">Starter Templates</h1>
-        <p className="page__subtitle">
-          {error || 'No templates available at this time.'}
-        </p>
+        <p className="page__subtitle">{error || 'No templates available at this time.'}</p>
         <button className="btn btn--primary" onClick={handleRetry}>
           Retry
         </button>
@@ -51,7 +49,10 @@ export default function TemplatesPage() {
   }
 
   return (
-    <div className="page" style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'left', padding: '40px 24px' }}>
+    <div
+      className="page"
+      style={{ maxWidth: '1200px', margin: '0 auto', textAlign: 'left', padding: '40px 24px' }}
+    >
       <style>{`
         .templates-gallery-premium {
           display: grid;
@@ -219,9 +220,15 @@ export default function TemplatesPage() {
       `}</style>
 
       <div>
-        <h1 className="page__title" style={{ textAlign: 'left', marginBottom: '8px' }}>Starter Templates</h1>
-        <p className="page__subtitle" style={{ textAlign: 'left', color: 'var(--color-text-muted)', fontSize: '1.1rem' }}>
-          Explore pre-built quantum algorithms. Load them into the visual builder or read about how they work.
+        <h1 className="page__title" style={{ textAlign: 'left', marginBottom: '8px' }}>
+          Starter Templates
+        </h1>
+        <p
+          className="page__subtitle"
+          style={{ textAlign: 'left', color: 'var(--color-text-muted)', fontSize: '1.1rem' }}
+        >
+          Explore pre-built quantum algorithms. Load them into the visual builder or read about how
+          they work.
         </p>
       </div>
 
@@ -229,12 +236,16 @@ export default function TemplatesPage() {
         {templates.map((template) => (
           <div key={template.templateId} className="template-card-premium" role="listitem">
             {template.learnMore && (
-              <img src={template.learnMore.imageSrc} alt={template.name} className="template-card-premium__image" />
+              <img
+                src={template.learnMore.imageSrc}
+                alt={template.name}
+                className="template-card-premium__image"
+              />
             )}
             <div className="template-card-premium__body">
               <h2 className="template-card-premium__name">{template.name}</h2>
               <p className="template-card-premium__description">{template.description}</p>
-              
+
               <div className="template-card-premium__tags">
                 {template.tags.map((tag) => (
                   <span key={tag} className="template-card-premium__tag">
@@ -272,27 +283,34 @@ export default function TemplatesPage() {
       {selectedTemplate && selectedTemplate.learnMore && (
         <div className="learn-modal-overlay" onClick={() => setSelectedTemplate(null)}>
           <div className="learn-modal-content" onClick={(e) => e.stopPropagation()}>
-            <button className="learn-modal-close" onClick={() => setSelectedTemplate(null)} aria-label="Close modal">
+            <button
+              className="learn-modal-close"
+              onClick={() => setSelectedTemplate(null)}
+              aria-label="Close modal"
+            >
               ✕
             </button>
-            <img src={selectedTemplate.learnMore.imageSrc} alt={selectedTemplate.name} className="learn-modal-header-img" />
-            
+            <img
+              src={selectedTemplate.learnMore.imageSrc}
+              alt={selectedTemplate.name}
+              className="learn-modal-header-img"
+            />
+
             <div className="learn-modal-body">
               <h2 className="learn-modal-title">{selectedTemplate.name}</h2>
-              <div className="learn-modal-text">
-                {selectedTemplate.learnMore.longDescription}
-              </div>
-              <div style={{ display: 'flex', gap: '16px', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '24px' }}>
-                <button
-                  className="btn btn--primary"
-                  onClick={() => handleLoad(selectedTemplate)}
-                >
+              <div className="learn-modal-text">{selectedTemplate.learnMore.longDescription}</div>
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '16px',
+                  borderTop: '1px solid rgba(255,255,255,0.1)',
+                  paddingTop: '24px',
+                }}
+              >
+                <button className="btn btn--primary" onClick={() => handleLoad(selectedTemplate)}>
                   Load into Circuit Builder
                 </button>
-                <button
-                  className="btn btn--ghost"
-                  onClick={() => setSelectedTemplate(null)}
-                >
+                <button className="btn btn--ghost" onClick={() => setSelectedTemplate(null)}>
                   Close
                 </button>
               </div>

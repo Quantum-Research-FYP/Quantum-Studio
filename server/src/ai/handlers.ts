@@ -9,11 +9,7 @@ const MAX_PROMPT_LENGTH = 2000;
 /** Minimum prompt length in characters. */
 const MIN_PROMPT_LENGTH = 3;
 
-export function createAiHandlers(
-  provider: AiProvider,
-  rateLimiter: RateLimiter,
-  config: AiConfig,
-) {
+export function createAiHandlers(provider: AiProvider, rateLimiter: RateLimiter, config: AiConfig) {
   return {
     /**
      * POST /api/ai/draft — Generate a circuit draft from a natural-language prompt.
@@ -25,9 +21,7 @@ export function createAiHandlers(
       try {
         // Feature flag check
         if (!config.enabled) {
-          console.log(
-            `[ai] action=draft-disabled userId=${userId} requestId=${requestId}`,
-          );
+          console.log(`[ai] action=draft-disabled userId=${userId} requestId=${requestId}`);
           res.status(503).json({
             error: 'AI draft generation is currently disabled.',
             errorCode: 'AI_FEATURE_DISABLED',
@@ -117,9 +111,7 @@ export function createAiHandlers(
 
         if (isAbort) {
           // Client disconnected or timeout — don't send response if headers already sent
-          console.log(
-            `[ai] action=draft-cancelled userId=${userId} requestId=${requestId}`,
-          );
+          console.log(`[ai] action=draft-cancelled userId=${userId} requestId=${requestId}`);
           if (!res.headersSent) {
             res.status(408).json({
               error: 'Request timed out. Please try again with a simpler prompt.',
@@ -191,7 +183,10 @@ export function createAiHandlers(
         }
 
         const model = config.model || 'gemini-2.0-flash';
-        const baseUrl = (config.apiUrl || 'https://generativelanguage.googleapis.com').replace(/\/$/, '');
+        const baseUrl = (config.apiUrl || 'https://generativelanguage.googleapis.com').replace(
+          /\/$/,
+          '',
+        );
         const url = `${baseUrl}/v1beta/models/${model}:generateContent?key=${config.apiKey}`;
 
         const systemPrompt =
@@ -213,7 +208,9 @@ export function createAiHandlers(
         req.on('close', onClose);
 
         try {
-          console.log(`[ai] action=chat-start userId=${userId} requestId=${requestId} messages=${messages.length}`);
+          console.log(
+            `[ai] action=chat-start userId=${userId} requestId=${requestId} messages=${messages.length}`,
+          );
 
           const response = await fetch(url, {
             method: 'POST',
@@ -228,8 +225,10 @@ export function createAiHandlers(
 
           if (!response.ok) {
             const status = response.status;
-            if (status === 429) throw new Error('AI provider rate limit exceeded. Please try again later.');
-            if (status >= 500) throw new Error('AI provider is temporarily unavailable. Please try again later.');
+            if (status === 429)
+              throw new Error('AI provider rate limit exceeded. Please try again later.');
+            if (status >= 500)
+              throw new Error('AI provider is temporarily unavailable. Please try again later.');
             throw new Error(`AI provider returned an error (status ${status}).`);
           }
 
@@ -253,15 +252,21 @@ export function createAiHandlers(
         if (isAbort) {
           console.log(`[ai] action=chat-cancelled userId=${userId} requestId=${requestId}`);
           if (!res.headersSent) {
-            res.status(408).json({ error: 'Request timed out.', errorCode: 'AI_TIMEOUT', requestId });
+            res
+              .status(408)
+              .json({ error: 'Request timed out.', errorCode: 'AI_TIMEOUT', requestId });
           }
           return;
         }
 
-        console.error(`[ai] action=chat-error userId=${userId} requestId=${requestId} error="${message}"`);
+        console.error(
+          `[ai] action=chat-error userId=${userId} requestId=${requestId} error="${message}"`,
+        );
         if (!res.headersSent) {
           res.status(502).json({
-            error: message.startsWith('AI provider') ? message : 'An unexpected error occurred. Please try again.',
+            error: message.startsWith('AI provider')
+              ? message
+              : 'An unexpected error occurred. Please try again.',
             errorCode: 'AI_CHAT_ERROR',
             requestId,
           });

@@ -10,7 +10,12 @@ import { quantumTeleportationTemplate } from './quantum-teleportation';
 import { superdenseCodingTemplate } from './superdense-coding';
 import { qftTemplate } from './qft';
 
-export type { TemplateDefinition, TemplateCircuit, ExecutionConfig, TemplateOperation } from './types';
+export type {
+  TemplateDefinition,
+  TemplateCircuit,
+  ExecutionConfig,
+  TemplateOperation,
+} from './types';
 
 /** All available starter templates, ordered for display. */
 const TEMPLATES: readonly TemplateDefinition[] = [

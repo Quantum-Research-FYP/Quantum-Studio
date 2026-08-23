@@ -28,20 +28,20 @@ export const bernsteinVaziraniTemplate: TemplateDefinition = {
     clbits: 2,
     operations: [
       // Prepare ancilla in |−⟩
-      { type: 'X',       targets: { qubits: [2] },    time: 0 },
+      { type: 'X', targets: { qubits: [2] }, time: 0 },
 
       // Hadamard on all qubits (inputs + ancilla)
-      { type: 'H',       targets: { qubits: [0] },    time: 1 },
-      { type: 'H',       targets: { qubits: [1] },    time: 1 },
-      { type: 'H',       targets: { qubits: [2] },    time: 1 },
+      { type: 'H', targets: { qubits: [0] }, time: 1 },
+      { type: 'H', targets: { qubits: [1] }, time: 1 },
+      { type: 'H', targets: { qubits: [2] }, time: 1 },
 
       // Oracle for s = "11": f(x) = x0·s0 ⊕ x1·s1
-      { type: 'CX',      targets: { qubits: [0, 2] }, time: 2 },
-      { type: 'CX',      targets: { qubits: [1, 2] }, time: 3 },
+      { type: 'CX', targets: { qubits: [0, 2] }, time: 2 },
+      { type: 'CX', targets: { qubits: [1, 2] }, time: 3 },
 
       // Inverse Hadamard on input qubits
-      { type: 'H',       targets: { qubits: [0] },    time: 4 },
-      { type: 'H',       targets: { qubits: [1] },    time: 4 },
+      { type: 'H', targets: { qubits: [0] }, time: 4 },
+      { type: 'H', targets: { qubits: [1] }, time: 4 },
 
       // Measure input qubits — deterministically yield s = "11"
       { type: 'MEASURE', targets: { qubits: [0], clbits: [0] }, time: 5 },
@@ -55,6 +55,6 @@ export const bernsteinVaziraniTemplate: TemplateDefinition = {
     imageSrc: '/images/algorithms/bernstein-vazirani.jpg',
     longDescription: `The Bernstein-Vazirani algorithm solves the problem of finding a hidden binary string encoded in an oracle. 
 
-Classically, finding an n-bit string requires n queries to the oracle. The Bernstein-Vazirani algorithm, however, finds the entire hidden string in a single quantum query! It does this by using a clever arrangement of Hadamard gates before and after the oracle, causing constructive interference exactly on the state that corresponds to the hidden string.`
-  }
+Classically, finding an n-bit string requires n queries to the oracle. The Bernstein-Vazirani algorithm, however, finds the entire hidden string in a single quantum query! It does this by using a clever arrangement of Hadamard gates before and after the oracle, causing constructive interference exactly on the state that corresponds to the hidden string.`,
+  },
 };

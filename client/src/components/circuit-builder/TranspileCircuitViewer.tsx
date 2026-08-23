@@ -14,18 +14,28 @@ interface Props {
 }
 
 const STATUS_COLORS: Record<string, string> = {
-  added:     '#22c55e',
-  removed:   '#ef4444',
-  modified:  '#f59e0b',
-  moved:     '#60a5fa',
+  added: '#22c55e',
+  removed: '#ef4444',
+  modified: '#f59e0b',
+  moved: '#60a5fa',
   unchanged: 'transparent',
 };
 
 /** Badge strip above the circuit — horizontally scrollable, never overlapping */
-function DiffBadgeStrip({ annotated, side }: { annotated: AnnotatedOp[]; side: 'before' | 'after' }) {
-  const changed = annotated.filter(a => a.status !== 'unchanged');
+function DiffBadgeStrip({
+  annotated,
+  side,
+}: {
+  annotated: AnnotatedOp[];
+  side: 'before' | 'after';
+}) {
+  const changed = annotated.filter((a) => a.status !== 'unchanged');
   if (changed.length === 0) {
-    return <div className="te-diff-strip te-diff-strip--empty"><span>No changes</span></div>;
+    return (
+      <div className="te-diff-strip te-diff-strip--empty">
+        <span>No changes</span>
+      </div>
+    );
   }
 
   return (
@@ -35,15 +45,17 @@ function DiffBadgeStrip({ annotated, side }: { annotated: AnnotatedOp[]; side: '
           key={i}
           className={`te-diff-badge te-diff-badge--${a.status}`}
           title={
-            a.status === 'modified' ? `${a.previousType} → ${a.op.type}` :
-            a.status === 'moved'    ? `t${a.previousTime} → t${a.op.time}` :
-            a.status
+            a.status === 'modified'
+              ? `${a.previousType} → ${a.op.type}`
+              : a.status === 'moved'
+                ? `t${a.previousTime} → t${a.op.time}`
+                : a.status
           }
         >
-          {a.status === 'added'    && `+${a.op.type}`}
-          {a.status === 'removed'  && `-${a.op.type}`}
+          {a.status === 'added' && `+${a.op.type}`}
+          {a.status === 'removed' && `-${a.op.type}`}
           {a.status === 'modified' && `${a.previousType ?? '?'}→${a.op.type}`}
-          {a.status === 'moved'    && `↕${a.op.type}`}
+          {a.status === 'moved' && `↕${a.op.type}`}
         </span>
       ))}
     </div>
@@ -57,7 +69,6 @@ export default function TranspileCircuitViewer({ pass }: Props) {
 
   return (
     <div className="te-circuit-viewer">
-
       {/* ── Top header bar: pass name + summary counts ── */}
       <div className="te-circuit-viewer-header">
         <div className="te-circuit-panel-label">
@@ -66,19 +77,26 @@ export default function TranspileCircuitViewer({ pass }: Props) {
         </div>
 
         <div className="te-diff-summary" aria-label="Diff summary">
-          {noChange
-            ? <span className="te-diff-none">No gate changes</span>
-            : summary.split('  ').map((part, i) => (
-                <span
-                  key={i}
-                  className={`te-diff-count te-diff-count--${
-                    part.startsWith('+') ? 'added'    :
-                    part.startsWith('-') ? 'removed'  :
-                    part.startsWith('~') ? 'modified' : 'moved'
-                  }`}
-                >{part}</span>
-              ))
-          }
+          {noChange ? (
+            <span className="te-diff-none">No gate changes</span>
+          ) : (
+            summary.split('  ').map((part, i) => (
+              <span
+                key={i}
+                className={`te-diff-count te-diff-count--${
+                  part.startsWith('+')
+                    ? 'added'
+                    : part.startsWith('-')
+                      ? 'removed'
+                      : part.startsWith('~')
+                        ? 'modified'
+                        : 'moved'
+                }`}
+              >
+                {part}
+              </span>
+            ))
+          )}
         </div>
 
         <div className="te-circuit-panel-label">
@@ -88,7 +106,6 @@ export default function TranspileCircuitViewer({ pass }: Props) {
 
       {/* ── Two-panel area ── */}
       <div className="te-circuit-panels">
-
         {/* Before panel */}
         <div className="te-circuit-panel te-circuit-panel--before">
           {/* Badge strip — separate row, clips horizontally */}
@@ -127,7 +144,7 @@ export default function TranspileCircuitViewer({ pass }: Props) {
 
       {/* Legend */}
       <div className="te-diff-legend" role="legend">
-        {(['added', 'removed', 'modified', 'moved'] as const).map(s => (
+        {(['added', 'removed', 'modified', 'moved'] as const).map((s) => (
           <span key={s} className="te-legend-item">
             <span className="te-legend-dot" style={{ background: STATUS_COLORS[s] }} />
             {s.charAt(0).toUpperCase() + s.slice(1)}

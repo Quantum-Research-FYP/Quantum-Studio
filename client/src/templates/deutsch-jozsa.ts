@@ -28,17 +28,17 @@ export const deutschJozsaTemplate: TemplateDefinition = {
     clbits: 2,
     operations: [
       // Prepare ancilla in |−⟩
-      { type: 'X',       targets: { qubits: [1] },    time: 0 },
+      { type: 'X', targets: { qubits: [1] }, time: 0 },
 
       // Hadamard on input and ancilla
-      { type: 'H',       targets: { qubits: [0] },    time: 1 },
-      { type: 'H',       targets: { qubits: [1] },    time: 1 },
+      { type: 'H', targets: { qubits: [0] }, time: 1 },
+      { type: 'H', targets: { qubits: [1] }, time: 1 },
 
       // Balanced oracle: f(x) = x  →  CX(q0, q1)
-      { type: 'CX',      targets: { qubits: [0, 1] }, time: 2 },
+      { type: 'CX', targets: { qubits: [0, 1] }, time: 2 },
 
       // Final Hadamard on input qubit
-      { type: 'H',       targets: { qubits: [0] },    time: 3 },
+      { type: 'H', targets: { qubits: [0] }, time: 3 },
 
       // Measure (q0 = 1 → balanced, q0 = 0 → constant)
       { type: 'MEASURE', targets: { qubits: [0], clbits: [0] }, time: 4 },
@@ -52,6 +52,6 @@ export const deutschJozsaTemplate: TemplateDefinition = {
     imageSrc: '/images/algorithms/deutsch-jozsa.jpg',
     longDescription: `The Deutsch-Jozsa algorithm was one of the first examples of a quantum algorithm that is exponentially faster than any possible deterministic classical algorithm. 
 
-It solves a specific black-box problem: determining if a given function (the "oracle") is either completely constant (returns the same value for all inputs) or balanced (returns 0 for half of inputs and 1 for the other half). A classical computer requires multiple queries, but this quantum algorithm solves it in a single query by exploiting quantum interference.`
-  }
+It solves a specific black-box problem: determining if a given function (the "oracle") is either completely constant (returns the same value for all inputs) or balanced (returns 0 for half of inputs and 1 for the other half). A classical computer requires multiple queries, but this quantum algorithm solves it in a single query by exploiting quantum interference.`,
+  },
 };

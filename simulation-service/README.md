@@ -50,7 +50,7 @@ The service accepts cross-origin browser requests by default so integrations suc
 
 ## Running with Docker
 
-Alternatively, you can run the service using Docker. 
+Alternatively, you can run the service using Docker.
 
 Build the Docker image:
 

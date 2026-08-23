@@ -21,7 +21,7 @@ export const superpositionTemplate: TemplateDefinition = {
     qubits: 1,
     clbits: 1,
     operations: [
-      { type: 'H',       targets: { qubits: [0] },              time: 0 },
+      { type: 'H', targets: { qubits: [0] }, time: 0 },
       { type: 'MEASURE', targets: { qubits: [0], clbits: [0] }, time: 1 },
     ],
   },
@@ -32,6 +32,6 @@ export const superpositionTemplate: TemplateDefinition = {
     imageSrc: '/images/algorithms/superposition.jpg',
     longDescription: `Quantum superposition is a fundamental principle of quantum mechanics. It states that, much like waves in classical physics, any two (or more) quantum states can be added together ("superposed") and the result will be another valid quantum state. 
 
-In this template, we apply a Hadamard (H) gate to a qubit initially in the |0⟩ state. This puts the qubit into an equal superposition of |0⟩ and |1⟩. When measured, it has a 50% probability of collapsing to |0⟩ and a 50% probability of collapsing to |1⟩.`
-  }
+In this template, we apply a Hadamard (H) gate to a qubit initially in the |0⟩ state. This puts the qubit into an equal superposition of |0⟩ and |1⟩. When measured, it has a 50% probability of collapsing to |0⟩ and a 50% probability of collapsing to |1⟩.`,
+  },
 };

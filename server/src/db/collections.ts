@@ -61,10 +61,7 @@ export async function ensureIndexes(db: Db): Promise<void> {
     { userId: 1, expiresAt: 1 },
     { name: 'idx_sessions_userId_expiresAt' },
   );
-  await sessions.createIndex(
-    { expiresAt: 1 },
-    { expireAfterSeconds: 0, name: 'idx_sessions_ttl' },
-  );
+  await sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0, name: 'idx_sessions_ttl' });
 
   // --- experiments ---
   const experiments = db.collection(COLLECTIONS.EXPERIMENTS);
@@ -109,10 +106,7 @@ export async function ensureIndexes(db: Db): Promise<void> {
       name: 'idx_share_tokens_tokenHash_active_unique',
     },
   );
-  await shareTokens.createIndex(
-    { experimentId: 1 },
-    { name: 'idx_share_tokens_experimentId' },
-  );
+  await shareTokens.createIndex({ experimentId: 1 }, { name: 'idx_share_tokens_experimentId' });
 
   // --- share_audit_events ---
   const shareAuditEvents = db.collection(COLLECTIONS.SHARE_AUDIT_EVENTS);

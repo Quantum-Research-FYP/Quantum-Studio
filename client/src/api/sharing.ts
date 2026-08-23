@@ -116,20 +116,15 @@ export async function getSharedExperiment(
 
 /** Update experiment visibility. */
 export function updateVisibility(id: string, visibility: Visibility): Promise<VisibilityResponse> {
-  return authRequest<VisibilityResponse>(
-    `/api/experiments/${encodeURIComponent(id)}/visibility`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify({ visibility }),
-    },
-  );
+  return authRequest<VisibilityResponse>(`/api/experiments/${encodeURIComponent(id)}/visibility`, {
+    method: 'PATCH',
+    body: JSON.stringify({ visibility }),
+  });
 }
 
 /** Get or create a share link for an unlisted experiment. */
 export function getShareLink(id: string): Promise<ShareLinkResponse> {
-  return authRequest<ShareLinkResponse>(
-    `/api/experiments/${encodeURIComponent(id)}/share-link`,
-  );
+  return authRequest<ShareLinkResponse>(`/api/experiments/${encodeURIComponent(id)}/share-link`);
 }
 
 /** Rotate the share token (revokes old, issues new). */
@@ -142,8 +137,7 @@ export function rotateShareToken(id: string): Promise<RotateTokenResponse> {
 
 /** Revoke the share token without issuing a new one. */
 export function revokeShareToken(id: string): Promise<void> {
-  return authRequest<void>(
-    `/api/experiments/${encodeURIComponent(id)}/share-token`,
-    { method: 'DELETE' },
-  );
+  return authRequest<void>(`/api/experiments/${encodeURIComponent(id)}/share-token`, {
+    method: 'DELETE',
+  });
 }

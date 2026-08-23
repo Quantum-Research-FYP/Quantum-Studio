@@ -87,110 +87,114 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
-      
+
       <div className="auth-split-form">
         <form className="auth-form" onSubmit={handleSubmit} noValidate>
           <div className="auth-form__brand">
             <div className="auth-form__logo" aria-hidden="true">
-              <img src="/favicon.png" alt="Quantum Studio Logo" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+              <img
+                src="/favicon.png"
+                alt="Quantum Studio Logo"
+                style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+              />
             </div>
             <h1 className="auth-form__title">Welcome back</h1>
             <p className="auth-form__subtitle">Sign in to your Quantum Studio account.</p>
           </div>
 
-        {error && (
-          <div className="alert alert--error" role="alert">
-            {error}
-          </div>
-        )}
-
-        <div className="form-field">
-          <label htmlFor="login-email" className="form-field__label">
-            Email
-          </label>
-          <input
-            id="login-email"
-            type="email"
-            className={`form-field__input${email.length > 0 && !emailValid ? ' form-field__input--error' : ''}`}
-            autoComplete="email"
-            placeholder="you@example.com"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-          {email.length > 0 && !emailValid && (
-            <p className="form-field__error">Please enter a valid email address.</p>
+          {error && (
+            <div className="alert alert--error" role="alert">
+              {error}
+            </div>
           )}
-        </div>
 
-        <div className="form-field">
-          <label htmlFor="login-password" className="form-field__label">
-            Password
-          </label>
-          <div className="form-field__input-wrap">
+          <div className="form-field">
+            <label htmlFor="login-email" className="form-field__label">
+              Email
+            </label>
             <input
-              id="login-password"
-              type={showPassword ? 'text' : 'password'}
-              className="form-field__input form-field__input--with-addon"
-              autoComplete="current-password"
-              placeholder="Enter your password"
+              id="login-email"
+              type="email"
+              className={`form-field__input${email.length > 0 && !emailValid ? ' form-field__input--error' : ''}`}
+              autoComplete="email"
+              placeholder="you@example.com"
               required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
+            {email.length > 0 && !emailValid && (
+              <p className="form-field__error">Please enter a valid email address.</p>
+            )}
+          </div>
+
+          <div className="form-field">
+            <label htmlFor="login-password" className="form-field__label">
+              Password
+            </label>
+            <div className="form-field__input-wrap">
+              <input
+                id="login-password"
+                type={showPassword ? 'text' : 'password'}
+                className="form-field__input form-field__input--with-addon"
+                autoComplete="current-password"
+                placeholder="Enter your password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                className="form-field__eye-btn"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                tabIndex={-1}
+              >
+                <EyeIcon visible={showPassword} />
+              </button>
+            </div>
+          </div>
+
+          <Button
+            type="submit"
+            variant="primary"
+            size="full"
+            className="auth-submit-btn"
+            disabled={!canSubmit}
+            isLoading={submitting}
+          >
+            {submitting ? 'Signing in…' : 'Log in'}
+          </Button>
+
+          <div className="auth-divider">
+            <span>or continue with</span>
+          </div>
+
+          <div className="auth-sso-buttons">
             <button
               type="button"
-              className="form-field__eye-btn"
-              onClick={() => setShowPassword((v) => !v)}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
-              tabIndex={-1}
+              className="auth-sso-btn"
+              onClick={() => (window.location.href = '/api/auth/google')}
             >
-              <EyeIcon visible={showPassword} />
+              <GoogleIcon />
+              Google
+            </button>
+            <button
+              type="button"
+              className="auth-sso-btn"
+              onClick={() => (window.location.href = '/api/auth/github')}
+            >
+              <GitHubIcon />
+              GitHub
             </button>
           </div>
-        </div>
 
-        <Button
-          type="submit"
-          variant="primary"
-          size="full"
-          className="auth-submit-btn"
-          disabled={!canSubmit}
-          isLoading={submitting}
-        >
-          {submitting ? 'Signing in…' : 'Log in'}
-        </Button>
-
-        <div className="auth-divider">
-          <span>or continue with</span>
-        </div>
-        
-        <div className="auth-sso-buttons">
-          <button
-            type="button"
-            className="auth-sso-btn"
-            onClick={() => window.location.href = '/api/auth/google'}
-          >
-            <GoogleIcon />
-            Google
-          </button>
-          <button
-            type="button"
-            className="auth-sso-btn"
-            onClick={() => window.location.href = '/api/auth/github'}
-          >
-            <GitHubIcon />
-            GitHub
-          </button>
-        </div>
-
-        <p className="auth-form__footer">
-          {"Don't have an account? "}
-          <Link to="/signup" state={{ from }}>
-            Sign up
-          </Link>
-        </p>
-      </form>
+          <p className="auth-form__footer">
+            {"Don't have an account? "}
+            <Link to="/signup" state={{ from }}>
+              Sign up
+            </Link>
+          </p>
+        </form>
       </div>
     </div>
   );

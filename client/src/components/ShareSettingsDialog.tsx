@@ -1,11 +1,6 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import type { Visibility } from '../api/sharing';
-import {
-  updateVisibility,
-  getShareLink,
-  rotateShareToken,
-  revokeShareToken,
-} from '../api/sharing';
+import { updateVisibility, getShareLink, rotateShareToken, revokeShareToken } from '../api/sharing';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -288,7 +283,15 @@ export default function ShareSettingsDialog({
           aria-label="Close share settings"
           disabled={isLoading}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+          >
             <line x1="18" y1="6" x2="6" y2="18" />
             <line x1="6" y1="6" x2="18" y2="18" />
           </svg>
@@ -299,7 +302,11 @@ export default function ShareSettingsDialog({
       <div className="share-dialog__body">
         {/* Status message */}
         {statusMsg && (
-          <div className={`share-dialog__status share-dialog__status--${statusMsg.type}`} role="status" aria-live="polite">
+          <div
+            className={`share-dialog__status share-dialog__status--${statusMsg.type}`}
+            role="status"
+            aria-live="polite"
+          >
             {statusMsg.text}
           </div>
         )}
@@ -325,7 +332,9 @@ export default function ShareSettingsDialog({
                 disabled={disabled}
                 aria-pressed={selected}
               >
-                <span className="vis-option__icon" aria-hidden="true">{opt.icon}</span>
+                <span className="vis-option__icon" aria-hidden="true">
+                  {opt.icon}
+                </span>
                 <span className="vis-option__body">
                   <span className="vis-option__title">{opt.title}</span>
                   <span className="vis-option__desc">
@@ -336,7 +345,16 @@ export default function ShareSettingsDialog({
                 </span>
                 {selected && (
                   <span className="vis-option__check" aria-hidden="true">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   </span>
@@ -375,11 +393,27 @@ export default function ShareSettingsDialog({
                     aria-label={copied ? 'Copied' : 'Copy link'}
                   >
                     {copied ? (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <polyline points="20 6 9 17 4 12" />
                       </svg>
                     ) : (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg
+                        width="15"
+                        height="15"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
                         <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
                         <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
                       </svg>
@@ -437,7 +471,8 @@ export default function ShareSettingsDialog({
               /* hasToken but no shareUrl returned yet */
               <div className="share-link-section__no-url">
                 <p className="share-link-section__note">
-                  A share token exists but the link couldn't be loaded. Rotate to generate a fresh link.
+                  A share token exists but the link couldn't be loaded. Rotate to generate a fresh
+                  link.
                 </p>
                 <button
                   type="button"
@@ -455,12 +490,7 @@ export default function ShareSettingsDialog({
 
       {/* Footer */}
       <div className="share-dialog__footer">
-        <button
-          type="button"
-          className="btn btn--primary"
-          onClick={onClose}
-          disabled={isLoading}
-        >
+        <button type="button" className="btn btn--primary" onClick={onClose} disabled={isLoading}>
           Done
         </button>
       </div>

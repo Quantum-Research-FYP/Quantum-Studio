@@ -79,7 +79,10 @@ export function createSharingHandlers(pool: Db) {
         }
 
         // Schema version checks (same logic as owner endpoint)
-        if (isNewerVersion(experiment.schemaVersion) || !isSupportedVersion(experiment.schemaVersion)) {
+        if (
+          isNewerVersion(experiment.schemaVersion) ||
+          !isSupportedVersion(experiment.schemaVersion)
+        ) {
           res.status(404).json({ error: 'Not found.' });
           return;
         }
@@ -261,9 +264,7 @@ export function createSharingHandlers(pool: Db) {
 
         await repo.recordAuditEvent(userId, experimentId, 'TOKEN_CREATED', {});
 
-        console.log(
-          `[sharing] action=token-created userId=${userId} experimentId=${experimentId}`,
-        );
+        console.log(`[sharing] action=token-created userId=${userId} experimentId=${experimentId}`);
 
         // Build share URL (protocol + host from request)
         const shareUrl = buildShareUrl(req, experimentId, rawToken);
@@ -317,9 +318,7 @@ export function createSharingHandlers(pool: Db) {
 
         await repo.recordAuditEvent(userId, experimentId, 'TOKEN_ROTATED', {});
 
-        console.log(
-          `[sharing] action=token-rotated userId=${userId} experimentId=${experimentId}`,
-        );
+        console.log(`[sharing] action=token-rotated userId=${userId} experimentId=${experimentId}`);
 
         const shareUrl = buildShareUrl(req, experimentId, rawToken);
 

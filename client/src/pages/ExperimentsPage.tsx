@@ -105,12 +105,9 @@ export default function ExperimentsPage() {
     requestAnimationFrame(() => actionTriggerRef.current?.focus());
   }, []);
 
-  const handleShareClick = useCallback(
-    (experiment: ExperimentListItem) => {
-      setShareTarget(experiment);
-    },
-    [],
-  );
+  const handleShareClick = useCallback((experiment: ExperimentListItem) => {
+    setShareTarget(experiment);
+  }, []);
 
   const handleShareClose = useCallback(() => {
     setShareTarget(null);
@@ -237,18 +234,14 @@ export default function ExperimentsPage() {
                     </button>
                     <button
                       className="btn btn--ghost btn--sm"
-                      onClick={(e) =>
-                        handleRenameClick(experiment, e.currentTarget)
-                      }
+                      onClick={(e) => handleRenameClick(experiment, e.currentTarget)}
                       aria-label={`Rename ${experiment.name}`}
                     >
                       Rename
                     </button>
                     <button
                       className="btn btn--ghost btn--sm btn--danger-text"
-                      onClick={(e) =>
-                        handleDeleteClick(experiment, e.currentTarget)
-                      }
+                      onClick={(e) => handleDeleteClick(experiment, e.currentTarget)}
                       aria-label={`Delete ${experiment.name}`}
                     >
                       Delete

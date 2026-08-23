@@ -33,7 +33,7 @@ export interface SimulationJob {
   errorMessageSafe: string | null;
   requestHash: string | null;
   idempotencyKey: string | null;
-  noiseConfig?: Record<string, any>;
+  noiseConfig?: Record<string, unknown>;
 }
 
 export interface SimulationJobResult {
@@ -55,7 +55,7 @@ export interface CreateJobInput {
   providerJobId?: string;
   limitsSnapshot: Record<string, unknown>;
   idempotencyKey?: string;
-  noiseConfig?: Record<string, any>;
+  noiseConfig?: Record<string, unknown>;
 }
 
 export interface StoreResultInput {
@@ -97,7 +97,7 @@ function docToJob(doc: Record<string, unknown>): SimulationJob {
     errorMessageSafe: (doc.errorMessageSafe as string) ?? null,
     requestHash: (doc.requestHash as string) ?? null,
     idempotencyKey: (doc.idempotencyKey as string) ?? null,
-    noiseConfig: doc.noiseConfig as Record<string, any> | undefined,
+    noiseConfig: doc.noiseConfig as Record<string, unknown> | undefined,
   };
 }
 
@@ -280,11 +280,7 @@ export function createSimulationRepository(pool: Db) {
     },
 
     async getJobsByUser(userId: string, limit = 50): Promise<SimulationJob[]> {
-      const docs = await jobs
-        .find({ userId })
-        .sort({ createdAt: -1 })
-        .limit(limit)
-        .toArray();
+      const docs = await jobs.find({ userId }).sort({ createdAt: -1 }).limit(limit).toArray();
       return docs.map((d) => docToJob(d as unknown as Record<string, unknown>));
     },
 

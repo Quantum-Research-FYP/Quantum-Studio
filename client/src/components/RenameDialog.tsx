@@ -9,7 +9,12 @@ interface RenameDialogProps {
 
 const MAX_NAME_LENGTH = 120;
 
-export default function RenameDialog({ open, currentName, onConfirm, onCancel }: RenameDialogProps) {
+export default function RenameDialog({
+  open,
+  currentName,
+  onConfirm,
+  onCancel,
+}: RenameDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(currentName);
@@ -101,12 +106,7 @@ export default function RenameDialog({ open, currentName, onConfirm, onCancel }:
         </div>
 
         <div className="dialog__actions">
-          <button
-            type="button"
-            className="btn btn--ghost"
-            onClick={onCancel}
-            disabled={submitting}
-          >
+          <button type="button" className="btn btn--ghost" onClick={onCancel} disabled={submitting}>
             Cancel
           </button>
           <button type="submit" className="btn btn--primary" disabled={submitting}>

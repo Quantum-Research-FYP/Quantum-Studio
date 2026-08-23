@@ -20,11 +20,11 @@ beforeAll(async () => {
   db = client.db('test_results');
   await ensureIndexes(db);
   app = createApp(db);
-}, 60_000);
+}, 180_000);
 
 afterAll(async () => {
-  await client.close();
-  await mongod.stop();
+  if (client) await client.close();
+  if (mongod) await mongod.stop();
 }, 30_000);
 
 beforeEach(async () => {
@@ -43,9 +43,7 @@ async function createUserSession(
   email = 'tester@example.com',
   password = 'securePassword!1',
 ): Promise<{ cookie: string; userId: string }> {
-  const res = await request(app)
-    .post('/api/auth/signup')
-    .send({ email, password });
+  const res = await request(app).post('/api/auth/signup').send({ email, password });
 
   const cookies = res.headers['set-cookie'] as unknown as string[];
   return { cookie: cookies[0], userId: res.body.user.id };
@@ -93,10 +91,7 @@ async function insertJob(
 }
 
 /** Insert results for a completed job. */
-async function insertResult(
-  jobId: string,
-  counts: Record<string, number>,
-): Promise<void> {
+async function insertResult(jobId: string, counts: Record<string, number>): Promise<void> {
   const now = new Date();
   const retentionUntil = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000);
 

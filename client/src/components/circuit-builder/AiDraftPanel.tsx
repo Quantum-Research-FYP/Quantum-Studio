@@ -192,18 +192,11 @@ export default function AiDraftPanel({ circuitCode, onClose }: AiDraftPanelProps
           /* Conversation */
           <>
             {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`ai-chat__msg ai-chat__msg--${msg.role}`}
-              >
-                {msg.role === 'assistant' && (
-                  <span className="ai-chat__msg-spark">✦</span>
-                )}
+              <div key={msg.id} className={`ai-chat__msg ai-chat__msg--${msg.role}`}>
+                {msg.role === 'assistant' && <span className="ai-chat__msg-spark">✦</span>}
                 <div className="ai-chat__msg-bubble">
                   <div className="ai-chat__msg-md">
-                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                      {msg.content}
-                    </ReactMarkdown>
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
                   </div>
                 </div>
               </div>
@@ -270,4 +263,3 @@ export default function AiDraftPanel({ circuitCode, onClose }: AiDraftPanelProps
     </div>
   );
 }
-

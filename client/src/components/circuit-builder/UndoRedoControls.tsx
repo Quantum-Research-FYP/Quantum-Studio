@@ -9,7 +9,12 @@ interface UndoRedoControlsProps {
   onRedo: () => void;
 }
 
-export default function UndoRedoControls({ canUndo, canRedo, onUndo, onRedo }: UndoRedoControlsProps) {
+export default function UndoRedoControls({
+  canUndo,
+  canRedo,
+  onUndo,
+  onRedo,
+}: UndoRedoControlsProps) {
   return (
     <div className="undo-redo" aria-label="Undo and redo controls">
       <button

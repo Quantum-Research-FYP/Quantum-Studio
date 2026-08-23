@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { runStepper, type StepperResponse } from '../api/simulations';
+import { runStepper } from '../api/simulations';
 import { generateStepperQiskitCode, type CircuitModel } from '../circuit';
 
 export interface StepState {
@@ -10,11 +10,15 @@ export interface StepState {
 export function useStepSimulation(circuit: CircuitModel) {
   const [currentStep, setCurrentStep] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [statevectors, setStatevectors] = useState<Record<string, Record<string, { re: number; im: number }>>>({});
+  const [statevectors, setStatevectors] = useState<
+    Record<string, Record<string, { re: number; im: number }>>
+  >({});
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const maxStep = Math.max(0, ...circuit.operations.map(op => op.time)) + (circuit.operations.length > 0 ? 1 : 0);
+  const maxStep =
+    Math.max(0, ...circuit.operations.map((op) => op.time)) +
+    (circuit.operations.length > 0 ? 1 : 0);
 
   // Playback timer ref
   const timerRef = useRef<number | null>(null);
@@ -32,14 +36,14 @@ export function useStepSimulation(circuit: CircuitModel) {
 
       setIsLoading(true);
       setError(null);
-      
+
       try {
         const code = generateStepperQiskitCode(circuit);
         const response = await runStepper(code);
         if (active) {
           setStatevectors(response.statevectors);
           // Don't reset current step if it's still within bounds
-          setCurrentStep(prev => Math.min(prev, maxStep));
+          setCurrentStep((prev) => Math.min(prev, maxStep));
         }
       } catch (err) {
         if (active) {
@@ -84,18 +88,18 @@ export function useStepSimulation(circuit: CircuitModel) {
   }, [stopPlayback]);
 
   const stepForward = useCallback(() => {
-    setCurrentStep(prev => Math.min(prev + 1, maxStep));
+    setCurrentStep((prev) => Math.min(prev + 1, maxStep));
   }, [maxStep]);
 
   const stepBack = useCallback(() => {
-    setCurrentStep(prev => Math.max(prev - 1, 0));
+    setCurrentStep((prev) => Math.max(prev - 1, 0));
   }, []);
 
   // Handle auto-playback
   useEffect(() => {
     if (isPlaying) {
       timerRef.current = window.setInterval(() => {
-        setCurrentStep(prev => {
+        setCurrentStep((prev) => {
           if (prev >= maxStep) {
             stopPlayback();
             return prev;

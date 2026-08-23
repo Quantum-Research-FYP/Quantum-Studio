@@ -36,7 +36,11 @@ Rules:
  * Anthropic Claude AI provider implementation.
  * Calls the Anthropic Messages API to generate circuit drafts.
  */
-export function createAnthropicProvider(apiKey: string, model: string, apiUrl?: string): AiProvider {
+export function createAnthropicProvider(
+  apiKey: string,
+  model: string,
+  apiUrl?: string,
+): AiProvider {
   const baseUrl = apiUrl || 'https://api.anthropic.com';
 
   return {

@@ -11,7 +11,7 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
   const cx = size / 2;
   const cy = size / 2;
   const R = size * 0.35; // Radius of the sphere
-  
+
   const [rotation, setRotation] = useState({ x: 15 * (Math.PI / 180), y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
@@ -30,7 +30,7 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
     const dy = e.clientY - lastMousePos.current.y;
     lastMousePos.current = { x: e.clientX, y: e.clientY };
 
-    setRotation(prev => {
+    setRotation((prev) => {
       let newX = prev.x - dy * 0.01;
       newX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, newX));
       return { x: newX, y: prev.y + dx * 0.01 };
@@ -67,20 +67,31 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
 
     // Group states by Hamming weight
     const groups: Record<number, string[]> = {};
-    states.forEach(state => {
+    states.forEach((state) => {
       const w = hammingWeight(state);
       if (!groups[w]) groups[w] = [];
       groups[w].push(state);
     });
 
-    const result: Array<{ state: string; x: number; y: number; isBack: boolean; prob: number; phase: number; color: string; r: number; cx: number; cy: number; }> = [];
+    const result: Array<{
+      state: string;
+      x: number;
+      y: number;
+      isBack: boolean;
+      prob: number;
+      phase: number;
+      color: string;
+      r: number;
+      cx: number;
+      cy: number;
+    }> = [];
     const n = qubitCount === 0 ? 1 : qubitCount; // prevent division by zero
 
     for (const [wStr, groupStates] of Object.entries(groups)) {
       const w = parseInt(wStr, 10);
       // Latitude angle (0 at North pole, PI at South pole)
       const theta = Math.PI * (w / n);
-      
+
       const k = groupStates.length;
       groupStates.forEach((state, i) => {
         // Longitude angle
@@ -94,7 +105,7 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
         // 2D Projection with tilt
         const x2d = cx + x3d;
         // Screen Y goes down, so we subtract Z. Add tilt to Y.
-        const y2d = cy - (z3d * Math.cos(tilt)) + (y3d * Math.sin(tilt));
+        const y2d = cy - z3d * Math.cos(tilt) + y3d * Math.sin(tilt);
 
         // Is it on the front or back of the sphere?
         // Front means y3d > 0 (if we consider standard orientation)
@@ -124,13 +135,13 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
           color: getPhaseColor(phase),
           r: nodeR,
           cx,
-          cy
+          cy,
         });
       });
     }
 
     // Sort by depth so back nodes are drawn first
-    return result.sort((a, b) => (a.isBack ? -1 : 1));
+    return result.sort((a, b) => (a.isBack === b.isBack ? 0 : a.isBack ? -1 : 1));
   }, [amplitudes, qubitCount, R, cx, cy, tilt, rotation.y]);
 
   if (qubitCount === 0 || nodes.length === 0) {
@@ -149,8 +160,8 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
       <div className="qsphere__header">
         <span className="qsphere__title">
           Q-Sphere
-          <button 
-            className="info-btn" 
+          <button
+            className="info-btn"
             data-tooltip="Visualizes the multi-qubit quantum state where the radius indicates probability and color represents the phase."
             aria-label="Info"
           >
@@ -159,8 +170,8 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
         </span>
       </div>
       <div className="qsphere__canvas-wrapper">
-        <svg 
-          viewBox={`0 0 ${size} ${size}`} 
+        <svg
+          viewBox={`0 0 ${size} ${size}`}
           className="qsphere__svg"
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
@@ -181,8 +192,15 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
           </defs>
 
           {/* Background Sphere */}
-          <circle cx={cx} cy={cy} r={R} fill="url(#sphereGrad)" stroke="rgba(255,255,255,0.1)" strokeWidth="1" />
-          
+          <circle
+            cx={cx}
+            cy={cy}
+            r={R}
+            fill="url(#sphereGrad)"
+            stroke="rgba(255,255,255,0.1)"
+            strokeWidth="1"
+          />
+
           {/* Equator / Latitude Rings */}
           {Array.from({ length: qubitCount - 1 }).map((_, i) => {
             const w = i + 1;
@@ -196,28 +214,28 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
             // The height of the ellipse is 2 * rRing * sin(tilt)
             const ry = rRing * Math.abs(Math.sin(tilt));
             return (
-              <ellipse 
+              <ellipse
                 key={i}
-                cx={cx} 
-                cy={yCenter} 
-                rx={rRing} 
-                ry={ry} 
-                fill="none" 
-                stroke="rgba(255,255,255,0.05)" 
-                strokeWidth="1" 
+                cx={cx}
+                cy={yCenter}
+                rx={rRing}
+                ry={ry}
+                fill="none"
+                stroke="rgba(255,255,255,0.05)"
+                strokeWidth="1"
               />
             );
           })}
 
           {/* Lines from center to nodes */}
-          {nodes.map(n => {
+          {nodes.map((n) => {
             if (n.prob < 1e-4) return null; // don't draw lines for zero prob
             return (
-              <line 
+              <line
                 key={`line-${n.state}`}
-                x1={cx} 
-                y1={cy} 
-                x2={n.x} 
+                x1={cx}
+                y1={cy}
+                x2={n.x}
                 y2={n.y}
                 stroke={n.color}
                 strokeWidth="1.5"
@@ -227,7 +245,7 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
           })}
 
           {/* Nodes */}
-          {nodes.map(n => {
+          {nodes.map((n) => {
             if (n.prob < 1e-4) return null;
             return (
               <g key={`node-${n.state}`} className="qsphere__node" style={{ color: n.color }}>
@@ -235,39 +253,40 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
                 <circle cx={n.x} cy={n.y} r={n.r * 2.5} fill="url(#nodeGlow)" />
                 {/* Core */}
                 <circle cx={n.x} cy={n.y} r={n.r} fill={n.color} stroke="#000" strokeWidth="1" />
-                
-                {/* Label if it's on front or high probability */}
-                {(!n.isBack || n.prob > 0.1) && (() => {
-                  const labelText = `|${n.state}⟩`;
-                  const charWidth = 6.5; // Approx width for 10px monospace
-                  const boxWidth = labelText.length * charWidth + 8;
-                  const boxHeight = 16;
-                  const boxX = n.x - boxWidth / 2;
-                  const boxY = n.y - n.r - boxHeight - 2;
 
-                  return (
-                    <g className="qsphere__label-group">
-                      <rect 
-                        x={boxX} 
-                        y={boxY} 
-                        width={boxWidth} 
-                        height={boxHeight} 
-                        rx={3} 
-                        fill="rgba(25, 30, 40, 0.9)" 
-                      />
-                      <text 
-                        x={n.x} 
-                        y={n.y - n.r - 6} 
-                        fill="#fff" 
-                        fontSize="10" 
-                        textAnchor="middle"
-                        className="qsphere__label"
-                      >
-                        {labelText}
-                      </text>
-                    </g>
-                  );
-                })()}
+                {/* Label if it's on front or high probability */}
+                {(!n.isBack || n.prob > 0.1) &&
+                  (() => {
+                    const labelText = `|${n.state}⟩`;
+                    const charWidth = 6.5; // Approx width for 10px monospace
+                    const boxWidth = labelText.length * charWidth + 8;
+                    const boxHeight = 16;
+                    const boxX = n.x - boxWidth / 2;
+                    const boxY = n.y - n.r - boxHeight - 2;
+
+                    return (
+                      <g className="qsphere__label-group">
+                        <rect
+                          x={boxX}
+                          y={boxY}
+                          width={boxWidth}
+                          height={boxHeight}
+                          rx={3}
+                          fill="rgba(25, 30, 40, 0.9)"
+                        />
+                        <text
+                          x={n.x}
+                          y={n.y - n.r - 6}
+                          fill="#fff"
+                          fontSize="10"
+                          textAnchor="middle"
+                          className="qsphere__label"
+                        >
+                          {labelText}
+                        </text>
+                      </g>
+                    );
+                  })()}
               </g>
             );
           })}

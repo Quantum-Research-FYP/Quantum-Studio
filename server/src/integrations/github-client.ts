@@ -42,7 +42,7 @@ export interface GitHubFileContent {
   name: string;
   path: string;
   sha: string;
-  content: string;       // decoded from base64
+  content: string; // decoded from base64
   htmlUrl: string;
   size: number;
 }
@@ -52,9 +52,7 @@ export interface GitHubClientError {
   message: string;
 }
 
-export type GitHubResult<T> =
-  | { ok: true; data: T }
-  | { ok: false; error: GitHubClientError };
+export type GitHubResult<T> = { ok: true; data: T } | { ok: false; error: GitHubClientError };
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -94,12 +92,24 @@ export function createGitHubClient() {
         });
 
         if (!response.ok) {
-          return { ok: false, error: { errorCode: 'NETWORK_ERROR', message: `GitHub token exchange failed (HTTP ${response.status}).` } };
+          return {
+            ok: false,
+            error: {
+              errorCode: 'NETWORK_ERROR',
+              message: `GitHub token exchange failed (HTTP ${response.status}).`,
+            },
+          };
         }
 
         const body = (await response.json()) as Record<string, unknown>;
         if (body.error) {
-          return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: (body.error_description as string) || 'Token exchange failed.' } };
+          return {
+            ok: false,
+            error: {
+              errorCode: 'INVALID_TOKEN',
+              message: (body.error_description as string) || 'Token exchange failed.',
+            },
+          };
         }
 
         return {
@@ -295,19 +305,43 @@ async function callGitHubApi<T>(
     }
 
     if (response.status === 401 || response.status === 403) {
-      return { ok: false, error: { errorCode: 'INVALID_TOKEN', message: 'GitHub authentication failed or token expired.' } };
+      return {
+        ok: false,
+        error: {
+          errorCode: 'INVALID_TOKEN',
+          message: 'GitHub authentication failed or token expired.',
+        },
+      };
     }
     if (response.status === 404) {
-      return { ok: false, error: { errorCode: 'NOT_FOUND', message: 'Resource not found on GitHub.' } };
+      return {
+        ok: false,
+        error: { errorCode: 'NOT_FOUND', message: 'Resource not found on GitHub.' },
+      };
     }
     if (response.status === 409) {
-      return { ok: false, error: { errorCode: 'CONFLICT', message: 'Conflict — the file may have been modified.' } };
+      return {
+        ok: false,
+        error: { errorCode: 'CONFLICT', message: 'Conflict — the file may have been modified.' },
+      };
     }
     if (response.status === 429) {
-      return { ok: false, error: { errorCode: 'RATE_LIMITED', message: 'GitHub API rate limit exceeded. Please wait.' } };
+      return {
+        ok: false,
+        error: {
+          errorCode: 'RATE_LIMITED',
+          message: 'GitHub API rate limit exceeded. Please wait.',
+        },
+      };
     }
 
-    return { ok: false, error: { errorCode: 'NETWORK_ERROR', message: `GitHub API returned status ${response.status}.` } };
+    return {
+      ok: false,
+      error: {
+        errorCode: 'NETWORK_ERROR',
+        message: `GitHub API returned status ${response.status}.`,
+      },
+    };
   } catch (err) {
     return networkError(err);
   }
@@ -315,7 +349,13 @@ async function callGitHubApi<T>(
 
 function networkError<T>(err: unknown): GitHubResult<T> {
   if (err instanceof Error && err.name === 'AbortError') {
-    return { ok: false, error: { errorCode: 'NETWORK_ERROR', message: 'Request to GitHub timed out.' } };
+    return {
+      ok: false,
+      error: { errorCode: 'NETWORK_ERROR', message: 'Request to GitHub timed out.' },
+    };
   }
-  return { ok: false, error: { errorCode: 'NETWORK_ERROR', message: 'Network error connecting to GitHub.' } };
+  return {
+    ok: false,
+    error: { errorCode: 'NETWORK_ERROR', message: 'Network error connecting to GitHub.' },
+  };
 }

@@ -146,8 +146,7 @@ export default function SharedExperimentPage() {
           </ul>
         )}
         <p className="shared-viewer__meta">
-          Shared experiment · Last updated{' '}
-          {new Date(experiment!.updatedAt).toLocaleDateString()}
+          Shared experiment · Last updated {new Date(experiment!.updatedAt).toLocaleDateString()}
         </p>
         {experiment!.aiAssisted && (
           <div className="shared-viewer__ai-badge" role="note" aria-label="AI-assisted experiment">

@@ -132,23 +132,18 @@ export default function ExportButtons({
   chartVisible,
   chartSvgId = 'probability-bar-chart',
 }: ExportButtonsProps) {
-  const [status, setStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(
-    null,
-  );
+  const [status, setStatus] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  const handleExport = useCallback(
-    async (action: () => Promise<void>, label: string) => {
-      setStatus(null);
-      try {
-        await action();
-        setStatus({ message: `${label} downloaded.`, type: 'success' });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Export failed.';
-        setStatus({ message: msg, type: 'error' });
-      }
-    },
-    [],
-  );
+  const handleExport = useCallback(async (action: () => Promise<void>, label: string) => {
+    setStatus(null);
+    try {
+      await action();
+      setStatus({ message: `${label} downloaded.`, type: 'success' });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Export failed.';
+      setStatus({ message: msg, type: 'error' });
+    }
+  }, []);
 
   return (
     <div className="export-bar" role="group" aria-label="Export results">

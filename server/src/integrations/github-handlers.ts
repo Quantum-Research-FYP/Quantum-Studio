@@ -14,7 +14,6 @@
 import type { Request, Response } from 'express';
 import type { Db } from 'mongodb';
 import crypto from 'node:crypto';
-import { requireAuth } from '../middleware/authenticate.js';
 import { createIntegrationsRepository } from './repository.js';
 import { createAuditRepository } from '../execution/audit.js';
 import { createGitHubClient } from './github-client.js';
@@ -45,7 +44,8 @@ function getGitHubConfig() {
     enabled: process.env.ENABLE_GITHUB_INTEGRATION === 'true',
     clientId: process.env.GITHUB_CLIENT_ID || '',
     clientSecret: process.env.GITHUB_CLIENT_SECRET || '',
-    redirectUri: process.env.GITHUB_REDIRECT_URI || 'http://localhost:3001/api/integrations/github/callback',
+    redirectUri:
+      process.env.GITHUB_REDIRECT_URI || 'http://localhost:3001/api/integrations/github/callback',
     frontendUrl: process.env.APP_URL || 'http://localhost:5173',
   };
 }
@@ -95,7 +95,10 @@ export function createGitHubHandlers(pool: Db) {
      */
     connect(req: Request, res: Response): void {
       if (!config.enabled) {
-        res.status(503).json({ error: 'GitHub integration is not enabled.', errorCode: ERROR_CODES.FEATURE_DISABLED });
+        res.status(503).json({
+          error: 'GitHub integration is not enabled.',
+          errorCode: ERROR_CODES.FEATURE_DISABLED,
+        });
         return;
       }
 
@@ -124,7 +127,9 @@ export function createGitHubHandlers(pool: Db) {
 
       if (oauthError || !code || !state) {
         console.warn('[github] OAuth callback error:', oauthError || 'missing code/state');
-        res.redirect(`${config.frontendUrl}/settings?github=error&reason=${encodeURIComponent(String(oauthError || 'missing_params'))}`);
+        res.redirect(
+          `${config.frontendUrl}/settings?github=error&reason=${encodeURIComponent(String(oauthError || 'missing_params'))}`,
+        );
         return;
       }
 
@@ -228,10 +233,7 @@ export function createGitHubHandlers(pool: Db) {
 
       // Get the GitHub profile from the user document
       const users = pool.collection<AppDocument>(COLLECTIONS.USERS);
-      const userDoc = await users.findOne(
-        { _id: userId },
-        { projection: { github: 1 } },
-      );
+      const userDoc = await users.findOne({ _id: userId }, { projection: { github: 1 } });
 
       const ghProfile = userDoc?.github as Record<string, unknown> | undefined;
 
@@ -282,7 +284,9 @@ export function createGitHubHandlers(pool: Db) {
       const accessToken = await getDecryptedGitHubToken(pool, userId);
 
       if (!accessToken) {
-        res.status(400).json({ error: 'GitHub is not connected.', errorCode: ERROR_CODES.NOT_CONNECTED });
+        res
+          .status(400)
+          .json({ error: 'GitHub is not connected.', errorCode: ERROR_CODES.NOT_CONNECTED });
         return;
       }
 
@@ -307,7 +311,9 @@ export function createGitHubHandlers(pool: Db) {
       const accessToken = await getDecryptedGitHubToken(pool, userId);
 
       if (!accessToken) {
-        res.status(400).json({ error: 'GitHub is not connected.', errorCode: ERROR_CODES.NOT_CONNECTED });
+        res
+          .status(400)
+          .json({ error: 'GitHub is not connected.', errorCode: ERROR_CODES.NOT_CONNECTED });
         return;
       }
 
@@ -358,7 +364,9 @@ export function createGitHubHandlers(pool: Db) {
       const accessToken = await getDecryptedGitHubToken(pool, userId);
 
       if (!accessToken) {
-        res.status(400).json({ error: 'GitHub is not connected.', errorCode: ERROR_CODES.NOT_CONNECTED });
+        res
+          .status(400)
+          .json({ error: 'GitHub is not connected.', errorCode: ERROR_CODES.NOT_CONNECTED });
         return;
       }
 

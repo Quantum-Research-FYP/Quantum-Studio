@@ -30,7 +30,6 @@ export default function TranspileHardwareMap({ trace, selectedPass }: Props) {
 
   // Collect unique physical qubits
   const physQubits = Array.from(new Set(couplingMap.flat())).sort((a, b) => a - b);
-  const maxQ = Math.max(...physQubits);
   const displayQubits = physQubits.slice(0, Math.min(physQubits.length, 20)); // cap at 20 for display
 
   // Build reverse mapping: physical → logical
@@ -61,7 +60,7 @@ export default function TranspileHardwareMap({ trace, selectedPass }: Props) {
   const svgHeight = padding * 2 + rows * cellSize;
 
   const visibleEdges = couplingMap.filter(
-    ([a, b]) => positions[a] !== undefined && positions[b] !== undefined && a < b
+    ([a, b]) => positions[a] !== undefined && positions[b] !== undefined && a < b,
   );
 
   return (

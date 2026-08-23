@@ -9,24 +9,47 @@
  */
 
 import type { CircuitModel, GateType, Operation, OperationTargets } from './types';
-import { GATE_TYPES } from './types';
 
 // Maps QASM gate names → our GateType enum (handles Qiskit's naming differences)
 const QASM_GATE_MAP: Record<string, GateType> = {
-  h: 'H', x: 'X', y: 'Y', z: 'Z',
-  s: 'S', sdg: 'SDG', t: 'T', tdg: 'TDG',
-  sx: 'SX', sxdg: 'SXDG', id: 'ID',
-  rx: 'RX', ry: 'RY', rz: 'RZ', p: 'P', u: 'U',
-  cx: 'CX', cz: 'CZ', cy: 'CY', ch: 'CH', swap: 'SWAP',
-  crx: 'CRX', cry: 'CRY', crz: 'CRZ', cp: 'CP',
-  ccx: 'CCX', cswap: 'CSWAP',
+  h: 'H',
+  x: 'X',
+  y: 'Y',
+  z: 'Z',
+  s: 'S',
+  sdg: 'SDG',
+  t: 'T',
+  tdg: 'TDG',
+  sx: 'SX',
+  sxdg: 'SXDG',
+  id: 'ID',
+  rx: 'RX',
+  ry: 'RY',
+  rz: 'RZ',
+  p: 'P',
+  u: 'U',
+  cx: 'CX',
+  cz: 'CZ',
+  cy: 'CY',
+  ch: 'CH',
+  swap: 'SWAP',
+  crx: 'CRX',
+  cry: 'CRY',
+  crz: 'CRZ',
+  cp: 'CP',
+  ccx: 'CCX',
+  cswap: 'CSWAP',
   measure: 'MEASURE',
   // Qiskit aliases
-  cnot: 'CX', toffoli: 'CCX', fredkin: 'CSWAP',
-  ecr: 'CX',  // ECR is IBM native 2Q gate — visualize as CX-equivalent
-  csx: 'CX',  // Controlled-SX — map to CX for display
-  r: 'U',     // R gate maps to U
-  u1: 'P', u2: 'U', u3: 'U',
+  cnot: 'CX',
+  toffoli: 'CCX',
+  fredkin: 'CSWAP',
+  ecr: 'CX', // ECR is IBM native 2Q gate — visualize as CX-equivalent
+  csx: 'CX', // Controlled-SX — map to CX for display
+  r: 'U', // R gate maps to U
+  u1: 'P',
+  u2: 'U',
+  u3: 'U',
 };
 
 let _opId = 0;
@@ -50,11 +73,14 @@ function tokenise(expr: string): string[] {
   let i = 0;
   while (i < expr.length) {
     const ch = expr[i];
-    if (/\s/.test(ch)) { i++; continue; }
+    if (/\s/.test(ch)) {
+      i++;
+      continue;
+    }
     // Number (including decimals and scientific notation like 1e-3)
     if (/[0-9.]/.test(ch)) {
       let num = '';
-      while (i < expr.length && /[0-9.eE+\-]/.test(expr[i])) {
+      while (i < expr.length && /[0-9.eE+-]/.test(expr[i])) {
         // Only allow +/- immediately after e/E (scientific notation)
         if ((expr[i] === '+' || expr[i] === '-') && !/[eE]/.test(expr[i - 1] ?? '')) break;
         num += expr[i++];
@@ -69,7 +95,11 @@ function tokenise(expr: string): string[] {
       continue;
     }
     // Operators and parens
-    if ('+-*/()'.includes(ch)) { tokens.push(ch); i++; continue; }
+    if ('+-*/()'.includes(ch)) {
+      tokens.push(ch);
+      i++;
+      continue;
+    }
     // Unknown char — skip
     i++;
   }
@@ -81,13 +111,21 @@ class MathParser {
   private tokens: string[];
   private pos = 0;
 
-  constructor(tokens: string[]) { this.tokens = tokens; }
+  constructor(tokens: string[]) {
+    this.tokens = tokens;
+  }
 
-  private peek(): string | undefined { return this.tokens[this.pos]; }
-  private consume(): string { return this.tokens[this.pos++]; }
+  private peek(): string | undefined {
+    return this.tokens[this.pos];
+  }
+  private consume(): string {
+    return this.tokens[this.pos++];
+  }
 
   /** entry: expression = term (('+' | '-') term)* */
-  parse(): number { return this.parseExpr(); }
+  parse(): number {
+    return this.parseExpr();
+  }
 
   private parseExpr(): number {
     let left = this.parseTerm();
@@ -112,8 +150,14 @@ class MathParser {
 
   /** unary = '-' unary | primary */
   private parseUnary(): number {
-    if (this.peek() === '-') { this.consume(); return -this.parseUnary(); }
-    if (this.peek() === '+') { this.consume(); return this.parseUnary(); }
+    if (this.peek() === '-') {
+      this.consume();
+      return -this.parseUnary();
+    }
+    if (this.peek() === '+') {
+      this.consume();
+      return this.parseUnary();
+    }
     return this.parsePrimary();
   }
 
@@ -121,7 +165,10 @@ class MathParser {
   private parsePrimary(): number {
     const tok = this.peek();
     if (tok === undefined) return 0;
-    if (tok === 'pi') { this.consume(); return Math.PI; }
+    if (tok === 'pi') {
+      this.consume();
+      return Math.PI;
+    }
     if (tok === '(') {
       this.consume(); // '('
       const val = this.parseExpr();
@@ -167,8 +214,8 @@ function _parse(qasm: string): CircuitModel {
   // Normalize: strip comments, blank lines, collapse whitespace
   const lines = qasm
     .split('\n')
-    .map(l => l.replace(/\/\/.*/, '').trim())
-    .filter(l => l.length > 0 && !l.startsWith('//'));
+    .map((l) => l.replace(/\/\/.*/, '').trim())
+    .filter((l) => l.length > 0 && !l.startsWith('//'));
 
   let numQubits = 0;
   let numClbits = 0;
@@ -230,8 +277,10 @@ function _parse(qasm: string): CircuitModel {
       line.startsWith('delay') ||
       line.startsWith('reset') ||
       line.startsWith('if ') ||
-      line === '{'  || line === '}'
-    ) continue;
+      line === '{' ||
+      line === '}'
+    )
+      continue;
 
     // Gate instruction
     const gateOp = _parseGateInstruction(line, qubitRegs, clbitRegs);
@@ -246,9 +295,7 @@ function _parse(qasm: string): CircuitModel {
     const gate = QASM_GATE_MAP[raw.gate.toLowerCase()];
     if (!gate) continue;
 
-    const time = raw.qubits.length > 0
-      ? Math.max(...raw.qubits.map(q => qubitTime[q] ?? 0))
-      : 0;
+    const time = raw.qubits.length > 0 ? Math.max(...raw.qubits.map((q) => qubitTime[q] ?? 0)) : 0;
 
     const targets: OperationTargets = { qubits: raw.qubits };
     if (raw.clbits.length > 0) targets.clbits = raw.clbits;
@@ -275,10 +322,7 @@ function _parse(qasm: string): CircuitModel {
 }
 
 /** Resolves a qubit/clbit wire reference like "q[0]" or "q" to an absolute index. */
-function resolveWire(
-  ref: string,
-  regs: Record<string, { start: number; size: number }>
-): number[] {
+function resolveWire(ref: string, regs: Record<string, { start: number; size: number }>): number[] {
   const indexed = ref.match(/^(\w+)\[(\d+)\]$/);
   if (indexed) {
     const reg = regs[indexed[1]];
@@ -295,15 +339,15 @@ function resolveWire(
 function _parseGateInstruction(
   line: string,
   qubitRegs: Record<string, { start: number; size: number }>,
-  clbitRegs: Record<string, { start: number; size: number }>
+  clbitRegs: Record<string, { start: number; size: number }>,
 ): { gate: string; params: number[]; qubits: number[]; clbits: number[] } | null {
   // Measure: "measure q[0] -> c[0];" or "q[0] -> c[0];" in QASM3 measure block
   const measureMatch = line.match(/^measure\s+(.+?)\s*->\s*(.+?)\s*;?$/);
   if (measureMatch) {
-    const qRefs = measureMatch[1].split(',').map(s => s.trim());
-    const cRefs = measureMatch[2].split(',').map(s => s.trim());
-    const qubits = qRefs.flatMap(r => resolveWire(r, qubitRegs));
-    const clbits = cRefs.flatMap(r => resolveWire(r, clbitRegs));
+    const qRefs = measureMatch[1].split(',').map((s) => s.trim());
+    const cRefs = measureMatch[2].split(',').map((s) => s.trim());
+    const qubits = qRefs.flatMap((r) => resolveWire(r, qubitRegs));
+    const clbits = cRefs.flatMap((r) => resolveWire(r, clbitRegs));
     if (qubits.length > 0) return { gate: 'measure', params: [], qubits, clbits };
     return null;
   }
@@ -321,12 +365,12 @@ function _parseGateInstruction(
   const params: number[] = paramsStr
     ? paramsStr
         .split(',')
-        .map(s => evalMathExpr(s.trim()))
-        .filter(n => !isNaN(n))
+        .map((s) => evalMathExpr(s.trim()))
+        .filter((n) => !isNaN(n))
     : [];
 
   // Parse qubit wires — handle QASM3 physical qubits like $0, $1
-  const wireTokens = wiresStr.split(',').map(s => s.trim());
+  const wireTokens = wiresStr.split(',').map((s) => s.trim());
   const qubits: number[] = [];
   const clbits: number[] = [];
 

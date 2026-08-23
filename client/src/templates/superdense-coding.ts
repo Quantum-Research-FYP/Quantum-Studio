@@ -31,6 +31,6 @@ export const superdenseCodingTemplate: TemplateDefinition = {
     imageSrc: '/images/algorithms/superdense-coding.jpg',
     longDescription: `Superdense coding is a quantum communication protocol that allows a sender (Alice) to transmit two classical bits of information to a receiver (Bob) by sending only a single qubit, provided they share an entangled pair beforehand.
 
-The protocol works in reverse to quantum teleportation. Alice applies a set of gates (like X and Z) to her qubit to encode one of four possible messages (00, 01, 10, 11). She sends her qubit to Bob, who then performs a Bell measurement on both qubits to decode the two classical bits. This template encodes and decodes the message "11".`
-  }
+The protocol works in reverse to quantum teleportation. Alice applies a set of gates (like X and Z) to her qubit to encode one of four possible messages (00, 01, 10, 11). She sends her qubit to Bob, who then performs a Bell measurement on both qubits to decode the two classical bits. This template encodes and decodes the message "11".`,
+  },
 };

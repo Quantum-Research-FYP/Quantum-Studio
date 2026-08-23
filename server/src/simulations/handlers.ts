@@ -178,7 +178,9 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
           res.status(200).json(data);
         } catch (err) {
           if (err instanceof Error && err.name === 'AbortError') {
-            res.status(408).json({ error: 'Stepper simulation timed out.', errorCode: 'EXECUTION_TIMEOUT' });
+            res
+              .status(408)
+              .json({ error: 'Stepper simulation timed out.', errorCode: 'EXECUTION_TIMEOUT' });
             return;
           }
           console.error('Simulation service unreachable after retries:', err);
@@ -218,7 +220,12 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
             {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ qasm, shots: shots || 1000, mode: mode || 'qasm', noiseConfig }),
+              body: JSON.stringify({
+                qasm,
+                shots: shots || 1000,
+                mode: mode || 'qasm',
+                noiseConfig,
+              }),
             },
             { signal: controller.signal },
           );
@@ -233,7 +240,9 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
           res.status(200).json(data);
         } catch (err) {
           if (err instanceof Error && err.name === 'AbortError') {
-            res.status(408).json({ error: 'Analysis simulation timed out.', errorCode: 'EXECUTION_TIMEOUT' });
+            res
+              .status(408)
+              .json({ error: 'Analysis simulation timed out.', errorCode: 'EXECUTION_TIMEOUT' });
             return;
           }
           console.error('Simulation service unreachable after retries:', err);
@@ -265,7 +274,7 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
         }
 
         const ibmToken = await integrationsRepo.getDecryptedToken(userId, 'ibm_quantum');
-        
+
         const serviceUrl = getSimulationServiceUrl();
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 60000);
@@ -282,7 +291,7 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
                 backend: backend || 'ibm_brisbane',
                 ibm_token: ibmToken || undefined,
                 ibm_channel: ibmToken ? 'ibm_quantum' : undefined,
-                optimization_level: typeof optimizationLevel === 'number' ? optimizationLevel : 1
+                optimization_level: typeof optimizationLevel === 'number' ? optimizationLevel : 1,
               }),
             },
             { signal: controller.signal },
@@ -298,7 +307,10 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
           res.status(200).json(data);
         } catch (err) {
           if (err instanceof Error && err.name === 'AbortError') {
-            res.status(408).json({ error: 'Transpilation trace request timed out.', errorCode: 'EXECUTION_TIMEOUT' });
+            res.status(408).json({
+              error: 'Transpilation trace request timed out.',
+              errorCode: 'EXECUTION_TIMEOUT',
+            });
             return;
           }
           console.error('Simulation service unreachable after retries:', err);

@@ -3,7 +3,7 @@ import type { TemplateDefinition } from './types';
 export const qftTemplate: TemplateDefinition = {
   templateId: 'qft',
   name: 'Quantum Fourier Transform',
-  description: 'A 3-qubit QFT circuit, essential for phase estimation and Shor\'s algorithm.',
+  description: "A 3-qubit QFT circuit, essential for phase estimation and Shor's algorithm.",
   tags: ['advanced', 'algorithm'],
   schemaVersion: 1,
   circuit: {
@@ -30,6 +30,6 @@ export const qftTemplate: TemplateDefinition = {
     imageSrc: '/images/algorithms/qft.jpg',
     longDescription: `The Quantum Fourier Transform (QFT) is the quantum analogue of the discrete Fourier transform. It is a linear transformation on quantum bits, and is the key ingredient in many quantum algorithms, most notably Shor's factoring algorithm and quantum phase estimation.
 
-This template shows a 3-qubit QFT circuit. It operates by applying a sequence of Hadamard gates and controlled phase (CP) gates, followed by a SWAP gate to reverse the order of the qubits. The QFT transforms a quantum state from the computational basis to the Fourier basis.`
-  }
+This template shows a 3-qubit QFT circuit. It operates by applying a sequence of Hadamard gates and controlled phase (CP) gates, followed by a SWAP gate to reverse the order of the qubits. The QFT transforms a quantum state from the computational basis to the Fourier basis.`,
+  },
 };

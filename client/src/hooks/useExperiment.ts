@@ -169,59 +169,56 @@ export function useExperiment(): UseExperimentReturn {
     [state.experimentId, state.rowVersion, applyResponse],
   );
 
-  const loadExperiment = useCallback(
-    async (id: string): Promise<LoadedExperiment | null> => {
-      setState((s) => ({ ...s, loading: true, error: null, isConflict: false }));
+  const loadExperiment = useCallback(async (id: string): Promise<LoadedExperiment | null> => {
+    setState((s) => ({ ...s, loading: true, error: null, isConflict: false }));
 
-      try {
-        const resp = await getExperiment(id);
-        if (!mountedRef.current) return null;
+    try {
+      const resp = await getExperiment(id);
+      if (!mountedRef.current) return null;
 
-        setState((s) => ({
-          ...s,
-          experimentId: resp.id,
-          experimentName: resp.name,
-          rowVersion: resp.rowVersion,
-          lastSavedAt: resp.updatedAt,
-          loading: false,
-          error: null,
-          isConflict: false,
-        }));
+      setState((s) => ({
+        ...s,
+        experimentId: resp.id,
+        experimentName: resp.name,
+        rowVersion: resp.rowVersion,
+        lastSavedAt: resp.updatedAt,
+        loading: false,
+        error: null,
+        isConflict: false,
+      }));
 
-        return {
-          circuitJson: resp.circuitJson,
-          runSettingsJson: resp.runSettingsJson,
-          latestResultJson: resp.latestResultJson,
-        };
-      } catch (err) {
-        if (!mountedRef.current) return null;
+      return {
+        circuitJson: resp.circuitJson,
+        runSettingsJson: resp.runSettingsJson,
+        latestResultJson: resp.latestResultJson,
+      };
+    } catch (err) {
+      if (!mountedRef.current) return null;
 
-        const apiErr = err as Error & { status?: number; errorCode?: string; exportUrl?: string };
+      const apiErr = err as Error & { status?: number; errorCode?: string; exportUrl?: string };
 
-        let errorMessage = apiErr.message || 'Failed to load experiment.';
+      let errorMessage = apiErr.message || 'Failed to load experiment.';
 
-        if (apiErr.errorCode === 'SCHEMA_VERSION_UNSUPPORTED') {
-          errorMessage =
-            'This experiment uses a newer format that is not supported. ' +
-            'Please upgrade the application or export the raw data for recovery.';
-        } else if (apiErr.errorCode === 'SCHEMA_VERSION_TOO_OLD') {
-          errorMessage =
-            'This experiment uses an outdated format that can no longer be migrated. ' +
-            'You can export the raw data for manual recovery.';
-        }
-
-        setState((s) => ({
-          ...s,
-          loading: false,
-          error: errorMessage,
-          isConflict: false,
-        }));
-
-        return null;
+      if (apiErr.errorCode === 'SCHEMA_VERSION_UNSUPPORTED') {
+        errorMessage =
+          'This experiment uses a newer format that is not supported. ' +
+          'Please upgrade the application or export the raw data for recovery.';
+      } else if (apiErr.errorCode === 'SCHEMA_VERSION_TOO_OLD') {
+        errorMessage =
+          'This experiment uses an outdated format that can no longer be migrated. ' +
+          'You can export the raw data for manual recovery.';
       }
-    },
-    [],
-  );
+
+      setState((s) => ({
+        ...s,
+        loading: false,
+        error: errorMessage,
+        isConflict: false,
+      }));
+
+      return null;
+    }
+  }, []);
 
   const setName = useCallback((name: string) => {
     setState((s) => ({ ...s, experimentName: name }));

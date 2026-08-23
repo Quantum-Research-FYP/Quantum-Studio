@@ -25,7 +25,12 @@ function formatTimestamp(): string {
 
 type CopyStatus = 'idle' | 'success' | 'error';
 
-export default function ExportControls({ code, hasErrors, hasGates, framework }: ExportControlsProps) {
+export default function ExportControls({
+  code,
+  hasErrors,
+  hasGates,
+  framework,
+}: ExportControlsProps) {
   const [copyStatus, setCopyStatus] = useState<CopyStatus>('idle');
   const isDisabled = hasErrors || !hasGates;
 

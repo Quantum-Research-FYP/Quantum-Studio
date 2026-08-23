@@ -89,7 +89,12 @@ describe('validateAiCircuit', () => {
 
     it('rejects zero qubits', () => {
       const result = validateAiCircuit(
-        { schemaVersion: 1, qubits: 0, clbits: 0, operations: [{ type: 'H', targets: { qubits: [0] }, time: 0 }] },
+        {
+          schemaVersion: 1,
+          qubits: 0,
+          clbits: 0,
+          operations: [{ type: 'H', targets: { qubits: [0] }, time: 0 }],
+        },
         defaultLimits,
       );
       expect(result.status).toBe('invalid');
@@ -124,7 +129,12 @@ describe('validateAiCircuit', () => {
   describe('invalid circuits — resource limits', () => {
     it('rejects circuits exceeding max qubits', () => {
       const result = validateAiCircuit(
-        { schemaVersion: 1, qubits: 33, clbits: 0, operations: [{ type: 'H', targets: { qubits: [0] }, time: 0 }] },
+        {
+          schemaVersion: 1,
+          qubits: 33,
+          clbits: 0,
+          operations: [{ type: 'H', targets: { qubits: [0] }, time: 0 }],
+        },
         defaultLimits,
       );
       expect(result.status).toBe('invalid');
@@ -303,10 +313,7 @@ describe('validateAiCircuit', () => {
         schemaVersion: 1,
         qubits: 1,
         clbits: 0,
-        operations: [
-          'not-an-object',
-          { type: 'H', targets: { qubits: [0] }, time: 0 },
-        ],
+        operations: ['not-an-object', { type: 'H', targets: { qubits: [0] }, time: 0 }],
       };
 
       const result = validateAiCircuit(circuit, defaultLimits);
@@ -345,7 +352,9 @@ describe('validateAiCircuit', () => {
 
       const result = validateAiCircuit(circuit, defaultLimits);
       expect(result.status).toBe('invalid');
-      expect(result.messages.some((m) => m.message.includes('No operations could be imported'))).toBe(true);
+      expect(
+        result.messages.some((m) => m.message.includes('No operations could be imported')),
+      ).toBe(true);
       expect(result.importableCircuit).toBeUndefined();
     });
   });

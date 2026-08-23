@@ -43,7 +43,7 @@ export default function StateVisualizer({
         <h3>Step-by-step Execution</h3>
         {isLoading && <span className="state-visualizer__loading">Calculating...</span>}
       </div>
-      
+
       {error && <div className="state-visualizer__error">{error}</div>}
 
       <div className="state-visualizer__content">
@@ -61,8 +61,8 @@ export default function StateVisualizer({
         <div className="state-visualizer__bloch">
           <h4>
             Per-Qubit Bloch Spheres
-            <button 
-              className="info-btn" 
+            <button
+              className="info-btn"
               data-tooltip="Visualizes the state of individual qubits on the Bloch sphere."
               aria-label="Info"
             >

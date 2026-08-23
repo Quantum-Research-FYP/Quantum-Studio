@@ -9,10 +9,7 @@ const CONNECT_TIMEOUT_MS = 30_000;
  */
 function maskUri(uri: string): string {
   try {
-    return uri.replace(
-      /\/\/([^:]+):([^@]+)@/,
-      '//***:***@',
-    );
+    return uri.replace(/\/\/([^:]+):([^@]+)@/, '//***:***@');
   } catch {
     return 'mongodb+srv://***:***@<unparseable>';
   }
@@ -55,9 +52,7 @@ export async function connectMongo(): Promise<Db> {
     return db;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(
-      `[db] Failed to connect to MongoDB (${maskUri(uri)}): ${message}`,
-    );
+    console.error(`[db] Failed to connect to MongoDB (${maskUri(uri)}): ${message}`);
     process.exit(1);
   }
 }

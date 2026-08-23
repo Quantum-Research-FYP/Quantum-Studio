@@ -6,9 +6,8 @@ interface ResultsTableProps {
 }
 
 export default function ResultsTable({ outcomes, maxDisplay }: ResultsTableProps) {
-  const displayed = maxDisplay && outcomes.length > maxDisplay
-    ? outcomes.slice(0, maxDisplay)
-    : outcomes;
+  const displayed =
+    maxDisplay && outcomes.length > maxDisplay ? outcomes.slice(0, maxDisplay) : outcomes;
 
   const truncated = maxDisplay ? outcomes.length > maxDisplay : false;
 
