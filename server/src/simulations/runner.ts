@@ -25,7 +25,7 @@ export function createJobRunner(pool: Db, options?: RunnerOptions) {
   const repo = createSimulationRepository(pool);
   const spinqRepo = createSpinqRepository(pool);
   const maxConcurrent =
-    parseInt(process.env.SIM_MAX_CONCURRENT_JOBS || '', 10) || options?.maxConcurrent || 2;
+    parseInt(process.env.SIM_MAX_CONCURRENT_JOBS || '', 10) || options?.maxConcurrent || 1;
   const pollIntervalMs = options?.pollIntervalMs ?? 1000;
   const keepAliveIntervalMs = options?.keepAliveIntervalMs ?? DEFAULT_KEEP_ALIVE_MS;
 
