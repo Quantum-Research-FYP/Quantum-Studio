@@ -275,7 +275,8 @@ export function createAuthHandlers(pool: Db) {
       }
 
       const appUrl = process.env.APP_URL || 'http://localhost:5173';
-      const redirectUri = `${appUrl}/api/auth/google/callback`;
+      const serverUrl = process.env.SERVER_URL || appUrl;
+      const redirectUri = `${serverUrl}/api/auth/google/callback`;
 
       const url = new URL('https://accounts.google.com/o/oauth2/v2/auth');
       url.searchParams.set('client_id', clientId);
@@ -293,6 +294,7 @@ export function createAuthHandlers(pool: Db) {
       const { code, error } = req.query;
 
       const appUrl = process.env.APP_URL || 'http://localhost:5173';
+      const serverUrl = process.env.SERVER_URL || appUrl;
 
       if (error) {
         res.redirect(`${appUrl}/login?error=google_sso_failed`);
@@ -305,7 +307,7 @@ export function createAuthHandlers(pool: Db) {
 
       const clientId = process.env.GOOGLE_CLIENT_ID;
       const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-      const redirectUri = `${appUrl}/api/auth/google/callback`;
+      const redirectUri = `${serverUrl}/api/auth/google/callback`;
 
       try {
         const tokenRes = await fetch('https://oauth2.googleapis.com/token', {

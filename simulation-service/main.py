@@ -16,6 +16,7 @@ Request body for /simulate:
     the code must define a `qc` QuantumCircuit variable
 """
 
+import asyncio
 import os
 import re
 import time as _time
@@ -33,6 +34,29 @@ except ImportError:
     pass
 
 app = FastAPI(title="Quantum Simulation Service", version="1.1.0")
+
+# ---------------------------------------------------------------------------
+# Concurrency limiter — prevents race conditions when multiple users run
+# simulations simultaneously on a single-process worker (free-tier Render).
+# Both /simulate, /simulate-stepper, /analyze and transpile endpoints acquire
+# this semaphore before doing heavy Qiskit work.
+#
+# SIM_MAX_CONCURRENT: max parallel Qiskit executions (default: 1)
+# SIM_QUEUE_TIMEOUT_SECONDS: how long a request waits before 503 (default: 60)
+# ---------------------------------------------------------------------------
+_SIM_MAX_CONCURRENT = int(os.getenv("SIM_MAX_CONCURRENT", "1"))
+_SIM_QUEUE_TIMEOUT = int(os.getenv("SIM_QUEUE_TIMEOUT_SECONDS", "60"))
+_sim_semaphore: asyncio.Semaphore  # initialised in startup event
+
+
+@app.on_event("startup")
+async def _init_semaphore() -> None:
+    global _sim_semaphore
+    _sim_semaphore = asyncio.Semaphore(_SIM_MAX_CONCURRENT)
+    print(
+        f"[startup] Simulation semaphore: max_concurrent={_SIM_MAX_CONCURRENT}, "
+        f"queue_timeout={_SIM_QUEUE_TIMEOUT}s"
+    )
 
 _cors_origins_env = os.getenv("CORS_ALLOW_ORIGINS", "*")
 _cors_origins = [origin.strip() for origin in _cors_origins_env.split(",") if origin.strip()]
@@ -335,7 +359,7 @@ def _get_ibm_fake_backend(backend_name: str) -> Any:
         500: {"description": "Runtime error during transpilation"},
     },
 )
-def transpile_ibm(req: TranspileIbmRequest):
+async def transpile_ibm(req: TranspileIbmRequest):
     """
     Convert a circuit to an IBM-QPU-executable ISA circuit for the selected backend.
 
@@ -367,172 +391,187 @@ def transpile_ibm(req: TranspileIbmRequest):
             detail={"errorCode": "VALIDATION_SYNTAX", "message": "Empty circuit input."},
         )
 
-    # -----------------------------------------------------------------------
-    # Step 1: Convert input to a Qiskit QuantumCircuit
-    # -----------------------------------------------------------------------
-    if req.codeType in ("cirq", "pennylane", "braket", "tket"):
+    # Wait for a concurrency slot (queue up instead of crashing under load)
+    try:
+        await asyncio.wait_for(_sim_semaphore.acquire(), timeout=_SIM_QUEUE_TIMEOUT)
+    except asyncio.TimeoutError:
         raise HTTPException(
-            status_code=422,
+            status_code=503,
             detail={
-                "errorCode": "UNSUPPORTED_FRAMEWORK",
-                "message": (
-                    f"Framework '{req.codeType}' is not supported for IBM QPU execution yet. "
-                    "Please convert your circuit to OpenQASM 2/3 or Qiskit Python first."
-                ),
+                "errorCode": "SERVICE_BUSY",
+                "message": "The simulation service is currently busy. Please try again in a moment.",
             },
         )
 
-    qc = None
-
-    if req.codeType == "qasm":
-        try:
-            qc = _parse_qasm(req.code)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={"errorCode": "VALIDATION_SYNTAX", "message": _sanitize(str(exc))},
-            )
-
-    elif req.codeType == "python":
-        # Sandboxed exec — same as the /simulate Python path.
-        try:
-            compiled = compile(req.code, "<user_circuit>", "exec")
-        except SyntaxError as exc:
+    try:
+        # -----------------------------------------------------------------------
+        # Step 1: Convert input to a Qiskit QuantumCircuit
+        # -----------------------------------------------------------------------
+        if req.codeType in ("cirq", "pennylane", "braket", "tket"):
             raise HTTPException(
                 status_code=422,
                 detail={
-                    "errorCode": "VALIDATION_SYNTAX",
-                    "message": f"Python syntax error on line {exc.lineno}: {exc.msg}",
-                },
-            )
-
-        namespace: dict = {"__builtins__": _SAFE_BUILTINS}
-        try:
-            exec(compiled, namespace)  # noqa: S102
-        except ImportError as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={"errorCode": "VALIDATION_SYNTAX", "message": str(exc)},
-            )
-        except Exception as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
-            )
-
-        qc = namespace.get("qc")
-        if qc is None:
-            raise HTTPException(
-                status_code=422,
-                detail={
-                    "errorCode": "VALIDATION_NO_CIRCUIT",
+                    "errorCode": "UNSUPPORTED_FRAMEWORK",
                     "message": (
-                        "Your code must define a variable named 'qc' (QuantumCircuit). "
-                        "Example: qc = QuantumCircuit(2, 2)"
+                        f"Framework '{req.codeType}' is not supported for IBM QPU execution yet. "
+                        "Please convert your circuit to OpenQASM 2/3 or Qiskit Python first."
                     ),
                 },
             )
 
-        try:
-            from qiskit import QuantumCircuit as QC
-            if not isinstance(qc, QC):
+        qc = None
+
+        if req.codeType == "qasm":
+            try:
+                qc = _parse_qasm(req.code)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"errorCode": "VALIDATION_SYNTAX", "message": _sanitize(str(exc))},
+                )
+
+        elif req.codeType == "python":
+            # Sandboxed exec — same as the /simulate Python path.
+            try:
+                compiled = compile(req.code, "<user_circuit>", "exec")
+            except SyntaxError as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "errorCode": "VALIDATION_SYNTAX",
+                        "message": f"Python syntax error on line {exc.lineno}: {exc.msg}",
+                    },
+                )
+
+            namespace: dict = {"__builtins__": _SAFE_BUILTINS}
+            try:
+                exec(compiled, namespace)  # noqa: S102
+            except ImportError as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"errorCode": "VALIDATION_SYNTAX", "message": str(exc)},
+                )
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
+                )
+
+            qc = namespace.get("qc")
+            if qc is None:
                 raise HTTPException(
                     status_code=422,
                     detail={
                         "errorCode": "VALIDATION_NO_CIRCUIT",
-                        "message": f"'qc' must be a QuantumCircuit, got {type(qc).__name__}.",
+                        "message": (
+                            "Your code must define a variable named 'qc' (QuantumCircuit). "
+                            "Example: qc = QuantumCircuit(2, 2)"
+                        ),
                     },
                 )
-        except ImportError:
-            pass
 
-    if qc is None:
-        raise HTTPException(
-            status_code=500,
-            detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": "No circuit was produced."},
-        )
-
-    # -----------------------------------------------------------------------
-    # Step 2: Per-QPU transpilation
-    # -----------------------------------------------------------------------
-    #
-    # Every IBM backend is a unique physical machine. Even backends in the
-    # same processor family (same qubit count, same native gate) have
-    # different coupling maps, error rates, and calibration data.
-    #
-    # Strategy:
-    #   A (correct): QiskitRuntimeService(token).backend(name)
-    #      └─ Fetches the LIVE backend with its exact coupling map and
-    #         calibration. Transpilation produces a circuit that is
-    #         guaranteed to route correctly on THIS specific QPU.
-    #
-    #   B (fallback — routing WILL be wrong):
-    #      GenericBackendV2 with the correct native 2Q gate (ecr/cz) but
-    #      a RANDOM coupling map. Gate decomposition is correct; qubit
-    #      routing is unreliable. Use only for local testing.
-    try:
-        from qiskit import transpile
-
-        backend = None
-
-        # --- Path A: real backend (correct coupling map per QPU) ---
-        if req.ibm_token and req.ibm_channel:
             try:
-                print(
-                    f"[transpile-ibm] Fetching real backend '{req.backend}' "
-                    f"via {req.ibm_channel} (coupling map is QPU-specific)..."
-                )
-                backend = _get_real_backend_cached(
-                    req.ibm_channel, req.ibm_token, req.ibm_instance, req.backend
-                )
-                print(
-                    f"[transpile-ibm] Real backend loaded. "
-                    f"Qubits: {backend.num_qubits}, "
-                    f"Basis: {list(backend.operation_names)}"
-                )
-            except Exception as e:
-                print(
-                    f"[transpile-ibm] Could not load real backend '{req.backend}': {e}. "
-                    f"Falling back to GenericBackendV2 (routing will be approximate)."
-                )
-                backend = None
+                from qiskit import QuantumCircuit as QC
+                if not isinstance(qc, QC):
+                    raise HTTPException(
+                        status_code=422,
+                        detail={
+                            "errorCode": "VALIDATION_NO_CIRCUIT",
+                            "message": f"'qc' must be a QuantumCircuit, got {type(qc).__name__}.",
+                        },
+                    )
+            except ImportError:
+                pass
 
-        # --- Path B: fallback (basis gates correct, coupling map random) ---
-        if backend is None:
-            backend = _get_ibm_fake_backend(req.backend)
+        if qc is None:
+            raise HTTPException(
+                status_code=500,
+                detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": "No circuit was produced."},
+            )
 
-        transpiled = transpile(
-            qc,
-            backend=backend,
-            optimization_level=1,
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=422,
-            detail={"errorCode": "TRANSPILATION_ERROR", "message": _sanitize(str(exc))},
-        )
+        # -----------------------------------------------------------------------
+        # Step 2: Per-QPU transpilation
+        # -----------------------------------------------------------------------
+        #
+        # Every IBM backend is a unique physical machine. Even backends in the
+        # same processor family (same qubit count, same native gate) have
+        # different coupling maps, error rates, and calibration data.
+        #
+        # Strategy:
+        #   A (correct): QiskitRuntimeService(token).backend(name)
+        #      └─ Fetches the LIVE backend with its exact coupling map and
+        #         calibration. Transpilation produces a circuit that is
+        #         guaranteed to route correctly on THIS specific QPU.
+        #
+        #   B (fallback — routing WILL be wrong):
+        #      GenericBackendV2 with the correct native 2Q gate (ecr/cz) but
+        #      a RANDOM coupling map. Gate decomposition is correct; qubit
+        #      routing is unreliable. Use only for local testing.
+        try:
+            from qiskit import transpile
 
-    # -----------------------------------------------------------------------
-    # Step 3: Serialise transpiled circuit to OpenQASM 3
-    # -----------------------------------------------------------------------
-    try:
-        from qiskit import qasm3
-        transpiled_qasm = qasm3.dumps(transpiled)
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail={"errorCode": "TRANSPILATION_ERROR", "message": _sanitize(str(exc))},
-        )
+            backend = None
 
-    metadata = {
-        "backend": req.backend,
-        "depth": transpiled.depth(),
-        "width": transpiled.width(),
-        "size": transpiled.size(),
-        "codeType": req.codeType,
-    }
+            # --- Path A: real backend (correct coupling map per QPU) ---
+            if req.ibm_token and req.ibm_channel:
+                try:
+                    print(
+                        f"[transpile-ibm] Fetching real backend '{req.backend}' "
+                        f"via {req.ibm_channel} (coupling map is QPU-specific)..."
+                    )
+                    backend = _get_real_backend_cached(
+                        req.ibm_channel, req.ibm_token, req.ibm_instance, req.backend
+                    )
+                    print(
+                        f"[transpile-ibm] Real backend loaded. "
+                        f"Qubits: {backend.num_qubits}, "
+                        f"Basis: {list(backend.operation_names)}"
+                    )
+                except Exception as e:
+                    print(
+                        f"[transpile-ibm] Could not load real backend '{req.backend}': {e}. "
+                        f"Falling back to GenericBackendV2 (routing will be approximate)."
+                    )
+                    backend = None
 
-    return TranspileIbmResponse(transpiled_qasm=transpiled_qasm, metadata=metadata)
+            # --- Path B: fallback (basis gates correct, coupling map random) ---
+            if backend is None:
+                backend = _get_ibm_fake_backend(req.backend)
+
+            transpiled = transpile(
+                qc,
+                backend=backend,
+                optimization_level=1,
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"errorCode": "TRANSPILATION_ERROR", "message": _sanitize(str(exc))},
+            )
+
+        # -----------------------------------------------------------------------
+        # Step 3: Serialise transpiled circuit to OpenQASM 3
+        # -----------------------------------------------------------------------
+        try:
+            from qiskit import qasm3
+            transpiled_qasm = qasm3.dumps(transpiled)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=500,
+                detail={"errorCode": "TRANSPILATION_ERROR", "message": _sanitize(str(exc))},
+            )
+
+        metadata = {
+            "backend": req.backend,
+            "depth": transpiled.depth(),
+            "width": transpiled.width(),
+            "size": transpiled.size(),
+            "codeType": req.codeType,
+        }
+
+        return TranspileIbmResponse(transpiled_qasm=transpiled_qasm, metadata=metadata)
+    finally:
+        _sim_semaphore.release()
 
 
 # ---------------------------------------------------------------------------
@@ -1013,7 +1052,7 @@ def _extract_layout(transpiled_circuit) -> dict[str, int] | None:
         500: {"description": "Runtime error during transpilation"},
     },
 )
-def transpile_trace(req: TranspileTraceRequest):
+async def transpile_trace(req: TranspileTraceRequest):
     """
     Run the transpilation pipeline step-by-step and return a detailed pass trace
     with rationales, stage groupings, and qubit layout information.
@@ -1024,106 +1063,121 @@ def transpile_trace(req: TranspileTraceRequest):
             detail={"errorCode": "VALIDATION_SYNTAX", "message": "Empty circuit input."},
         )
 
-    if req.codeType in ("cirq", "pennylane", "braket", "tket"):
+    # Wait for a concurrency slot (queue up instead of crashing under load)
+    try:
+        await asyncio.wait_for(_sim_semaphore.acquire(), timeout=_SIM_QUEUE_TIMEOUT)
+    except asyncio.TimeoutError:
         raise HTTPException(
-            status_code=422,
+            status_code=503,
             detail={
-                "errorCode": "UNSUPPORTED_FRAMEWORK",
-                "message": f"Framework '{req.codeType}' not supported for step-by-pass transpilation trace.",
+                "errorCode": "SERVICE_BUSY",
+                "message": "The simulation service is currently busy. Please try again in a moment.",
             },
         )
 
-    qc = None
-    if req.codeType == "qasm":
-        try:
-            qc = _parse_qasm(req.code)
-        except Exception as exc:
-            raise HTTPException(
-                status_code=422,
-                detail={"errorCode": "VALIDATION_SYNTAX", "message": _sanitize(str(exc))},
-            )
-    elif req.codeType == "python":
-        try:
-            compiled = compile(req.code, "<user_circuit>", "exec")
-        except SyntaxError as exc:
+    try:
+        if req.codeType in ("cirq", "pennylane", "braket", "tket"):
             raise HTTPException(
                 status_code=422,
                 detail={
-                    "errorCode": "VALIDATION_SYNTAX",
-                    "message": f"Python syntax error on line {exc.lineno}: {exc.msg}",
+                    "errorCode": "UNSUPPORTED_FRAMEWORK",
+                    "message": f"Framework '{req.codeType}' not supported for step-by-pass transpilation trace.",
                 },
             )
-        namespace: dict = {"__builtins__": _SAFE_BUILTINS}
+
+        qc = None
+        if req.codeType == "qasm":
+            try:
+                qc = _parse_qasm(req.code)
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"errorCode": "VALIDATION_SYNTAX", "message": _sanitize(str(exc))},
+                )
+        elif req.codeType == "python":
+            try:
+                compiled = compile(req.code, "<user_circuit>", "exec")
+            except SyntaxError as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail={
+                        "errorCode": "VALIDATION_SYNTAX",
+                        "message": f"Python syntax error on line {exc.lineno}: {exc.msg}",
+                    },
+                )
+            namespace: dict = {"__builtins__": _SAFE_BUILTINS}
+            try:
+                exec(compiled, namespace)  # noqa: S102
+            except Exception as exc:
+                raise HTTPException(
+                    status_code=422,
+                    detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
+                )
+            qc = namespace.get("qc")
+
+        if qc is None:
+            raise HTTPException(
+                status_code=500,
+                detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": "No circuit was produced."},
+            )
+
+        # Load backend (skip hardware topologies for simulators)
+        backend = None
+        is_simulator = req.backend in ("aer_simulator", "simulator", "local", "basic_simulator", "spinq")
+        if not is_simulator and req.ibm_token and req.ibm_channel:
+            try:
+                backend = _get_real_backend_cached(
+                    req.ibm_channel, req.ibm_token, req.ibm_instance, req.backend
+                )
+            except Exception:
+                backend = None
+        if not is_simulator and backend is None:
+            backend = _get_ibm_fake_backend(req.backend)
+
+        # Run Qiskit transpile with callback
         try:
-            exec(compiled, namespace)  # noqa: S102
+            from qiskit import transpile
+            from qiskit import qasm3  # noqa: F401
+
+            collector = TranspileTraceCollector(qc)
+            start_time = _time.time()
+
+            transpiled = transpile(
+                qc,
+                backend=backend,
+                optimization_level=req.optimization_level,
+                callback=collector.callback,
+            )
+
+            total_time_ms = (_time.time() - start_time) * 1000
+            final_qasm = _safe_qasm_dump(transpiled)
+
+            # Build stage-level trace summaries
+            stages = _group_trace_into_stages(collector, qc.size(), qc.depth())
+            coupling_map = _extract_coupling_map(backend)
+            layout = _extract_layout(transpiled)
+            dag_data = _serialize_dag(qc)
+
+            return TranspileTraceResponse(
+                originalQasm=collector.initial_qasm,
+                finalQasm=final_qasm,
+                originalGateCount=qc.size(),
+                originalDepth=qc.depth(),
+                finalGateCount=transpiled.size(),
+                finalDepth=transpiled.depth(),
+                totalExecutionTimeMs=total_time_ms,
+                stages=stages,
+                couplingMap=coupling_map,
+                logicalToPhysicalLayout=layout,
+                dag=dag_data
+            )
         except Exception as exc:
             raise HTTPException(
-                status_code=422,
-                detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
+                status_code=500,
+                detail={"errorCode": "TRANSPILATION_ERROR", "message": _sanitize(str(exc))},
             )
-        qc = namespace.get("qc")
-
-    if qc is None:
-        raise HTTPException(
-            status_code=500,
-            detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": "No circuit was produced."},
-        )
-
-    # Load backend (skip hardware topologies for simulators)
-    backend = None
-    is_simulator = req.backend in ("aer_simulator", "simulator", "local", "basic_simulator", "spinq")
-    if not is_simulator and req.ibm_token and req.ibm_channel:
-        try:
-            backend = _get_real_backend_cached(
-                req.ibm_channel, req.ibm_token, req.ibm_instance, req.backend
-            )
-        except Exception:
-            backend = None
-    if not is_simulator and backend is None:
-        backend = _get_ibm_fake_backend(req.backend)
-
-    # Run Qiskit transpile with callback
-    try:
-        from qiskit import transpile
-        from qiskit import qasm3
-
-        collector = TranspileTraceCollector(qc)
-        start_time = _time.time()
-        
-        transpiled = transpile(
-            qc,
-            backend=backend,
-            optimization_level=req.optimization_level,
-            callback=collector.callback,
-        )
-        
-        total_time_ms = (_time.time() - start_time) * 1000
-        final_qasm = _safe_qasm_dump(transpiled)
-
-        # Build stage-level trace summaries
-        stages = _group_trace_into_stages(collector, qc.size(), qc.depth())
-        coupling_map = _extract_coupling_map(backend)
-        layout = _extract_layout(transpiled)
-        dag_data = _serialize_dag(qc)
-
-        return TranspileTraceResponse(
-            originalQasm=collector.initial_qasm,
-            finalQasm=final_qasm,
-            originalGateCount=qc.size(),
-            originalDepth=qc.depth(),
-            finalGateCount=transpiled.size(),
-            finalDepth=transpiled.depth(),
-            totalExecutionTimeMs=total_time_ms,
-            stages=stages,
-            couplingMap=coupling_map,
-            logicalToPhysicalLayout=layout,
-            dag=dag_data
-        )
-    except Exception as exc:
-        raise HTTPException(
-            status_code=500,
-            detail={"errorCode": "TRANSPILATION_ERROR", "message": _sanitize(str(exc))},
-        )
+    finally:
+        _sim_semaphore.release()
 
 
 # ---------------------------------------------------------------------------
@@ -1287,49 +1341,64 @@ def get_ibm_job_result(req: IbmJobResultRequest):
         500: {"description": "Runtime error during simulation"},
     },
 )
-def simulate(req: SimulateRequest):
+async def simulate(req: SimulateRequest):
     if not req.qasm.strip():
         raise HTTPException(
             status_code=422,
             detail={"errorCode": "VALIDATION_SYNTAX", "message": "Empty circuit input."},
         )
 
-    if req.mode == "python":
-        counts, backend_name, duration_ms = _run_python_mode(req.qasm, req.shots, req.noiseConfig, req.provider, req.spinqConfig)
-    else:
-        if req.provider == "spinq":
-            try:
-                counts, backend_name, duration_ms = _run_spinq_simulation(req.qasm, req.shots, req.spinqConfig)
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=500,
-                    detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
-                )
-        else:
-            try:
-                circuit = _parse_qasm(req.qasm)
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=422,
-                    detail={"errorCode": "VALIDATION_SYNTAX", "message": _sanitize(str(exc))},
-                )
-            try:
-                counts, backend_name, duration_ms = _run_simulation(circuit, req.shots, req.noiseConfig)
-            except Exception as exc:
-                raise HTTPException(
-                    status_code=500,
-                    detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
-                )
+    # Wait for a concurrency slot (queue up instead of crashing under load)
+    try:
+        await asyncio.wait_for(_sim_semaphore.acquire(), timeout=_SIM_QUEUE_TIMEOUT)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "errorCode": "SERVICE_BUSY",
+                "message": "The simulation service is currently busy. Please try again in a moment.",
+            },
+        )
 
-    return SimulateResponse(
-        counts=counts,
-        metadata={
-            "shots": req.shots,
-            "backend": backend_name,
-            "durationMs": duration_ms,
-            "codeType": req.mode,
-        },
-    )
+    try:
+        if req.mode == "python":
+            counts, backend_name, duration_ms = _run_python_mode(req.qasm, req.shots, req.noiseConfig, req.provider, req.spinqConfig)
+        else:
+            if req.provider == "spinq":
+                try:
+                    counts, backend_name, duration_ms = _run_spinq_simulation(req.qasm, req.shots, req.spinqConfig)
+                except Exception as exc:
+                    raise HTTPException(
+                        status_code=500,
+                        detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
+                    )
+            else:
+                try:
+                    circuit = _parse_qasm(req.qasm)
+                except Exception as exc:
+                    raise HTTPException(
+                        status_code=422,
+                        detail={"errorCode": "VALIDATION_SYNTAX", "message": _sanitize(str(exc))},
+                    )
+                try:
+                    counts, backend_name, duration_ms = _run_simulation(circuit, req.shots, req.noiseConfig)
+                except Exception as exc:
+                    raise HTTPException(
+                        status_code=500,
+                        detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
+                    )
+
+        return SimulateResponse(
+            counts=counts,
+            metadata={
+                "shots": req.shots,
+                "backend": backend_name,
+                "durationMs": duration_ms,
+                "codeType": req.mode,
+            },
+        )
+    finally:
+        _sim_semaphore.release()
 
 
 # ---------------------------------------------------------------------------
@@ -1427,14 +1496,25 @@ def _run_python_mode(code: str, shots: int, noiseConfig: dict | None = None, pro
         500: {"description": "Runtime error during simulation"},
     },
 )
-def simulate_stepper(req: StepperRequest):
+async def simulate_stepper(req: StepperRequest):
     if not req.code.strip():
         raise HTTPException(
             status_code=422,
             detail={"errorCode": "VALIDATION_SYNTAX", "message": "Empty circuit input."},
         )
 
-    # Compile first for clean syntax error reporting
+    # Wait for a concurrency slot (queue up instead of crashing under load)
+    try:
+        await asyncio.wait_for(_sim_semaphore.acquire(), timeout=_SIM_QUEUE_TIMEOUT)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "errorCode": "SERVICE_BUSY",
+                "message": "The simulation service is currently busy. Please try again in a moment.",
+            },
+        )
+
     try:
         compiled = compile(req.code, '<user_circuit>', 'exec')
     except SyntaxError as exc:
@@ -1519,15 +1599,29 @@ def simulate_stepper(req: StepperRequest):
             status_code=500,
             detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
         )
+    finally:
+        _sim_semaphore.release()
 
 
 @app.post(
     "/analyze",
     response_model=AnalyzeResponse,
 )
-def analyze(req: AnalyzeRequest):
+async def analyze(req: AnalyzeRequest):
     if not req.qasm.strip():
         raise HTTPException(status_code=422, detail={"errorCode": "VALIDATION_SYNTAX", "message": "Empty circuit input."})
+
+    # Wait for a concurrency slot (queue up instead of crashing under load)
+    try:
+        await asyncio.wait_for(_sim_semaphore.acquire(), timeout=_SIM_QUEUE_TIMEOUT)
+    except asyncio.TimeoutError:
+        raise HTTPException(
+            status_code=503,
+            detail={
+                "errorCode": "SERVICE_BUSY",
+                "message": "The simulation service is currently busy. Please try again in a moment.",
+            },
+        )
 
     try:
         if req.mode == "python":
@@ -1624,6 +1718,8 @@ def analyze(req: AnalyzeRequest):
             status_code=500,
             detail={"errorCode": "EXECUTION_RUNTIME_ERROR", "message": _sanitize(str(exc))},
         )
+    finally:
+        _sim_semaphore.release()
 
 # ---------------------------------------------------------------------------
 # Simulation helpers
