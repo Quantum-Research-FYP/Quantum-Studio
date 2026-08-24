@@ -15,5 +15,7 @@ export function createAuthRouter(pool: Db): Router {
   router.get('/google/callback', handlers.googleCallback);
   router.get('/github', handlers.githubAuth);
   router.get('/github/callback', handlers.githubCallback);
+  // Cross-domain SSO handoff: swap a one-time token for a real session cookie
+  router.get('/session/exchange', handlers.sessionExchange);
   return router;
 }

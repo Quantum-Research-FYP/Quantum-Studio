@@ -23,6 +23,8 @@ export const COLLECTIONS = {
   SHARE_AUDIT_EVENTS: 'share_audit_events',
   AUDIT_LOG: 'audit_log',
   USER_INTEGRATION_SETTINGS: 'user_integration_settings',
+  /** Short-lived one-time tokens for cross-domain SSO session handoff. */
+  SSO_LOGIN_TOKENS: 'sso_login_tokens',
 } as const;
 
 /**
@@ -135,6 +137,13 @@ export async function ensureIndexes(db: Db): Promise<void> {
   await integrationSettings.createIndex(
     { userId: 1, provider: 1 },
     { unique: true, name: 'idx_integration_settings_userId_provider_unique' },
+  );
+
+  // --- sso_login_tokens --- (TTL: auto-expire after 5 minutes)
+  const ssoLoginTokens = db.collection(COLLECTIONS.SSO_LOGIN_TOKENS);
+  await ssoLoginTokens.createIndex(
+    { expiresAt: 1 },
+    { expireAfterSeconds: 0, name: 'idx_sso_login_tokens_ttl' },
   );
 
   console.log('[db] Indexes ensured successfully.');

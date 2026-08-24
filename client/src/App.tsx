@@ -9,6 +9,7 @@ import CreatePage from './pages/CreatePage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import NotFoundPage from './pages/NotFoundPage';
+import SsoCallbackPage from './pages/SsoCallbackPage';
 
 // Lazy-loaded — heavy pages, only fetched when the user navigates to them
 const CircuitBuilderPage = lazy(() => import('./pages/CircuitBuilderPage'));
@@ -70,6 +71,8 @@ export default function App() {
               <Route path="shared/:experimentId" element={<SharedExperimentPage />} />
               <Route path="login" element={<LoginPage />} />
               <Route path="signup" element={<SignupPage />} />
+              {/* Cross-domain SSO handoff — exchanges a one-time token for a session cookie */}
+              <Route path="auth/callback" element={<SsoCallbackPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Route>
           </Routes>
