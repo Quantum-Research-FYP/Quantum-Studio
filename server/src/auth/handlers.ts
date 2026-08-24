@@ -21,6 +21,30 @@ function isValidEmailFormat(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+/**
+ * Create a short-lived one-time login token for cross-domain SSO handoff.
+ * The browser is redirected to the frontend with this token, which it then
+ * POSTs to /api/auth/session/exchange to receive a real session cookie.
+ * This sidesteps the problem of Vercel's edge proxy stripping Set-Cookie
+ * headers issued by the Render backend on a different domain.
+ */
+async function createSsoHandoffToken(pool: Db, userId: string): Promise<string> {
+  const token = crypto.randomBytes(32).toString('hex');
+  const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+  const ssoTokens = pool.collection<AppDocument>(COLLECTIONS.SSO_LOGIN_TOKENS);
+  await ssoTokens.insertOne({
+    _id: uuid(),
+    token,
+    userId,
+    usedAt: null,
+    expiresAt,
+    schemaVersion: 1,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  });
+  return token;
+}
+
 export function createAuthHandlers(pool: Db) {
   const users = pool.collection<AppDocument>(COLLECTIONS.USERS);
 
@@ -382,8 +406,14 @@ export function createAuthHandlers(pool: Db) {
           );
         }
 
-        await createSession(pool, user._id as string, req, res);
-        res.redirect(appUrl);
+        // Cross-domain SSO handoff: Vercel (frontend) ↔ Render (backend) are
+        // on different domains so a direct Set-Cookie from Render is blocked by
+        // the browser for requests that go through the Vercel proxy.
+        // Instead we issue a one-time token and redirect the browser to the
+        // frontend /auth/callback page, which calls /api/auth/session/exchange
+        // to swap the token for a real session cookie via the proxy.
+        const handoffToken = await createSsoHandoffToken(pool, user._id as string);
+        res.redirect(`${appUrl}/auth/callback?token=${handoffToken}`);
       } catch (err) {
         console.error('Google SSO Callback error:', err);
         res.redirect(`${appUrl}/login?error=google_sso_error`);
@@ -499,23 +529,68 @@ export function createAuthHandlers(pool: Db) {
           await users.insertOne(user);
         } else {
           await users.updateOne(
-            { _id: user._id },
-            {
-              $set: {
-                lastLoginAt: now,
-                githubUserId: githubId,
-                updatedAt: now,
-              },
+          { _id: user._id },
+          {
+            $set: {
+              lastLoginAt: now,
+              githubUserId: githubId,
+              updatedAt: now,
             },
-          );
+          },
+        );
         }
 
-        await createSession(pool, user._id as string, req, res);
-        res.redirect(appUrl);
+        // Same cross-domain SSO handoff as Google
+        const handoffToken = await createSsoHandoffToken(pool, user._id as string);
+        res.redirect(`${appUrl}/auth/callback?token=${handoffToken}`);
       } catch (err) {
         console.error('GitHub SSO Callback error:', err);
         res.redirect(`${appUrl}/login?error=github_sso_error`);
       }
+    },
+
+    /** GET /api/auth/session/exchange?token=<one-time-token>
+     * Validates the one-time SSO handoff token and sets a real session cookie.
+     * Called by the frontend /auth/callback page after a redirect from an SSO provider.
+     */
+    async sessionExchange(req: Request, res: Response): Promise<void> {
+      const { token } = req.query;
+      const appUrl = process.env.APP_URL || 'http://localhost:5173';
+
+      if (!token || typeof token !== 'string') {
+        res.status(400).json({ error: 'Missing or invalid token.' });
+        return;
+      }
+
+      const ssoTokens = pool.collection<AppDocument>(COLLECTIONS.SSO_LOGIN_TOKENS);
+
+      // Find an unused, non-expired token
+      const tokenDoc = await ssoTokens.findOne({
+        token,
+        usedAt: null,
+        expiresAt: { $gt: new Date() },
+      });
+
+      if (!tokenDoc) {
+        res.status(401).json({ error: 'Invalid or expired SSO token.' });
+        return;
+      }
+
+      // Mark the token as used immediately (one-time use)
+      await ssoTokens.updateOne(
+        { _id: tokenDoc._id },
+        { $set: { usedAt: new Date(), updatedAt: new Date() } },
+      );
+
+      const userId = tokenDoc.userId as string;
+      const user = await users.findOne({ _id: userId });
+      if (!user) {
+        res.status(404).json({ error: 'User not found.' });
+        return;
+      }
+
+      await createSession(pool, userId, req, res);
+      res.status(200).json({ user: { id: user._id, email: user.email } });
     },
   };
 }
