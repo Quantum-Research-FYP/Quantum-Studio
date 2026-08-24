@@ -44,8 +44,11 @@ export async function createSession(
 
   res.cookie(SESSION_COOKIE_NAME, sessionId, {
     httpOnly: true,
+    // Cross-site deployments (Vercel frontend ↔ Render backend) require
+    // sameSite:'none' + secure:true so browsers include the cookie on
+    // cross-origin API calls. Locally we keep 'lax' (no HTTPS needed).
     secure: isProduction,
-    sameSite: 'lax',
+    sameSite: isProduction ? 'none' : 'lax',
     maxAge: maxAgeMs,
     path: '/',
   });

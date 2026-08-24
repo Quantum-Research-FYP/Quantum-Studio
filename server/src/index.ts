@@ -32,10 +32,27 @@ export function createApp(database: Db, onJobCreated?: () => void) {
   // Security headers
   app.use(helmet());
 
-  // CORS — allow the Vite dev server origin in development
-  if (process.env.NODE_ENV !== 'production') {
-    app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+  // CORS — allow the frontend origin in both dev and production
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'https://quantum-studio2.vercel.app',
+  ];
+  if (process.env.APP_URL && !allowedOrigins.includes(process.env.APP_URL)) {
+    allowedOrigins.push(process.env.APP_URL);
   }
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        // Allow requests with no origin (curl, mobile apps, server-to-server)
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+        } else {
+          callback(new Error(`CORS: origin '${origin}' not allowed`));
+        }
+      },
+      credentials: true,
+    }),
+  );
 
   // Body parsing and cookies
   app.use(express.json());
