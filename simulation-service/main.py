@@ -595,7 +595,10 @@ class TranspilePassTrace(BaseModel):
     passClass: str
     stage: str
     executionTimeMs: float
+    # QASM state AFTER this pass executes
     qasm: str
+    # QASM state BEFORE this pass executes (captured in collector)
+    qasmBefore: str
     gateCount: int
     depth: int
     deltaGates: int
@@ -603,16 +606,47 @@ class TranspilePassTrace(BaseModel):
     purpose: str
     rationale: str
     changedGates: list[str]
+    # Was the circuit actually structurally changed by this pass?
+    circuitChanged: bool
+    # 1Q / 2Q / multi-Q gate counts AFTER pass
+    oneQGates: int
+    twoQGates: int
+    multiQGates: int
+    oneQGatesBefore: int
+    twoQGatesBefore: int
+    multiQGatesBefore: int
+    # DAG snapshot before/after — only populated for Optimization passes to control payload size
+    dagBefore: dict | None = None
+    dagAfter: dict | None = None
+    # GNN-ready feature dictionary for future optimization pass prediction research
+    gnnFeatures: dict | None = None
+    # Human-readable description of what circuit pattern the pass found (if reliably inferable)
+    patternFound: str | None = None
 
 
 class TranspileStageSummary(BaseModel):
     stageName: str
+    # Qiskit's internal stage concept for this canonical stage
+    qiskitConcept: str
     passes: list[TranspilePassTrace]
     gateCountBefore: int
     gateCountAfter: int
     depthBefore: int
     depthAfter: int
     executionTimeMs: float
+    # 1Q / 2Q gate counts at stage boundaries
+    oneQGatesBefore: int
+    twoQGatesBefore: int
+    oneQGatesAfter: int
+    twoQGatesAfter: int
+    # Stage-level DAG snapshots
+    dagBefore: dict | None = None
+    dagAfter: dict | None = None
+    # Stage-specific fields
+    swapCount: int = 0          # Routing: number of SWAP gates inserted
+    mappingTable: dict | None = None  # Qubit Mapping: logical->physical dict
+    schedulingActive: bool = False    # Scheduling: whether timing was applied
+    schedulingMethod: str | None = None
 
 
 class TranspileTraceResponse(BaseModel):
@@ -620,49 +654,113 @@ class TranspileTraceResponse(BaseModel):
     finalQasm: str
     originalGateCount: int
     originalDepth: int
+    originalOneQGates: int
+    originalTwoQGates: int
+    originalMultiQGates: int
+    originalMeasurements: int
+    originalQubits: int
+    originalClassicalBits: int
     finalGateCount: int
     finalDepth: int
+    finalOneQGates: int
+    finalTwoQGates: int
+    finalSwapCount: int
     totalExecutionTimeMs: float
     stages: list[TranspileStageSummary]
     couplingMap: list[list[int]] | None = None
     logicalToPhysicalLayout: dict[str, int] | None = None
-    dag: dict[str, Any] | None = None
+    # Initial DAG (original circuit before all transpilation)
+    initialDag: dict | None = None
+    # Final DAG (after all transpilation)
+    finalDag: dict | None = None
+    # Kept for backwards compatibility
+    dag: dict | None = None
+    # Backend metadata
+    backendNumQubits: int | None = None
+    backendBasisGates: list[str] | None = None
+    optimizationLevel: int = 1
+    schedulingActive: bool = False
 
 
-# Maps Qiskit Pass Name to one of the 6 stages defined in the educational specifications
+# Maps Qiskit Pass Name to one of the 6 canonical educational stages
+# Canonical stage names (user-facing)
+STAGE_CIRCUIT_ANALYSIS = "Circuit Analysis"
+STAGE_QUBIT_MAPPING = "Qubit Mapping"
+STAGE_ROUTING = "Routing"
+STAGE_GATE_DECOMPOSITION = "Gate Decomposition & Basis Conversion"
+STAGE_OPTIMIZATION = "Optimization"
+STAGE_SCHEDULING = "Scheduling"
+
+# Maps Qiskit's internal stage concept to canonical name for display
+QISKIT_STAGE_CONCEPT = {
+    STAGE_CIRCUIT_ANALYSIS: "INIT / analysis and preparation",
+    STAGE_QUBIT_MAPPING: "LAYOUT",
+    STAGE_ROUTING: "ROUTING",
+    STAGE_GATE_DECOMPOSITION: "TRANSLATION",
+    STAGE_OPTIMIZATION: "OPTIMIZATION",
+    STAGE_SCHEDULING: "SCHEDULING",
+}
+
 PASS_STAGE_MAP = {
-    "CheckMap": "Analysis",
-    "CheckGate": "Analysis",
-    "Depth": "Analysis",
-    "Size": "Analysis",
-    "Width": "Analysis",
-    "CountOps": "Analysis",
-    "BasisTranslator": "Translation",
-    "Decompose": "Translation",
-    "UnrollCustomDefinitions": "Translation",
-    "UnitarySynthesis": "Translation",
-    "Optimize1qGates": "Optimization",
-    "Optimize1qGatesDecomposition": "Optimization",
-    "CXCancellation": "Optimization",
-    "CommutativeCancellation": "Optimization",
-    "Optimize1qGatesSimpleCollapse": "Optimization",
-    "Collect2qBlocks": "Optimization",
-    "ConsolidateBlocks": "Optimization",
-    "InverseCancellation": "Optimization",
-    "TrivialLayout": "Mapping",
-    "DenseLayout": "Mapping",
-    "SabreLayout": "Mapping",
-    "VF2Layout": "Mapping",
-    "SetLayout": "Mapping",
-    "BasicSwap": "Routing",
-    "StochasticSwap": "Routing",
-    "SabreSwap": "Routing",
-    "SwapMapper": "Routing",
-    "ALAPScheduleAnalysis": "Scheduling",
-    "ASAPScheduleAnalysis": "Scheduling",
-    "ALAPSchedule": "Scheduling",
-    "ASAPSchedule": "Scheduling",
-    "DynamicalDecoupling": "Scheduling",
+    # Circuit Analysis
+    "CheckMap": STAGE_CIRCUIT_ANALYSIS,
+    "CheckGate": STAGE_CIRCUIT_ANALYSIS,
+    "Depth": STAGE_CIRCUIT_ANALYSIS,
+    "Size": STAGE_CIRCUIT_ANALYSIS,
+    "Width": STAGE_CIRCUIT_ANALYSIS,
+    "CountOps": STAGE_CIRCUIT_ANALYSIS,
+    "CheckCXDirection": STAGE_CIRCUIT_ANALYSIS,
+    "CheckNothing": STAGE_CIRCUIT_ANALYSIS,
+    "FixedPoint": STAGE_CIRCUIT_ANALYSIS,
+    # Qubit Mapping
+    "TrivialLayout": STAGE_QUBIT_MAPPING,
+    "DenseLayout": STAGE_QUBIT_MAPPING,
+    "SabreLayout": STAGE_QUBIT_MAPPING,
+    "VF2Layout": STAGE_QUBIT_MAPPING,
+    "VF2PostLayout": STAGE_QUBIT_MAPPING,
+    "SetLayout": STAGE_QUBIT_MAPPING,
+    "FullAncillaAllocation": STAGE_QUBIT_MAPPING,
+    "EnlargeWithAncilla": STAGE_QUBIT_MAPPING,
+    "ApplyLayout": STAGE_QUBIT_MAPPING,
+    # Routing
+    "BasicSwap": STAGE_ROUTING,
+    "StochasticSwap": STAGE_ROUTING,
+    "SabreSwap": STAGE_ROUTING,
+    "SwapMapper": STAGE_ROUTING,
+    "LookaheadSwap": STAGE_ROUTING,
+    # Gate Decomposition & Basis Conversion
+    "BasisTranslator": STAGE_GATE_DECOMPOSITION,
+    "Decompose": STAGE_GATE_DECOMPOSITION,
+    "UnrollCustomDefinitions": STAGE_GATE_DECOMPOSITION,
+    "UnitarySynthesis": STAGE_GATE_DECOMPOSITION,
+    "TranslateParameterizedGates": STAGE_GATE_DECOMPOSITION,
+    "GateDirection": STAGE_GATE_DECOMPOSITION,
+    "BarrierBeforeFinalMeasurements": STAGE_GATE_DECOMPOSITION,
+    # Optimization
+    "Optimize1qGates": STAGE_OPTIMIZATION,
+    "Optimize1qGatesDecomposition": STAGE_OPTIMIZATION,
+    "Optimize1qGatesSimpleCollapse": STAGE_OPTIMIZATION,
+    "CXCancellation": STAGE_OPTIMIZATION,
+    "CommutativeCancellation": STAGE_OPTIMIZATION,
+    "CommutationAnalysis": STAGE_OPTIMIZATION,
+    "Collect2qBlocks": STAGE_OPTIMIZATION,
+    "ConsolidateBlocks": STAGE_OPTIMIZATION,
+    "InverseCancellation": STAGE_OPTIMIZATION,
+    "RemoveResetInZeroState": STAGE_OPTIMIZATION,
+    "RemoveDiagonalGatesBeforeMeasure": STAGE_OPTIMIZATION,
+    "OptimizeCliffords": STAGE_OPTIMIZATION,
+    "NormalizeRXAngle": STAGE_OPTIMIZATION,
+    "ResetAfterMeasureSimplification": STAGE_OPTIMIZATION,
+    "ContractIdleWiresAfterReset": STAGE_OPTIMIZATION,
+    # Scheduling
+    "ALAPScheduleAnalysis": STAGE_SCHEDULING,
+    "ASAPScheduleAnalysis": STAGE_SCHEDULING,
+    "ALAPSchedule": STAGE_SCHEDULING,
+    "ASAPSchedule": STAGE_SCHEDULING,
+    "DynamicalDecoupling": STAGE_SCHEDULING,
+    "PadDelay": STAGE_SCHEDULING,
+    "PadDynamicalDecoupling": STAGE_SCHEDULING,
+    "ConstrainedReschedule": STAGE_SCHEDULING,
 }
 
 
@@ -670,89 +768,204 @@ def _determine_stage(pass_name: str) -> str:
     if pass_name in PASS_STAGE_MAP:
         return PASS_STAGE_MAP[pass_name]
     name_lower = pass_name.lower()
-    if "analysis" in name_lower or "check" in name_lower:
-        return "Analysis"
-    elif "layout" in name_lower or "placement" in name_lower or "map" in name_lower:
-        return "Mapping"
-    elif "swap" in name_lower or "route" in name_lower:
-        return "Routing"
-    elif "schedule" in name_lower or "delay" in name_lower:
-        return "Scheduling"
-    elif "translate" in name_lower or "decompose" in name_lower or "unroll" in name_lower:
-        return "Translation"
-    return "Optimization"
+    if "check" in name_lower or "verify" in name_lower or "analyze" in name_lower or "analysis" in name_lower:
+        return STAGE_CIRCUIT_ANALYSIS
+    elif "layout" in name_lower or "placement" in name_lower or "ancilla" in name_lower:
+        return STAGE_QUBIT_MAPPING
+    elif "swap" in name_lower or "route" in name_lower or "routing" in name_lower:
+        return STAGE_ROUTING
+    elif "schedule" in name_lower or "delay" in name_lower or "dynamical" in name_lower:
+        return STAGE_SCHEDULING
+    elif "translate" in name_lower or "decompose" in name_lower or "unroll" in name_lower or "basis" in name_lower:
+        return STAGE_GATE_DECOMPOSITION
+    return STAGE_OPTIMIZATION
 
 
 PASS_EXPLANATIONS = {
     "Optimize1qGatesDecomposition": {
-        "purpose": "Combines sequences of single-qubit gates on the same qubit.",
-        "rationale": "Consecutive single-qubit gates are equivalent to a single rotation. Merging them reduces gate execution time and overall error rate."
+        "purpose": "Combines sequences of single-qubit gates on the same qubit into a more compact equivalent.",
+        "rationale": "Consecutive single-qubit gates are mathematically equivalent to a single rotation. Merging them reduces gate execution time and overall error rate.",
+        "pipelineReason": "This pass is part of the single-qubit gate optimization pipeline configured for the current optimization level.",
+    },
+    "Optimize1qGates": {
+        "purpose": "Optimizes single-qubit gate sequences by merging consecutive rotations.",
+        "rationale": "Multiple consecutive single-qubit rotations on the same qubit can always be merged into at most one rotation. This reduces circuit depth and error accumulation.",
+        "pipelineReason": "This pass is included in the optimization pipeline to reduce single-qubit gate overhead.",
     },
     "CXCancellation": {
         "purpose": "Eliminates adjacent pairs of CNOT (CX) gates that cancel each other.",
-        "rationale": "Executing a CNOT gate twice in succession on the same qubits acts as an identity operation (it does nothing). Removing them avoids unnecessary multi-qubit gate errors."
+        "rationale": "Executing CX twice in succession on the same qubits acts as an identity (does nothing). Removing them avoids unnecessary two-qubit gate errors.",
+        "pipelineReason": "This pass is included because CX pairs can appear after routing or decomposition steps.",
     },
     "CommutativeCancellation": {
         "purpose": "Commutes gates through each other to find and cancel redundant pairs.",
-        "rationale": "Some gates (like Z rotations and CNOT targets) commute. By sliding them past each other, the compiler finds cancellations that were not immediately adjacent."
+        "rationale": "Some gates (like Z rotations and CNOT targets) commute mathematically. Sliding them past each other can reveal cancellations not immediately adjacent.",
+        "pipelineReason": "This pass runs after CommutationAnalysis to exploit gate commutativity for additional cancellations.",
+    },
+    "CommutationAnalysis": {
+        "purpose": "Analyzes which gates in the circuit can be commuted through each other without changing the circuit's effect.",
+        "rationale": "This pass builds a commutation graph as preparation for CommutativeCancellation. It does not modify the circuit itself.",
+        "pipelineReason": "Required as a pre-processing step before CommutativeCancellation can run.",
+    },
+    "Collect2qBlocks": {
+        "purpose": "Groups consecutive two-qubit gates into blocks for joint optimization.",
+        "rationale": "Collecting adjacent two-qubit gates into a block allows the compiler to replace the entire block with a more efficient sequence.",
+        "pipelineReason": "This pass prepares blocks for ConsolidateBlocks to process together.",
+    },
+    "ConsolidateBlocks": {
+        "purpose": "Replaces two-qubit gate blocks (identified by Collect2qBlocks) with optimized unitaries.",
+        "rationale": "Two-qubit gate sequences can often be re-synthesized as shorter sequences. The unitary of the block is computed and re-decomposed more efficiently.",
+        "pipelineReason": "This pass runs after Collect2qBlocks and performs the actual block-level optimization.",
+    },
+    "InverseCancellation": {
+        "purpose": "Finds and removes pairs of inverse gates that cancel each other.",
+        "rationale": "If a gate G is followed by its inverse G†, their combined effect is identity (nothing happens). Removing both reduces the circuit.",
+        "pipelineReason": "This pass is included to catch gate-inverse pairs that may have been introduced during decomposition or routing.",
+    },
+    "RemoveResetInZeroState": {
+        "purpose": "Removes Reset operations when the qubit is already guaranteed to be in state |0>.",
+        "rationale": "Resetting a qubit already in |0> is a no-op. Removing it reduces circuit depth without changing functionality.",
+        "pipelineReason": "Included as a lightweight cleanup pass to remove unnecessary reset operations.",
+    },
+    "RemoveDiagonalGatesBeforeMeasure": {
+        "purpose": "Removes diagonal gates immediately before a measurement if they do not affect the measurement outcome.",
+        "rationale": "Computational basis measurements cannot distinguish states that differ only by a phase. Diagonal gates (like Z, S, T, RZ) before measurement can be safely removed.",
+        "pipelineReason": "Included to eliminate gates that have no effect on measurement probability distributions.",
+    },
+    "NormalizeRXAngle": {
+        "purpose": "Normalizes the angles of RX gates to a canonical range.",
+        "rationale": "Ensures consistent angle representation to enable subsequent optimization passes to recognize and cancel equivalent gates.",
+        "pipelineReason": "Included as a normalization step before angle-based optimization passes.",
     },
     "BasisTranslator": {
         "purpose": "Decomposes non-native gates into the target hardware's native gate set.",
-        "rationale": "Quantum hardware only implements a few physical gates (e.g. CX, RZ, SX, X). Other gates (like Hadamard H) must be decomposed into equivalent sequences of these native gates."
+        "rationale": "Quantum hardware only implements a small set of physical gates (e.g. ECR, RZ, SX, X). Other gates (like H) must be decomposed into equivalent sequences of native gates.",
+        "pipelineReason": "This pass is the primary gate decomposition step, required to make the circuit executable on the target hardware.",
+    },
+    "UnrollCustomDefinitions": {
+        "purpose": "Replaces custom-defined gates with their explicit decompositions.",
+        "rationale": "User-defined or library gates must be expanded before basis translation, since the hardware has no knowledge of high-level gate abstractions.",
+        "pipelineReason": "Runs before BasisTranslator to ensure all gates have known decompositions.",
+    },
+    "Decompose": {
+        "purpose": "Decomposes composite gates into their constituent primitive gates.",
+        "rationale": "Multi-gate composite instructions must be decomposed into primitive operations that can be further processed by subsequent passes.",
+        "pipelineReason": "Included as a generic decomposition step for gates that have explicit decomposition rules.",
+    },
+    "UnitarySynthesis": {
+        "purpose": "Synthesizes arbitrary unitary matrices into native gate sequences.",
+        "rationale": "When a gate cannot be decomposed via simple rules, its full unitary matrix is synthesized directly into an optimal native gate sequence.",
+        "pipelineReason": "Included to handle gates that require full unitary synthesis for basis conversion.",
+    },
+    "GateDirection": {
+        "purpose": "Corrects the direction of two-qubit gates to match hardware coupling direction.",
+        "rationale": "Some hardware backends only support two-qubit gates in one direction (e.g. CX from qubit A to B but not B to A). This pass adds conjugating gates to flip direction when needed.",
+        "pipelineReason": "Required after routing to ensure all gate directions are physically realizable on the hardware.",
     },
     "SabreLayout": {
-        "purpose": "Finds a high-quality initial mapping of logical qubits to physical qubits.",
-        "rationale": "Using a heuristic look-ahead algorithm, this pass places qubits to minimize the number of SWAP gates required to execute two-qubit operations on the hardware."
+        "purpose": "Finds a high-quality initial mapping of logical qubits to physical hardware qubits.",
+        "rationale": "A good initial placement minimizes the number of SWAP gates required later. SABRE uses a heuristic look-ahead algorithm to find near-optimal placements.",
+        "pipelineReason": "This is the default layout (qubit placement) strategy selected by the current transpiler configuration.",
+    },
+    "VF2Layout": {
+        "purpose": "Attempts to find an isomorphic subgraph mapping between the logical circuit and hardware topology.",
+        "rationale": "If the two-qubit interaction pattern of the circuit can be matched exactly to a connected subgraph of the hardware, no SWAP gates are needed for routing.",
+        "pipelineReason": "Included as the preferred layout strategy; falls back to SabreLayout if no isomorphic mapping exists.",
+    },
+    "TrivialLayout": {
+        "purpose": "Maps logical qubit i directly to physical qubit i.",
+        "rationale": "The simplest possible qubit mapping. Suitable for circuits that already match the hardware connectivity or for benchmarking purposes.",
+        "pipelineReason": "Selected as the layout strategy for optimization level 0 or when a simple mapping is explicitly requested.",
+    },
+    "ApplyLayout": {
+        "purpose": "Applies the chosen qubit layout by relabeling qubit references throughout the circuit.",
+        "rationale": "After a layout pass selects which physical qubits to use, this pass updates all gate references to use the physical qubit indices.",
+        "pipelineReason": "Runs immediately after any Layout pass to apply the selected physical qubit assignment.",
+    },
+    "FullAncillaAllocation": {
+        "purpose": "Allocates ancilla (auxiliary) qubits from the physical backend register.",
+        "rationale": "If the circuit uses fewer qubits than the hardware has, this pass assigns the unused physical qubits as ancilla for potential use in routing.",
+        "pipelineReason": "Runs as part of the layout stage to fully utilize the available physical qubit register.",
+    },
+    "EnlargeWithAncilla": {
+        "purpose": "Expands the quantum register to include ancilla qubits allocated by FullAncillaAllocation.",
+        "rationale": "After ancilla allocation, the circuit register must be enlarged to include those physical qubits so subsequent passes can route through them.",
+        "pipelineReason": "Runs after FullAncillaAllocation as a register expansion step.",
     },
     "SabreSwap": {
-        "purpose": "Inserts SWAP gates to route qubits next to each other for entangling gates.",
-        "rationale": "Hardware only allows two-qubit gates (like CX) between directly connected physical qubits. SWAP gates move the states of logical qubits until they are adjacent."
+        "purpose": "Inserts SWAP gates to route logical qubit states next to each other for two-qubit operations.",
+        "rationale": "Hardware only allows two-qubit gates between directly connected physical qubits. SWAP gates move qubit states along the hardware topology until the required qubits are adjacent.",
+        "pipelineReason": "This is the default SWAP-based routing strategy selected by the current transpiler configuration.",
+    },
+    "BasicSwap": {
+        "purpose": "Inserts SWAP gates using a simple greedy strategy to resolve connectivity constraints.",
+        "rationale": "A straightforward but potentially non-optimal routing strategy that inserts SWAPs greedily. Used at low optimization levels.",
+        "pipelineReason": "Selected as the routing strategy for optimization level 0.",
     },
     "ALAPSchedule": {
         "purpose": "Schedules gate execution times As-Late-As-Possible.",
-        "rationale": "Gantt-style scheduling ensures qubits remain in their ground state |0> for as long as possible before execution, minimizing decoherence and thermal relaxation errors (T1/T2)."
+        "rationale": "Delays operations as long as possible so qubits remain in their ground state |0> before execution, minimizing T1/T2 decoherence errors.",
+        "pipelineReason": "Included when ALAP scheduling is selected or required by dynamical decoupling configuration.",
     },
     "ASAPSchedule": {
         "purpose": "Schedules gate execution times As-Soon-As-Possible.",
-        "rationale": "Executes gates immediately to minimize the overall runtime of the circuit, reducing the duration qubits are susceptible to decoherence."
-    }
+        "rationale": "Executes gates immediately to minimize total circuit duration, reducing exposure time to decoherence.",
+        "pipelineReason": "Included when ASAP scheduling is selected in the transpiler configuration.",
+    },
+    "DynamicalDecoupling": {
+        "purpose": "Inserts dynamical decoupling sequences (e.g. X-X pulse pairs) into idle qubit periods.",
+        "rationale": "Idle qubits decohere over time. Inserting carefully timed refocusing pulses suppresses phase errors caused by environmental noise during idle periods.",
+        "pipelineReason": "Included when dynamical decoupling is enabled in the scheduling configuration.",
+    },
+    "BarrierBeforeFinalMeasurements": {
+        "purpose": "Inserts a barrier instruction before all measurement operations.",
+        "rationale": "Ensures the compiler does not reorder gates across measurement boundaries, which could change measurement semantics.",
+        "pipelineReason": "Added as a correctness constraint during the translation/decomposition stage.",
+    },
 }
 
 
-def _get_pass_explanation(pass_name: str, stage: str) -> tuple[str, str]:
+def _get_pass_explanation(pass_name: str, stage: str) -> tuple[str, str, str]:
+    """Returns (purpose, rationale, pipelineReason) for a given pass."""
     if pass_name in PASS_EXPLANATIONS:
         exp = PASS_EXPLANATIONS[pass_name]
-        return exp["purpose"], exp["rationale"]
+        return exp["purpose"], exp["rationale"], exp.get("pipelineReason", "This pass is part of the transpiler pipeline configured for the current settings.")
     
     # Generic stage-based explanations
-    if stage == "Analysis":
+    if stage == STAGE_CIRCUIT_ANALYSIS:
         return (
-            "Analyzes circuit properties like depth, gate count, or layout correctness.",
-            "Ensures the circuit is structurally valid and collects metrics for optimization."
+            "Analyzes circuit properties such as depth, gate count, or layout correctness.",
+            "Ensures the circuit is structurally valid and collects metrics needed for subsequent compilation stages.",
+            "This pass is part of the circuit analysis and preparation pipeline.",
         )
-    elif stage == "Translation":
+    elif stage == STAGE_GATE_DECOMPOSITION:
         return (
-            "Translates non-native gates to equivalent native representation.",
-            "Decomposes gates into basis operations supported by the target device."
+            "Translates or decomposes gates into the target hardware's native gate set.",
+            "Decomposes gates into basis operations physically supported by the target device.",
+            "This pass is part of the gate decomposition and basis conversion pipeline.",
         )
-    elif stage == "Mapping":
+    elif stage == STAGE_QUBIT_MAPPING:
         return (
-            "Maps logical qubits to physical device registers.",
-            "Prepares the circuit for the physical coupling constraints of the target hardware."
+            "Maps logical (virtual) qubits to physical hardware qubits.",
+            "Prepares the circuit for the physical coupling constraints of the target hardware by assigning logical to physical qubit indices.",
+            "This pass is part of the qubit mapping (layout) pipeline.",
         )
-    elif stage == "Routing":
+    elif stage == STAGE_ROUTING:
         return (
-            "Inserts SWAP gates to satisfy connectivity constraints.",
-            "Allows multi-qubit gates to execute between non-adjacent qubits."
+            "Inserts SWAP gates to satisfy hardware connectivity constraints.",
+            "Allows two-qubit gates to execute between non-adjacent physical qubits by moving qubit states via SWAP chains.",
+            "This pass is part of the routing pipeline.",
         )
-    elif stage == "Scheduling":
+    elif stage == STAGE_SCHEDULING:
         return (
-            "Computes execution times and gate start/idle durations.",
-            "Balances parallel execution and idle times to minimize quantum decoherence."
+            "Computes gate execution times and assigns timing instructions.",
+            "Determines when each gate should execute to balance parallelism and minimize decoherence during idle periods.",
+            "This pass is part of the scheduling pipeline.",
         )
     return (
-        "Optimizes gates and depth.",
-        "Reduces the physical resource footprint to maximize circuit fidelity."
+        "Optimizes circuit gates, depth, or structure.",
+        "Reduces the circuit's resource footprint to improve execution fidelity on hardware.",
+        "This pass is part of the optimization pipeline configured for the current optimization level.",
     )
 
 
@@ -900,6 +1113,73 @@ def _safe_qasm_dump(circ) -> str:
         return ""
 
 
+# ---------------------------------------------------------------------------
+# Helper: count 1Q / 2Q / multi-Q gates and measurements from ops dict
+# ---------------------------------------------------------------------------
+
+_KNOWN_1Q_GATES = frozenset({
+    'h', 'x', 'y', 'z', 's', 't', 'sdg', 'tdg', 'sx', 'sxdg',
+    'rx', 'ry', 'rz', 'r', 'u1', 'u2', 'u3', 'u', 'p', 'id', 'i', 'reset',
+    'rxx', 'ryy', 'rzz',  # these are actually 2Q but listed for completeness
+})
+
+_KNOWN_2Q_GATES = frozenset({
+    'cx', 'cy', 'cz', 'ch', 'cp', 'cs', 'csdg', 'csx', 'csx',
+    'ecr', 'dcx', 'swap', 'iswap', 'rzx', 'rxx', 'ryy', 'rzz',
+    'cnot',
+})
+
+
+def _count_gate_types(circuit) -> tuple[int, int, int, int]:
+    """Return (one_q, two_q, multi_q, measurements) for a circuit."""
+    one_q = 0
+    two_q = 0
+    multi_q = 0
+    measurements = 0
+    try:
+        for inst in circuit.data:
+            gate_name = inst.operation.name.lower()
+            num_qubits = len(inst.qubits)
+            if gate_name == 'measure':
+                measurements += 1
+            elif gate_name == 'barrier':
+                pass
+            elif num_qubits == 1:
+                one_q += 1
+            elif num_qubits == 2:
+                two_q += 1
+            elif num_qubits >= 3:
+                multi_q += 1
+    except Exception:
+        pass
+    return one_q, two_q, multi_q, measurements
+
+
+def _extract_gnn_features(circuit, dag_data: dict | None) -> dict:
+    """Extract GNN-ready feature dictionary from a circuit and its DAG data."""
+    try:
+        one_q, two_q, multi_q, measurements = _count_gate_types(circuit)
+        node_count = len(dag_data.get('nodes', [])) if dag_data else 0
+        edge_count = len(dag_data.get('edges', [])) if dag_data else 0
+        gate_nodes = [
+            n for n in (dag_data.get('nodes', []) if dag_data else [])
+            if n.get('type') == 'gate'
+        ]
+        return {
+            "nodeCount": node_count,
+            "edgeCount": edge_count,
+            "dagDepth": circuit.depth(),
+            "gateCount": circuit.size(),
+            "oneQGates": one_q,
+            "twoQGates": two_q,
+            "multiQGates": multi_q,
+            "measurements": measurements,
+            "gateNodeCount": len(gate_nodes),
+        }
+    except Exception:
+        return {}
+
+
 class TranspileTraceCollector:
     def __init__(self, initial_circuit):
         self.trace = []
@@ -909,105 +1189,289 @@ class TranspileTraceCollector:
         self.current_gates = initial_circuit.size()
         self.current_depth = initial_circuit.depth()
         self.current_ops = dict(initial_circuit.count_ops())
+        one_q, two_q, multi_q, _ = _count_gate_types(initial_circuit)
+        self.current_1q = one_q
+        self.current_2q = two_q
+        self.current_multi = multi_q
 
     def callback(self, pass_, dag, time, property_set, count):
         try:
             from qiskit.converters import dag_to_circuit
-            from qiskit import qasm3
-            
+
+            # Capture BEFORE state
+            qasm_before = self.current_qasm
+            gates_before = self.current_gates
+            depth_before = self.current_depth
+            ops_before = self.current_ops
+            one_q_before = self.current_1q
+            two_q_before = self.current_2q
+            multi_q_before = self.current_multi
+
             circ = dag_to_circuit(dag)
             qasm_str = _safe_qasm_dump(circ)
-            
+
             pass_name = pass_.name()
             pass_class = pass_.__class__.__name__
             stage = _determine_stage(pass_name)
-            
+
             gate_count = circ.size()
             depth = circ.depth()
             ops = dict(circ.count_ops())
-            
-            delta_gates = gate_count - self.current_gates
-            delta_depth = depth - self.current_depth
-            changed_gates = _diff_gates(self.current_ops, ops)
-            
-            purpose, rationale = _get_pass_explanation(pass_name, stage)
-            
+
+            one_q_after, two_q_after, multi_q_after, _ = _count_gate_types(circ)
+
+            delta_gates = gate_count - gates_before
+            delta_depth = depth - depth_before
+            changed_gates = _diff_gates(ops_before, ops)
+            circuit_changed = (delta_gates != 0 or delta_depth != 0 or len(changed_gates) > 0)
+
+            purpose, rationale, pipeline_reason = _get_pass_explanation(pass_name, stage)
+
+            # Infer pattern found from changed gates (only if circuit actually changed)
+            pattern_found = None
+            if circuit_changed and stage == STAGE_OPTIMIZATION:
+                if delta_gates < 0:
+                    if any('cx' in g.lower() or 'ecr' in g.lower() for g in changed_gates):
+                        pattern_found = f"Found cancellable or reducible two-qubit gate sequences ({', '.join(changed_gates[:3])})."
+                    elif any(k.lower() in ('rz', 'rx', 'ry', 'sx', 'u', 'u1', 'u2', 'u3') for g in changed_gates for k in [g.split(':')[0].strip()]):
+                        pattern_found = f"Found consecutive single-qubit operations that could be merged or cancelled ({', '.join(changed_gates[:3])})."
+                    else:
+                        pattern_found = f"Found optimizable pattern: {', '.join(changed_gates[:3])}."
+                elif delta_gates > 0:
+                    pattern_found = "This pass transformed the circuit representation. A later pass may reduce these gates further."
+                elif delta_gates == 0 and circuit_changed:
+                    pattern_found = "Gate types were rearranged or renamed without changing total count."
+
+            # DAG snapshots — only for Optimization passes to control payload size
+            dag_before_data = None
+            dag_after_data = None
+            gnn_before = None
+            gnn_after = None
+            if stage == STAGE_OPTIMIZATION:
+                # We need to reconstruct the before-circuit to get its DAG
+                # We already have the before QASM; re-parse it for the DAG
+                try:
+                    before_circ = _parse_qasm_safe(qasm_before) if qasm_before else None
+                    dag_before_data = _serialize_dag(before_circ) if before_circ else None
+                    gnn_before = _extract_gnn_features(before_circ, dag_before_data) if before_circ else None
+                except Exception:
+                    dag_before_data = None
+                dag_after_data = _serialize_dag(circ)
+                gnn_after = _extract_gnn_features(circ, dag_after_data)
+
             self.trace.append({
                 "passName": pass_name,
                 "passClass": pass_class,
                 "stage": stage,
                 "executionTimeMs": float(time * 1000),
                 "qasm": qasm_str,
+                "qasmBefore": qasm_before,
                 "gateCount": gate_count,
                 "depth": depth,
                 "deltaGates": delta_gates,
                 "deltaDepth": delta_depth,
                 "purpose": purpose,
                 "rationale": rationale,
-                "changedGates": changed_gates
+                "pipelineReason": pipeline_reason,
+                "changedGates": changed_gates,
+                "circuitChanged": circuit_changed,
+                "oneQGates": one_q_after,
+                "twoQGates": two_q_after,
+                "multiQGates": multi_q_after,
+                "oneQGatesBefore": one_q_before,
+                "twoQGatesBefore": two_q_before,
+                "multiQGatesBefore": multi_q_before,
+                "dagBefore": dag_before_data,
+                "dagAfter": dag_after_data,
+                "gnnFeatures": {
+                    "before": gnn_before,
+                    "after": gnn_after,
+                    "delta": {
+                        k: (gnn_after.get(k, 0) - gnn_before.get(k, 0))
+                        for k in (gnn_after or {})
+                        if k in (gnn_before or {})
+                    } if gnn_before and gnn_after else None,
+                } if stage == STAGE_OPTIMIZATION else None,
+                "patternFound": pattern_found,
             })
-            
+
             # Update state for next pass
             self.current_circuit = circ
             self.current_qasm = qasm_str
             self.current_gates = gate_count
             self.current_depth = depth
             self.current_ops = ops
+            self.current_1q = one_q_after
+            self.current_2q = two_q_after
+            self.current_multi = multi_q_after
         except Exception as e:
-            print(f"[transpile-trace] Error in transpilation callback: {e}")
+            import traceback
+            print(f"[transpile-trace] Error in transpilation callback: {e}\n{traceback.format_exc()}")
 
 
-def _group_trace_into_stages(collector, initial_gate_count, initial_depth) -> list[dict]:
-    stages_dict = {}
-    stage_order = ["Analysis", "Optimization", "Translation", "Mapping", "Routing", "Scheduling"]
-    
-    for stage_name in stage_order:
-        stages_dict[stage_name] = []
-        
+def _parse_qasm_safe(qasm_str: str):
+    """Parse QASM string silently — returns None on failure."""
+    if not qasm_str or not qasm_str.strip():
+        return None
+    try:
+        return _parse_qasm(qasm_str)
+    except Exception:
+        return None
+
+
+
+def _group_trace_into_stages(collector, initial_circuit, qasm_initial: str) -> list[dict]:
+    """
+    Groups the flat pass trace into the 6 canonical educational stages.
+    Also computes stage-level DAG before/after, qubit mapping tables, swap counts,
+    and scheduling detection.
+    """
+    initial_gate_count = initial_circuit.size()
+    initial_depth = initial_circuit.depth()
+    initial_1q, initial_2q, initial_multi, _ = _count_gate_types(initial_circuit)
+
+    stage_order = [
+        STAGE_CIRCUIT_ANALYSIS,
+        STAGE_QUBIT_MAPPING,
+        STAGE_ROUTING,
+        STAGE_GATE_DECOMPOSITION,
+        STAGE_OPTIMIZATION,
+        STAGE_SCHEDULING,
+    ]
+
+    stages_dict: dict[str, list] = {s: [] for s in stage_order}
+
     for p in collector.trace:
-        stages_dict[p["stage"]].append(p)
-        
+        stage = p["stage"]
+        if stage in stages_dict:
+            stages_dict[stage].append(p)
+        else:
+            # Unknown stage — put in Circuit Analysis as a safety bucket
+            stages_dict[STAGE_CIRCUIT_ANALYSIS].append({**p, "stage": STAGE_CIRCUIT_ANALYSIS})
+
     stages_list = []
     current_gates = initial_gate_count
     current_depth = initial_depth
-    
+    current_1q = initial_1q
+    current_2q = initial_2q
+    current_qasm = qasm_initial
+
     for stage_name in stage_order:
         passes = stages_dict[stage_name]
-        
+        qiskit_concept = QISKIT_STAGE_CONCEPT.get(stage_name, stage_name)
+
         if not passes:
             stages_list.append({
                 "stageName": stage_name,
+                "qiskitConcept": qiskit_concept,
                 "passes": [],
                 "gateCountBefore": current_gates,
                 "gateCountAfter": current_gates,
                 "depthBefore": current_depth,
                 "depthAfter": current_depth,
-                "executionTimeMs": 0.0
+                "executionTimeMs": 0.0,
+                "oneQGatesBefore": current_1q,
+                "twoQGatesBefore": current_2q,
+                "oneQGatesAfter": current_1q,
+                "twoQGatesAfter": current_2q,
+                "dagBefore": None,
+                "dagAfter": None,
+                "swapCount": 0,
+                "mappingTable": None,
+                "schedulingActive": False,
+                "schedulingMethod": None,
             })
             continue
-            
+
         gate_count_before = current_gates
         depth_before = current_depth
+        one_q_before = current_1q
+        two_q_before = current_2q
         total_time = sum(p["executionTimeMs"] for p in passes)
-        
+
         last_pass = passes[-1]
         gate_count_after = last_pass["gateCount"]
         depth_after = last_pass["depth"]
-        
+        one_q_after = last_pass["oneQGates"]
+        two_q_after = last_pass["twoQGates"]
+
+        # Stage-level DAG before (re-parse the before-qasm of first pass in this stage)
+        dag_before = None
+        dag_after = None
+        try:
+            before_circ = _parse_qasm_safe(current_qasm)
+            dag_before = _serialize_dag(before_circ) if before_circ else None
+        except Exception:
+            pass
+        try:
+            after_circ = _parse_qasm_safe(last_pass["qasm"])
+            dag_after = _serialize_dag(after_circ) if after_circ else None
+        except Exception:
+            pass
+
+        # Stage-specific: count SWAP gates inserted (Routing)
+        swap_count = 0
+        if stage_name == STAGE_ROUTING:
+            try:
+                after_circ = _parse_qasm_safe(last_pass["qasm"])
+                if after_circ:
+                    for inst in after_circ.data:
+                        if inst.operation.name.lower() == 'swap':
+                            swap_count += 1
+            except Exception:
+                pass
+
+        # Stage-specific: extract mapping table (Qubit Mapping)
+        mapping_table = None
+        if stage_name == STAGE_QUBIT_MAPPING:
+            # Try to extract from the last pass trace
+            # The mapping is in the layout which is captured in the final transpiled circuit
+            pass
+
+        # Stage-specific: detect scheduling
+        scheduling_active = False
+        scheduling_method = None
+        if stage_name == STAGE_SCHEDULING and passes:
+            scheduling_active = True
+            # Detect method from pass names
+            for p in passes:
+                pn = p["passName"].lower()
+                if "alap" in pn:
+                    scheduling_method = "ALAP (As-Late-As-Possible)"
+                    break
+                elif "asap" in pn:
+                    scheduling_method = "ASAP (As-Soon-As-Possible)"
+                    break
+
         stages_list.append({
             "stageName": stage_name,
+            "qiskitConcept": qiskit_concept,
             "passes": passes,
             "gateCountBefore": gate_count_before,
             "gateCountAfter": gate_count_after,
             "depthBefore": depth_before,
             "depthAfter": depth_after,
-            "executionTimeMs": total_time
+            "executionTimeMs": total_time,
+            "oneQGatesBefore": one_q_before,
+            "twoQGatesBefore": two_q_before,
+            "oneQGatesAfter": one_q_after,
+            "twoQGatesAfter": two_q_after,
+            "dagBefore": dag_before,
+            "dagAfter": dag_after,
+            "swapCount": swap_count,
+            "mappingTable": mapping_table,
+            "schedulingActive": scheduling_active,
+            "schedulingMethod": scheduling_method,
         })
-        
+
         current_gates = gate_count_after
         current_depth = depth_after
-        
+        current_1q = one_q_after
+        current_2q = two_q_after
+        current_qasm = last_pass["qasm"]
+
     return stages_list
+
 
 
 def _extract_coupling_map(backend) -> list[list[int]] | None:
@@ -1137,9 +1601,9 @@ async def transpile_trace(req: TranspileTraceRequest):
         # Run Qiskit transpile with callback
         try:
             from qiskit import transpile
-            from qiskit import qasm3  # noqa: F401
 
             collector = TranspileTraceCollector(qc)
+            initial_qasm = collector.initial_qasm
             start_time = _time.time()
 
             transpiled = transpile(
@@ -1152,26 +1616,88 @@ async def transpile_trace(req: TranspileTraceRequest):
             total_time_ms = (_time.time() - start_time) * 1000
             final_qasm = _safe_qasm_dump(transpiled)
 
-            # Build stage-level trace summaries
-            stages = _group_trace_into_stages(collector, qc.size(), qc.depth())
+            # Build stage-level trace summaries using new enhanced grouper
+            stages = _group_trace_into_stages(collector, qc, initial_qasm)
             coupling_map = _extract_coupling_map(backend)
             layout = _extract_layout(transpiled)
-            dag_data = _serialize_dag(qc)
+
+            # Build initial and final DAG
+            initial_dag = _serialize_dag(qc)
+            final_dag = _serialize_dag(transpiled)
+
+            # Original circuit gate type breakdown
+            orig_1q, orig_2q, orig_multi, orig_measurements = _count_gate_types(qc)
+            # Final circuit gate type breakdown
+            final_1q, final_2q, final_multi, _ = _count_gate_types(transpiled)
+
+            # Count final SWAP gates
+            final_swap_count = 0
+            try:
+                for inst in transpiled.data:
+                    if inst.operation.name.lower() == 'swap':
+                        final_swap_count += 1
+            except Exception:
+                pass
+
+            # Backend metadata
+            backend_num_qubits = None
+            backend_basis_gates = None
+            try:
+                if backend is not None:
+                    backend_num_qubits = getattr(backend, 'num_qubits', None)
+                    if hasattr(backend, 'operation_names'):
+                        backend_basis_gates = list(backend.operation_names)
+                    elif hasattr(backend, 'configuration'):
+                        cfg = backend.configuration()
+                        backend_basis_gates = getattr(cfg, 'basis_gates', None)
+            except Exception:
+                pass
+
+            # Detect if any scheduling was active
+            scheduling_active = any(
+                s["schedulingActive"] for s in stages
+                if s["stageName"] == STAGE_SCHEDULING
+            )
+
+            # Map layout to the qubit mapping stage
+            if layout:
+                for stage in stages:
+                    if stage["stageName"] == STAGE_QUBIT_MAPPING:
+                        stage["mappingTable"] = {k: v for k, v in layout.items()}
+                        break
 
             return TranspileTraceResponse(
-                originalQasm=collector.initial_qasm,
+                originalQasm=initial_qasm,
                 finalQasm=final_qasm,
                 originalGateCount=qc.size(),
                 originalDepth=qc.depth(),
+                originalOneQGates=orig_1q,
+                originalTwoQGates=orig_2q,
+                originalMultiQGates=orig_multi,
+                originalMeasurements=orig_measurements,
+                originalQubits=qc.num_qubits,
+                originalClassicalBits=qc.num_clbits,
                 finalGateCount=transpiled.size(),
                 finalDepth=transpiled.depth(),
+                finalOneQGates=final_1q,
+                finalTwoQGates=final_2q,
+                finalSwapCount=final_swap_count,
                 totalExecutionTimeMs=total_time_ms,
                 stages=stages,
                 couplingMap=coupling_map,
                 logicalToPhysicalLayout=layout,
-                dag=dag_data
+                initialDag=initial_dag,
+                finalDag=final_dag,
+                dag=initial_dag,  # backwards compatibility
+                backendNumQubits=backend_num_qubits,
+                backendBasisGates=backend_basis_gates,
+                optimizationLevel=req.optimization_level,
+                schedulingActive=scheduling_active,
             )
         except Exception as exc:
+            import traceback
+            tb = traceback.format_exc()
+            print(f"[transpile-trace] Error: {exc}\n{tb}")
             raise HTTPException(
                 status_code=500,
                 detail={"errorCode": "TRANSPILATION_ERROR", "message": _sanitize(str(exc))},

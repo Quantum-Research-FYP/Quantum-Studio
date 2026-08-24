@@ -164,29 +164,78 @@ export function analyzeCircuit(input: SubmitJobInput): Promise<AnalyzeResponse> 
 // Transparent Transpilation Trace API Definitions
 // ---------------------------------------------------------------------------
 
+export interface DagData {
+  nodes: Array<{ id: string; label: string; type: string }>;
+  edges: Array<{ source: string; target: string; label: string }>;
+}
+
+export interface GnnFeatures {
+  nodeCount: number;
+  edgeCount: number;
+  dagDepth: number;
+  gateCount: number;
+  oneQGates: number;
+  twoQGates: number;
+  multiQGates: number;
+  measurements: number;
+  gateNodeCount: number;
+}
+
 export interface TranspilePassTrace {
   passName: string;
   passClass: string;
   stage: string;
   executionTimeMs: number;
+  /** QASM after this pass */
   qasm: string;
+  /** QASM before this pass */
+  qasmBefore: string;
   gateCount: number;
   depth: number;
   deltaGates: number;
   deltaDepth: number;
   purpose: string;
   rationale: string;
+  /** Why this pass is in the pipeline (not why it changed the circuit) */
+  pipelineReason?: string;
   changedGates: string[];
+  circuitChanged: boolean;
+  oneQGates: number;
+  twoQGates: number;
+  multiQGates: number;
+  oneQGatesBefore: number;
+  twoQGatesBefore: number;
+  multiQGatesBefore: number;
+  dagBefore?: DagData | null;
+  dagAfter?: DagData | null;
+  gnnFeatures?: {
+    before: GnnFeatures | null;
+    after: GnnFeatures | null;
+    delta: Record<string, number> | null;
+  } | null;
+  patternFound?: string | null;
 }
 
 export interface TranspileStageSummary {
   stageName: string;
+  /** Qiskit's internal concept name for this stage */
+  qiskitConcept: string;
   passes: TranspilePassTrace[];
   gateCountBefore: number;
   gateCountAfter: number;
   depthBefore: number;
   depthAfter: number;
   executionTimeMs: number;
+  oneQGatesBefore: number;
+  twoQGatesBefore: number;
+  oneQGatesAfter: number;
+  twoQGatesAfter: number;
+  dagBefore?: DagData | null;
+  dagAfter?: DagData | null;
+  swapCount: number;
+  mappingTable?: Record<string, number> | null;
+  schedulingActive: boolean;
+  schedulingMethod?: string | null;
 }
 
 export interface TranspileTraceResponse {
@@ -194,16 +243,29 @@ export interface TranspileTraceResponse {
   finalQasm: string;
   originalGateCount: number;
   originalDepth: number;
+  originalOneQGates: number;
+  originalTwoQGates: number;
+  originalMultiQGates: number;
+  originalMeasurements: number;
+  originalQubits: number;
+  originalClassicalBits: number;
   finalGateCount: number;
   finalDepth: number;
+  finalOneQGates: number;
+  finalTwoQGates: number;
+  finalSwapCount: number;
   totalExecutionTimeMs: number;
   stages: TranspileStageSummary[];
   couplingMap: Array<[number, number]> | null;
   logicalToPhysicalLayout: Record<string, number> | null;
-  dag?: {
-    nodes: Array<{ id: string; label: string; type: string }>;
-    edges: Array<{ source: string; target: string; label: string }>;
-  } | null;
+  initialDag?: DagData | null;
+  finalDag?: DagData | null;
+  /** @deprecated use initialDag */
+  dag?: DagData | null;
+  backendNumQubits?: number | null;
+  backendBasisGates?: string[] | null;
+  optimizationLevel: number;
+  schedulingActive: boolean;
 }
 
 export interface TranspileTraceInput {
