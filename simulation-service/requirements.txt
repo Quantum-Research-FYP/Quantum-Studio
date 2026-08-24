@@ -3,4 +3,8 @@ uvicorn[standard]>=0.30.0
 qiskit>=1.0.0
 qiskit-aer>=0.14.0
 qiskit-ibm-runtime>=0.20.0
-spinqit
+# spinqit is only required for the SpinQ NMR hardware backend.
+# It is NOT available on PyPI and must be installed manually from the
+# SpinQ private registry when deploying with SpinQ hardware support.
+# Remove this comment block and install separately if needed:
+#   pip install spinqit --extra-index-url <spinq-private-registry>
