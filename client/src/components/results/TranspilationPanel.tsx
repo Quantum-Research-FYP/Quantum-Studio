@@ -317,8 +317,35 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
   const [expanded, setExpanded] = useState(false);
   const delta = pass.deltaGates;
   const changed = pass.circuitChanged;
-  const statusColor = !changed ? 'var(--color-text-muted)' : delta < 0 ? 'var(--color-success)' : delta > 0 ? 'var(--color-warning)' : 'var(--color-primary)';
-  const statusLabel = !changed ? 'No change' : delta < 0 ? `${delta} gates` : delta > 0 ? `+${delta} gates` : 'Rearranged';
+  const isAnalysis = pass.passType === 'AnalysisPass';
+
+  // For analysis passes the circuit is by definition unchanged; colour accordingly.
+  const statusColor = isAnalysis
+    ? 'var(--color-text-subtle)'
+    : !changed
+    ? 'var(--color-text-muted)'
+    : delta < 0
+    ? 'var(--color-success)'
+    : delta > 0
+    ? 'var(--color-warning)'
+    : 'var(--color-primary)';
+
+  const statusLabel = isAnalysis
+    ? 'Analysis — no DAG change'
+    : !changed
+    ? 'No change'
+    : delta < 0
+    ? `${delta} gates`
+    : delta > 0
+    ? `+${delta} gates`
+    : 'Rearranged';
+
+  // Use the explicit before-count stored in the trace (= gateCountBefore field).
+  // For analysis passes deltaGates is always 0, so gateCount-deltaGates is correct too;
+  // but using oneQGatesBefore / twoQGatesBefore is more explicit and reliable.
+  const gatesBefore = pass.gateCount - pass.deltaGates;  // == gateCountBefore
+  const depthBefore = pass.depth  - pass.deltaDepth;      // == depthBefore
+
   return (
     <div style={{ ...card, marginBottom: '10px', padding: '12px', borderLeft: `3px solid ${statusColor}` }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', cursor: 'pointer' }} onClick={() => setExpanded((e) => !e)}>
@@ -326,7 +353,18 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
           <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '8px', backgroundColor: 'var(--color-surface-3)', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>#{index + 1}</span>
           <div>
             <div style={{ fontWeight: 600, fontSize: '0.82rem' }}>{pass.passName}</div>
-            <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{pass.passClass}</div>
+            <div style={{ display: 'flex', gap: '5px', alignItems: 'center', marginTop: '2px' }}>
+              <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{pass.passClass}</div>
+              {/* Pass type badge */}
+              <span style={{
+                fontSize: '0.6rem', padding: '1px 5px', borderRadius: '6px',
+                backgroundColor: isAnalysis ? 'rgba(99,102,241,0.1)' : 'rgba(52,211,153,0.1)',
+                color: isAnalysis ? '#818cf8' : 'var(--color-success)',
+                fontWeight: 600, letterSpacing: '0.02em',
+              }}>
+                {isAnalysis ? '🔍 Analysis' : '⚙ Transform'}
+              </span>
+            </div>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
@@ -338,36 +376,58 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
 
       {!expanded && (
         <div style={{ marginTop: '6px', fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
-          {!changed ? 'No applicable pattern found. Circuit unchanged.' : pass.patternFound || pass.purpose}
+          {isAnalysis
+            ? 'Analysis pass — inspects the DAG and updates Qiskit\'s property set. DAG is contractually unchanged.'
+            : !changed
+            ? 'No applicable pattern found. Circuit unchanged.'
+            : pass.patternFound || pass.purpose}
         </div>
       )}
 
       {expanded && (
         <div style={{ marginTop: '14px' }}>
+          {/* Analysis pass notice */}
+          {isAnalysis && (
+            <div style={{
+              backgroundColor: 'rgba(99,102,241,0.06)',
+              border: '1px solid rgba(99,102,241,0.25)',
+              borderRadius: '6px', padding: '10px 14px',
+              fontSize: '0.78rem', color: '#818cf8',
+              lineHeight: 1.5, marginBottom: '12px',
+            }}>
+              <strong>🔍 Analysis Pass</strong> — This pass reads and inspects the DAG to compute
+              properties (gate count, depth, connectivity, etc.) and stores them in Qiskit's
+              internal property set for use by later passes. It is contractually forbidden from
+              modifying the circuit. All metrics below are identical before and after.
+            </div>
+          )}
+
           {/* A. Purpose */}
           <div style={{ marginBottom: '12px' }}>
             <div style={sectionHeader}>A. What does this pass do?</div>
             <p style={{ margin: 0, fontSize: '0.8rem', lineHeight: 1.6 }}>{pass.purpose}</p>
           </div>
 
-          {/* B + C. Why present / What found */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+          {/* B + C. Why present / What found — skip "what found" for analysis passes */}
+          <div style={{ display: 'grid', gridTemplateColumns: isAnalysis ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
             <div style={{ backgroundColor: 'var(--color-surface-2)', borderRadius: '6px', padding: '10px' }}>
               <div style={{ ...sectionHeader, color: 'var(--color-primary)', marginBottom: '6px' }}>B. Why is this pass in the pipeline?</div>
               <p style={{ margin: 0, fontSize: '0.78rem', lineHeight: 1.55, color: 'var(--color-text-muted)' }}>{pass.pipelineReason || 'This pass is part of the optimization pipeline configured for the current Qiskit transpiler settings.'}</p>
             </div>
-            <div style={{ backgroundColor: 'var(--color-surface-2)', borderRadius: '6px', padding: '10px' }}>
-              <div style={{ ...sectionHeader, color: changed ? 'var(--color-success)' : 'var(--color-text-subtle)', marginBottom: '6px' }}>C. What did it find?</div>
-              <p style={{ margin: 0, fontSize: '0.78rem', lineHeight: 1.55, color: 'var(--color-text-muted)' }}>{!changed ? 'This pass executed but found no applicable pattern in the current circuit. No circuit change was made.' : pass.patternFound || 'The pass modified the circuit, but the exact pattern could not be reliably determined from the transformation.'}</p>
-            </div>
+            {!isAnalysis && (
+              <div style={{ backgroundColor: 'var(--color-surface-2)', borderRadius: '6px', padding: '10px' }}>
+                <div style={{ ...sectionHeader, color: changed ? 'var(--color-success)' : 'var(--color-text-subtle)', marginBottom: '6px' }}>C. What did it find?</div>
+                <p style={{ margin: 0, fontSize: '0.78rem', lineHeight: 1.55, color: 'var(--color-text-muted)' }}>{!changed ? 'This pass executed but found no applicable pattern in the current circuit. No circuit change was made.' : pass.patternFound || 'The pass modified the circuit, but the exact pattern could not be reliably determined from the transformation.'}</p>
+              </div>
+            )}
           </div>
 
           {/* I. Metrics */}
           <div style={{ backgroundColor: 'var(--color-surface-2)', borderRadius: '6px', padding: '12px', marginBottom: '12px' }}>
             <div style={{ ...sectionHeader, marginBottom: '10px' }}>I. Metrics (before → after)</div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: '12px' }}>
-              <MetricDelta label="Gate Count" before={pass.gateCount - pass.deltaGates} after={pass.gateCount} />
-              <MetricDelta label="Circuit Depth" before={pass.depth - pass.deltaDepth} after={pass.depth} />
+              <MetricDelta label="Gate Count" before={gatesBefore} after={pass.gateCount} />
+              <MetricDelta label="Circuit Depth" before={depthBefore} after={pass.depth} />
               <MetricDelta label="1Q Gates" before={pass.oneQGatesBefore} after={pass.oneQGates} />
               <MetricDelta label="2Q Gates" before={pass.twoQGatesBefore} after={pass.twoQGates} />
             </div>
@@ -388,8 +448,8 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
             <div style={{ fontSize: '0.85rem', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{pass.executionTimeMs.toFixed(3)} ms</div>
           </div>
 
-          {/* D/E. QASM before/after */}
-          {(pass.qasmBefore || pass.qasm) && (
+          {/* D/E. QASM before/after — skip for analysis passes (identical) */}
+          {!isAnalysis && (pass.qasmBefore || pass.qasm) && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
               {pass.qasmBefore && <div><div style={{ ...sectionHeader, marginBottom: '6px' }}>D. Circuit Before</div><div style={{ backgroundColor: 'var(--color-surface-3)', borderRadius: '6px', padding: '10px' }}><QasmCodeView qasm={pass.qasmBefore} maxHeight={120} /></div></div>}
               {pass.qasm && <div><div style={{ ...sectionHeader, marginBottom: '6px' }}>E. Circuit After</div><div style={{ backgroundColor: 'var(--color-surface-3)', borderRadius: '6px', padding: '10px' }}><QasmCodeView qasm={pass.qasm} maxHeight={120} /></div></div>}

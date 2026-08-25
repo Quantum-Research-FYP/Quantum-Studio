@@ -593,29 +593,36 @@ class TranspileTraceRequest(BaseModel):
 class TranspilePassTrace(BaseModel):
     passName: str
     passClass: str
+    # 'AnalysisPass' | 'TransformationPass'
+    passType: str = "TransformationPass"
     stage: str
     executionTimeMs: float
     # QASM state AFTER this pass executes
     qasm: str
     # QASM state BEFORE this pass executes (captured in collector)
     qasmBefore: str
+    # Gate count / depth AFTER this pass
     gateCount: int
     depth: int
+    # Signed deltas (0 for AnalysisPass by definition)
     deltaGates: int
     deltaDepth: int
     purpose: str
     rationale: str
+    pipelineReason: str | None = None
     changedGates: list[str]
-    # Was the circuit actually structurally changed by this pass?
+    # Was the circuit DAG actually structurally changed by this pass?
+    # Always False for AnalysisPass.
     circuitChanged: bool
     # 1Q / 2Q / multi-Q gate counts AFTER pass
     oneQGates: int
     twoQGates: int
     multiQGates: int
+    # 1Q / 2Q / multi-Q gate counts BEFORE pass
     oneQGatesBefore: int
     twoQGatesBefore: int
     multiQGatesBefore: int
-    # DAG snapshot before/after — only populated for Optimization passes to control payload size
+    # DAG snapshot before/after — populated for Optimization passes; None otherwise
     dagBefore: dict | None = None
     dagAfter: dict | None = None
     # GNN-ready feature dictionary for future optimization pass prediction research
@@ -1155,6 +1162,51 @@ def _count_gate_types(circuit) -> tuple[int, int, int, int]:
     return one_q, two_q, multi_q, measurements
 
 
+# ---------------------------------------------------------------------------
+# Helper: detect AnalysisPass vs TransformationPass from Qiskit base classes
+# ---------------------------------------------------------------------------
+
+def _get_pass_type(pass_) -> str:
+    """
+    Safely detect whether a Qiskit pass is an AnalysisPass (read-only inspection
+    of the DAG) or a TransformationPass (modifies the DAG).
+
+    AnalysisPass  → updates the property-set, NEVER modifies the DAG.
+    TransformationPass → may or may not modify the DAG (checked by diff after).
+
+    Returns 'AnalysisPass' or 'TransformationPass'.
+    """
+    # Try the standard Qiskit import path (works for Qiskit >= 0.39)
+    for module_path in (
+        "qiskit.transpiler.basepasses",
+        "qiskit.transpiler",
+        "qiskit.passmanager",
+    ):
+        try:
+            mod = __import__(module_path, fromlist=["AnalysisPass", "TransformationPass"])
+            ap = getattr(mod, "AnalysisPass", None)
+            tp = getattr(mod, "TransformationPass", None)
+            if ap is not None and isinstance(pass_, ap):
+                return "AnalysisPass"
+            if tp is not None and isinstance(pass_, tp):
+                return "TransformationPass"
+        except Exception:
+            continue
+    # Heuristic fallback based on known pass-class names
+    cn = pass_.__class__.__name__
+    if any(cn == n for n in (
+        "Size", "Depth", "Width", "CheckMap", "CheckGates", "CheckGate",
+        "CheckCXDirection", "CheckCalibrationFixed",
+        "CountOps", "CountOpsLongest", "NumTensors", "NumQubits",
+        "DAGLongestPath", "DAGSize",
+        "CollectLinearFunctions", "CollectCliffords",
+        "ContainsInstruction",
+    )):
+        return "AnalysisPass"
+    # Last resort: Qiskit analysis passes typically do not override `run()` to return a DAG
+    return "TransformationPass"
+
+
 def _extract_gnn_features(circuit, dag_data: dict | None) -> dict:
     """Extract GNN-ready feature dictionary from a circuit and its DAG data."""
     try:
@@ -1198,94 +1250,157 @@ class TranspileTraceCollector:
         try:
             from qiskit.converters import dag_to_circuit
 
-            # Capture BEFORE state
-            qasm_before = self.current_qasm
-            gates_before = self.current_gates
-            depth_before = self.current_depth
-            ops_before = self.current_ops
-            one_q_before = self.current_1q
-            two_q_before = self.current_2q
-            multi_q_before = self.current_multi
-
-            circ = dag_to_circuit(dag)
-            qasm_str = _safe_qasm_dump(circ)
-
             pass_name = pass_.name()
             pass_class = pass_.__class__.__name__
             stage = _determine_stage(pass_name)
+            pass_type = _get_pass_type(pass_)
+            is_analysis = (pass_type == "AnalysisPass")
 
-            gate_count = circ.size()
-            depth = circ.depth()
-            ops = dict(circ.count_ops())
+            # ── Snapshot BEFORE state ────────────────────────────────────
+            # Always captured from self so it reflects the real circuit
+            # state immediately before this pass ran.
+            qasm_before    = self.current_qasm
+            gates_before   = self.current_gates
+            depth_before   = self.current_depth
+            ops_before     = self.current_ops
+            one_q_before   = self.current_1q
+            two_q_before   = self.current_2q
+            multi_q_before = self.current_multi
 
-            one_q_after, two_q_after, multi_q_after, _ = _count_gate_types(circ)
+            # ── Compute AFTER state ──────────────────────────────────────
+            if is_analysis:
+                # AnalysisPass: the DAG is contractually unchanged.
+                # We still receive the dag parameter from Qiskit, but it
+                # must equal the circuit before the pass — do NOT update
+                # self state so that the next pass's "before" is still
+                # consistent with what actually happened.
+                qasm_str     = qasm_before
+                gate_count   = gates_before
+                depth        = depth_before
+                ops          = ops_before
+                one_q_after  = one_q_before
+                two_q_after  = two_q_before
+                multi_q_after = multi_q_before
+                delta_gates  = 0
+                delta_depth  = 0
+                changed_gates = []
+                circuit_changed = False
+                dag_before_data = None
+                dag_after_data  = None
+                gnn_before      = None
+                gnn_after       = None
+                pattern_found   = None
+                # self.current_* NOT updated — state is unchanged
+            else:
+                # TransformationPass: may or may not change the DAG.
+                # Qiskit returns the (possibly modified) DAG as the
+                # `dag` parameter.
+                circ = dag_to_circuit(dag)
+                qasm_str      = _safe_qasm_dump(circ)
+                gate_count    = circ.size()
+                depth         = circ.depth()
+                ops           = dict(circ.count_ops())
+                one_q_after, two_q_after, multi_q_after, _ = _count_gate_types(circ)
+                delta_gates   = gate_count - gates_before
+                delta_depth   = depth - depth_before
+                changed_gates = _diff_gates(ops_before, ops)
+                circuit_changed = (
+                    delta_gates != 0
+                    or delta_depth != 0
+                    or len(changed_gates) > 0
+                )
 
-            delta_gates = gate_count - gates_before
-            delta_depth = depth - depth_before
-            changed_gates = _diff_gates(ops_before, ops)
-            circuit_changed = (delta_gates != 0 or delta_depth != 0 or len(changed_gates) > 0)
+                # Infer pattern found from gate diff (Optimization stage only)
+                pattern_found = None
+                if circuit_changed and stage == STAGE_OPTIMIZATION:
+                    if delta_gates < 0:
+                        if any('cx' in g.lower() or 'ecr' in g.lower() for g in changed_gates):
+                            pattern_found = (
+                                f"Found cancellable or reducible two-qubit gate sequences "
+                                f"({', '.join(changed_gates[:3])})."
+                            )
+                        elif any(
+                            k.lower() in ('rz', 'rx', 'ry', 'sx', 'u', 'u1', 'u2', 'u3')
+                            for g in changed_gates
+                            for k in [g.split(':')[0].strip()]
+                        ):
+                            pattern_found = (
+                                f"Found consecutive single-qubit operations that could be "
+                                f"merged or cancelled ({', '.join(changed_gates[:3])})."
+                            )
+                        else:
+                            pattern_found = f"Found optimizable pattern: {', '.join(changed_gates[:3])}."
+                    elif delta_gates > 0:
+                        pattern_found = (
+                            "This pass transformed the circuit representation. "
+                            "A later pass may reduce these gates further."
+                        )
+                    elif circuit_changed:
+                        pattern_found = "Gate types were rearranged or renamed without changing total count."
+
+                # DAG snapshots — Optimization passes only (payload size control)
+                dag_before_data = None
+                dag_after_data  = None
+                gnn_before      = None
+                gnn_after       = None
+                if stage == STAGE_OPTIMIZATION:
+                    try:
+                        before_circ = _parse_qasm_safe(qasm_before) if qasm_before else None
+                        dag_before_data = _serialize_dag(before_circ) if before_circ else None
+                        gnn_before = _extract_gnn_features(before_circ, dag_before_data) if before_circ else None
+                    except Exception:
+                        dag_before_data = None
+                    dag_after_data = _serialize_dag(circ)
+                    gnn_after = _extract_gnn_features(circ, dag_after_data)
+
+                # Advance self state — only TransformationPass changes the circuit
+                self.current_circuit = circ
+                self.current_qasm    = qasm_str
+                self.current_gates   = gate_count
+                self.current_depth   = depth
+                self.current_ops     = ops
+                self.current_1q      = one_q_after
+                self.current_2q      = two_q_after
+                self.current_multi   = multi_q_after
 
             purpose, rationale, pipeline_reason = _get_pass_explanation(pass_name, stage)
 
-            # Infer pattern found from changed gates (only if circuit actually changed)
-            pattern_found = None
-            if circuit_changed and stage == STAGE_OPTIMIZATION:
-                if delta_gates < 0:
-                    if any('cx' in g.lower() or 'ecr' in g.lower() for g in changed_gates):
-                        pattern_found = f"Found cancellable or reducible two-qubit gate sequences ({', '.join(changed_gates[:3])})."
-                    elif any(k.lower() in ('rz', 'rx', 'ry', 'sx', 'u', 'u1', 'u2', 'u3') for g in changed_gates for k in [g.split(':')[0].strip()]):
-                        pattern_found = f"Found consecutive single-qubit operations that could be merged or cancelled ({', '.join(changed_gates[:3])})."
-                    else:
-                        pattern_found = f"Found optimizable pattern: {', '.join(changed_gates[:3])}."
-                elif delta_gates > 0:
-                    pattern_found = "This pass transformed the circuit representation. A later pass may reduce these gates further."
-                elif delta_gates == 0 and circuit_changed:
-                    pattern_found = "Gate types were rearranged or renamed without changing total count."
-
-            # DAG snapshots — only for Optimization passes to control payload size
-            dag_before_data = None
-            dag_after_data = None
-            gnn_before = None
-            gnn_after = None
-            if stage == STAGE_OPTIMIZATION:
-                # We need to reconstruct the before-circuit to get its DAG
-                # We already have the before QASM; re-parse it for the DAG
-                try:
-                    before_circ = _parse_qasm_safe(qasm_before) if qasm_before else None
-                    dag_before_data = _serialize_dag(before_circ) if before_circ else None
-                    gnn_before = _extract_gnn_features(before_circ, dag_before_data) if before_circ else None
-                except Exception:
-                    dag_before_data = None
-                dag_after_data = _serialize_dag(circ)
-                gnn_after = _extract_gnn_features(circ, dag_after_data)
-
             self.trace.append({
-                "passName": pass_name,
-                "passClass": pass_class,
-                "stage": stage,
+                "passName":       pass_name,
+                "passClass":      pass_class,
+                "passType":       pass_type,
+                "stage":          stage,
                 "executionTimeMs": float(time * 1000),
-                "qasm": qasm_str,
-                "qasmBefore": qasm_before,
-                "gateCount": gate_count,
-                "depth": depth,
+                # QASM/metrics BEFORE this pass
+                "qasmBefore":      qasm_before,
+                "gateCountBefore": gates_before,
+                "depthBefore":     depth_before,
+                "oneQGatesBefore":  one_q_before,
+                "twoQGatesBefore":  two_q_before,
+                "multiQGatesBefore": multi_q_before,
+                # QASM/metrics AFTER this pass
+                "qasm":       qasm_str,
+                "gateCount":  gate_count,
+                "depth":      depth,
+                "oneQGates":  one_q_after,
+                "twoQGates":  two_q_after,
+                "multiQGates": multi_q_after,
+                # Signed deltas
                 "deltaGates": delta_gates,
                 "deltaDepth": delta_depth,
-                "purpose": purpose,
-                "rationale": rationale,
-                "pipelineReason": pipeline_reason,
-                "changedGates": changed_gates,
+                # Change metadata
+                "changedGates":   changed_gates,
                 "circuitChanged": circuit_changed,
-                "oneQGates": one_q_after,
-                "twoQGates": two_q_after,
-                "multiQGates": multi_q_after,
-                "oneQGatesBefore": one_q_before,
-                "twoQGatesBefore": two_q_before,
-                "multiQGatesBefore": multi_q_before,
+                # Explanations
+                "purpose":       purpose,
+                "rationale":     rationale,
+                "pipelineReason": pipeline_reason,
+                # DAG data (Optimization only)
                 "dagBefore": dag_before_data,
-                "dagAfter": dag_after_data,
+                "dagAfter":  dag_after_data,
                 "gnnFeatures": {
                     "before": gnn_before,
-                    "after": gnn_after,
+                    "after":  gnn_after,
                     "delta": {
                         k: (gnn_after.get(k, 0) - gnn_before.get(k, 0))
                         for k in (gnn_after or {})
@@ -1294,16 +1409,6 @@ class TranspileTraceCollector:
                 } if stage == STAGE_OPTIMIZATION else None,
                 "patternFound": pattern_found,
             })
-
-            # Update state for next pass
-            self.current_circuit = circ
-            self.current_qasm = qasm_str
-            self.current_gates = gate_count
-            self.current_depth = depth
-            self.current_ops = ops
-            self.current_1q = one_q_after
-            self.current_2q = two_q_after
-            self.current_multi = multi_q_after
         except Exception as e:
             import traceback
             print(f"[transpile-trace] Error in transpilation callback: {e}\n{traceback.format_exc()}")
@@ -1323,13 +1428,23 @@ def _parse_qasm_safe(qasm_str: str):
 def _group_trace_into_stages(collector, initial_circuit, qasm_initial: str) -> list[dict]:
     """
     Groups the flat pass trace into the 6 canonical educational stages.
-    Also computes stage-level DAG before/after, qubit mapping tables, swap counts,
-    and scheduling detection.
-    """
-    initial_gate_count = initial_circuit.size()
-    initial_depth = initial_circuit.depth()
-    initial_1q, initial_2q, initial_multi, _ = _count_gate_types(initial_circuit)
 
+    KEY CORRECTNESS RULE
+    ────────────────────
+    Stage-level before/after metrics are computed from the actual per-pass
+    ``gateCountBefore`` / ``gateCount`` fields recorded during the
+    transpilation callback — NOT from a sequential accumulator that would
+    accidentally assign later-stage metric values to earlier stages.
+
+    For a stage whose passes are all AnalysisPass:
+        gateCountBefore == gateCountAfter  (DAG untouched)
+
+    For a stage with at least one TransformationPass:
+        gateCountAfter = gateCount of the last TransformationPass in the stage
+
+    This correctly prevents Circuit Analysis (Size, Depth, …) from showing
+    the gate-count reduction that was actually caused by Routing or Decomposition.
+    """
     stage_order = [
         STAGE_CIRCUIT_ANALYSIS,
         STAGE_QUBIT_MAPPING,
@@ -1339,81 +1454,149 @@ def _group_trace_into_stages(collector, initial_circuit, qasm_initial: str) -> l
         STAGE_SCHEDULING,
     ]
 
+    # ── Group passes by stage (preserves callback order within each group) ──
     stages_dict: dict[str, list] = {s: [] for s in stage_order}
-
     for p in collector.trace:
         stage = p["stage"]
         if stage in stages_dict:
             stages_dict[stage].append(p)
         else:
-            # Unknown stage — put in Circuit Analysis as a safety bucket
             stages_dict[STAGE_CIRCUIT_ANALYSIS].append({**p, "stage": STAGE_CIRCUIT_ANALYSIS})
 
+    # ── Build a lookup: for each stage, what was the circuit state just
+    #    before the very first pass of that stage ran?
+    #
+    #    We use the ``gateCountBefore`` field that was stored in the callback
+    #    at the moment the pass started, so it is always accurate regardless
+    #    of interleaving.
+    #
+    #    For empty stages we fall back to the last known circuit state,
+    #    which we derive by scanning the chronological trace.
+    # ────────────────────────────────────────────────────────────────────────
+
+
+
+    def _stage_entry_metrics(stage_name: str) -> dict:
+        """
+        Return the circuit metrics immediately before the first pass of
+        stage_name ran.  Falls back to the final known state if no pass
+        is found (which means the stage was skipped entirely).
+        """
+        passes = stages_dict.get(stage_name, [])
+        if passes:
+            fp = passes[0]
+            return {
+                "gateCount": fp["gateCountBefore"],
+                "depth":     fp["depthBefore"],
+                "oneQ":      fp["oneQGatesBefore"],
+                "twoQ":      fp["twoQGatesBefore"],
+                "qasm":      fp["qasmBefore"],
+            }
+        # Stage was skipped — find where it would sit chronologically and
+        # return the state that was current at that point.
+        # We approximate by returning the state after the last pass of any
+        # earlier stage that had passes.
+        earlier_after_qasm = qasm_initial
+        earlier_after_gates = initial_circuit.size()
+        earlier_after_depth = initial_circuit.depth()
+        earlier_1q, earlier_2q, _, _ = _count_gate_types(initial_circuit)
+        for s in stage_order:
+            if s == stage_name:
+                break
+            if stages_dict[s]:
+                last_t = stages_dict[s][-1]
+                earlier_after_qasm   = last_t["qasm"]
+                earlier_after_gates  = last_t["gateCount"]
+                earlier_after_depth  = last_t["depth"]
+                earlier_1q           = last_t["oneQGates"]
+                earlier_2q           = last_t["twoQGates"]
+        return {
+            "gateCount": earlier_after_gates,
+            "depth":     earlier_after_depth,
+            "oneQ":      earlier_1q,
+            "twoQ":      earlier_2q,
+            "qasm":      earlier_after_qasm,
+        }
+
+    def _stage_exit_metrics(stage_name: str, entry: dict) -> dict:
+        """
+        Return the circuit metrics after the last transformation pass of
+        stage_name.  If the stage has no transformation passes (all are
+        AnalysisPass) the exit == entry, meaning the circuit was unchanged.
+        """
+        passes = stages_dict.get(stage_name, [])
+        if not passes:
+            return entry.copy()
+        # Find the last TransformationPass in this stage
+        xform_passes = [p for p in passes if p.get("passType", "TransformationPass") == "TransformationPass"]
+        if not xform_passes:
+            # All are AnalysisPass — circuit is unchanged
+            return {
+                "gateCount": entry["gateCount"],
+                "depth":     entry["depth"],
+                "oneQ":      entry["oneQ"],
+                "twoQ":      entry["twoQ"],
+                "qasm":      entry["qasm"],
+            }
+        last_xform = xform_passes[-1]
+        return {
+            "gateCount": last_xform["gateCount"],
+            "depth":     last_xform["depth"],
+            "oneQ":      last_xform["oneQGates"],
+            "twoQ":      last_xform["twoQGates"],
+            "qasm":      last_xform["qasm"],
+        }
+
     stages_list = []
-    current_gates = initial_gate_count
-    current_depth = initial_depth
-    current_1q = initial_1q
-    current_2q = initial_2q
-    current_qasm = qasm_initial
 
     for stage_name in stage_order:
         passes = stages_dict[stage_name]
         qiskit_concept = QISKIT_STAGE_CONCEPT.get(stage_name, stage_name)
-
-        if not passes:
-            stages_list.append({
-                "stageName": stage_name,
-                "qiskitConcept": qiskit_concept,
-                "passes": [],
-                "gateCountBefore": current_gates,
-                "gateCountAfter": current_gates,
-                "depthBefore": current_depth,
-                "depthAfter": current_depth,
-                "executionTimeMs": 0.0,
-                "oneQGatesBefore": current_1q,
-                "twoQGatesBefore": current_2q,
-                "oneQGatesAfter": current_1q,
-                "twoQGatesAfter": current_2q,
-                "dagBefore": None,
-                "dagAfter": None,
-                "swapCount": 0,
-                "mappingTable": None,
-                "schedulingActive": False,
-                "schedulingMethod": None,
-            })
-            continue
-
-        gate_count_before = current_gates
-        depth_before = current_depth
-        one_q_before = current_1q
-        two_q_before = current_2q
         total_time = sum(p["executionTimeMs"] for p in passes)
 
-        last_pass = passes[-1]
-        gate_count_after = last_pass["gateCount"]
-        depth_after = last_pass["depth"]
-        one_q_after = last_pass["oneQGates"]
-        two_q_after = last_pass["twoQGates"]
+        entry = _stage_entry_metrics(stage_name)
+        exit_  = _stage_exit_metrics(stage_name, entry)
 
-        # Stage-level DAG before (re-parse the before-qasm of first pass in this stage)
+        gate_count_before = entry["gateCount"]
+        depth_before      = entry["depth"]
+        one_q_before      = entry["oneQ"]
+        two_q_before      = entry["twoQ"]
+        qasm_before_stage = entry["qasm"]
+
+        gate_count_after  = exit_["gateCount"]
+        depth_after       = exit_["depth"]
+        one_q_after       = exit_["oneQ"]
+        two_q_after       = exit_["twoQ"]
+        qasm_after_stage  = exit_["qasm"]
+
+        # ── Stage-level DAG snapshots ────────────────────────────────────
+        # Parse QASM at the stage boundary to produce a visual DAG.
+        # If both QASMs are identical (analysis-only stage) only one parse
+        # is needed — dagAfter == dagBefore.
         dag_before = None
-        dag_after = None
+        dag_after  = None
         try:
-            before_circ = _parse_qasm_safe(current_qasm)
+            before_circ = _parse_qasm_safe(qasm_before_stage)
             dag_before = _serialize_dag(before_circ) if before_circ else None
         except Exception:
             pass
-        try:
-            after_circ = _parse_qasm_safe(last_pass["qasm"])
-            dag_after = _serialize_dag(after_circ) if after_circ else None
-        except Exception:
-            pass
 
-        # Stage-specific: count SWAP gates inserted (Routing)
+        if qasm_after_stage == qasm_before_stage:
+            # Truly unchanged (e.g. analysis-only stage)
+            dag_after = dag_before
+        else:
+            try:
+                after_circ = _parse_qasm_safe(qasm_after_stage)
+                dag_after = _serialize_dag(after_circ) if after_circ else None
+            except Exception:
+                dag_after = dag_before  # safe fallback
+
+        # ── Stage-specific extras ────────────────────────────────────────
+        # SWAP count (Routing)
         swap_count = 0
         if stage_name == STAGE_ROUTING:
             try:
-                after_circ = _parse_qasm_safe(last_pass["qasm"])
+                after_circ = _parse_qasm_safe(qasm_after_stage)
                 if after_circ:
                     for inst in after_circ.data:
                         if inst.operation.name.lower() == 'swap':
@@ -1421,54 +1604,46 @@ def _group_trace_into_stages(collector, initial_circuit, qasm_initial: str) -> l
             except Exception:
                 pass
 
-        # Stage-specific: extract mapping table (Qubit Mapping)
+        # Mapping table (populated later in the endpoint from layout)
         mapping_table = None
-        if stage_name == STAGE_QUBIT_MAPPING:
-            # Try to extract from the last pass trace
-            # The mapping is in the layout which is captured in the final transpiled circuit
-            pass
 
-        # Stage-specific: detect scheduling
+        # Scheduling detection
         scheduling_active = False
         scheduling_method = None
         if stage_name == STAGE_SCHEDULING and passes:
-            scheduling_active = True
-            # Detect method from pass names
-            for p in passes:
-                pn = p["passName"].lower()
-                if "alap" in pn:
-                    scheduling_method = "ALAP (As-Late-As-Possible)"
-                    break
-                elif "asap" in pn:
-                    scheduling_method = "ASAP (As-Soon-As-Possible)"
-                    break
+            # Only active if at least one TransformationPass ran here
+            xform_passes = [p for p in passes if p.get("passType", "TransformationPass") == "TransformationPass"]
+            if xform_passes:
+                scheduling_active = True
+                for p in passes:
+                    pn = p["passName"].lower()
+                    if "alap" in pn:
+                        scheduling_method = "ALAP (As-Late-As-Possible)"
+                        break
+                    elif "asap" in pn:
+                        scheduling_method = "ASAP (As-Soon-As-Possible)"
+                        break
 
         stages_list.append({
-            "stageName": stage_name,
-            "qiskitConcept": qiskit_concept,
-            "passes": passes,
+            "stageName":      stage_name,
+            "qiskitConcept":  qiskit_concept,
+            "passes":         passes,
             "gateCountBefore": gate_count_before,
-            "gateCountAfter": gate_count_after,
-            "depthBefore": depth_before,
-            "depthAfter": depth_after,
+            "gateCountAfter":  gate_count_after,
+            "depthBefore":     depth_before,
+            "depthAfter":      depth_after,
             "executionTimeMs": total_time,
             "oneQGatesBefore": one_q_before,
             "twoQGatesBefore": two_q_before,
-            "oneQGatesAfter": one_q_after,
-            "twoQGatesAfter": two_q_after,
-            "dagBefore": dag_before,
-            "dagAfter": dag_after,
-            "swapCount": swap_count,
-            "mappingTable": mapping_table,
+            "oneQGatesAfter":  one_q_after,
+            "twoQGatesAfter":  two_q_after,
+            "dagBefore":       dag_before,
+            "dagAfter":        dag_after,
+            "swapCount":       swap_count,
+            "mappingTable":    mapping_table,
             "schedulingActive": scheduling_active,
             "schedulingMethod": scheduling_method,
         })
-
-        current_gates = gate_count_after
-        current_depth = depth_after
-        current_1q = one_q_after
-        current_2q = two_q_after
-        current_qasm = last_pass["qasm"]
 
     return stages_list
 
