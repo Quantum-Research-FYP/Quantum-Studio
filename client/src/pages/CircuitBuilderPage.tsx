@@ -30,6 +30,7 @@ import AiImportBanner from '../components/circuit-builder/AiImportBanner';
 import type { AiImportInfo } from '../components/circuit-builder/AiImportBanner';
 import StateVisualizer from '../components/circuit-builder/StateVisualizer';
 import TranspilationEngine from '../components/circuit-builder/TranspilationEngine';
+import CompilationPathComparison from '../components/circuit-builder/CompilationPathComparison';
 import { useStepSimulation } from '../hooks/useStepSimulation';
 import { useCircuitHistory } from '../hooks/useCircuitHistory';
 import { useExperiment } from '../hooks/useExperiment';
@@ -96,13 +97,19 @@ export default function CircuitBuilderPage() {
     provider: 'local',
   });
   const [providers, setProviders] = useState<ExecutionProvider[]>([]);
-  const [ibmBackends, setIbmBackends] = useState<IbmBackend[]>([]);
+  const [loadingBackends, setLoadingBackends] = useState(false);
+  const [ibmBackends, setIbmBackends] = useState<IbmBackend[]>([
+    { name: 'ibm_brisbane', qubits: 127, pendingJobs: 0, status: 'online' },
+    { name: 'ibm_kyoto', qubits: 127, pendingJobs: 0, status: 'online' },
+    { name: 'ibm_osaka', qubits: 127, pendingJobs: 0, status: 'online' },
+  ]);
   const [credentialStatus, setCredentialStatus] = useState<
     'unknown' | 'missing' | 'invalid' | 'valid'
   >('unknown');
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [isTranspilationModalOpen, setIsTranspilationModalOpen] = useState(false);
+  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -125,17 +132,26 @@ export default function CircuitBuilderPage() {
   }, [user]);
 
   useEffect(() => {
-    if (executionConfig.provider === 'ibm' && credentialStatus === 'valid') {
-      listIbmBackends()
-        .then((data) => {
-          setIbmBackends(data.backends);
-          if (data.backends.length > 0 && !executionConfig.backend) {
-            setExecutionConfig((prev) => ({ ...prev, backend: data.backends[0].name }));
-          }
-        })
-        .catch(() => setIbmBackends([]));
+    if (executionConfig.provider === 'ibm') {
+      if (!executionConfig.backend) {
+        setExecutionConfig((prev) => ({ ...prev, backend: ibmBackends[0]?.name || 'ibm_brisbane' }));
+      }
+      if (credentialStatus === 'valid') {
+        setLoadingBackends(true);
+        listIbmBackends()
+          .then((data) => {
+            if (data.backends && data.backends.length > 0) {
+              setIbmBackends(data.backends);
+              if (!executionConfig.backend) {
+                setExecutionConfig((prev) => ({ ...prev, backend: data.backends[0].name }));
+              }
+            }
+          })
+          .catch(() => {})
+          .finally(() => setLoadingBackends(false));
+      }
     }
-  }, [executionConfig.provider, credentialStatus, executionConfig.backend]);
+  }, [executionConfig.provider, credentialStatus, executionConfig.backend, ibmBackends]);
 
   // Stepper state
   const stepSim = useStepSimulation(circuit);
@@ -427,14 +443,18 @@ export default function CircuitBuilderPage() {
             <option value="spinq">SpinQ Gemini Mini Pro</option>
           </select>
 
-          {executionConfig.provider === 'ibm' && credentialStatus === 'valid' && (
+          {executionConfig.provider === 'ibm' && (
             <select
               className="toolbar-selector"
-              style={{ width: 'auto' }}
-              value={executionConfig.backend || ''}
+              style={{ minWidth: '150px' }}
+              value={executionConfig.backend || ibmBackends[0]?.name || 'ibm_brisbane'}
               onChange={(e) => setExecutionConfig({ ...executionConfig, backend: e.target.value })}
               aria-label="Select Hardware Backend"
             >
+              {loadingBackends && <option value="">Loading backends...</option>}
+              {!loadingBackends && ibmBackends.length === 0 && (
+                <option value="ibm_brisbane">ibm_brisbane (127Q)</option>
+              )}
               {ibmBackends.map((b) => (
                 <option key={b.name} value={b.name}>
                   {b.name} ({b.qubits}Q)
@@ -464,6 +484,15 @@ export default function CircuitBuilderPage() {
             aria-label="Run with Animated Transpilation"
           >
             Run with Animated Transpilation
+          </button>
+          <button
+            className="btn btn--ghost btn--sm"
+            onClick={() => setIsComparisonOpen(true)}
+            disabled={circuit.operations.length === 0}
+            aria-label="Compare Simulation vs Hardware compilation"
+            style={{ borderColor: 'rgba(167, 139, 250, 0.3)' }}
+          >
+            ⚖️ Sim vs Hardware
           </button>
           {experiment.lastSavedAt && (
             <span className="builder__save-status">
@@ -568,6 +597,20 @@ export default function CircuitBuilderPage() {
         isOpen={isTranspilationModalOpen}
         onClose={() => setIsTranspilationModalOpen(false)}
         circuit={circuit}
+      />
+
+      <CompilationPathComparison
+        isOpen={isComparisonOpen}
+        onClose={() => setIsComparisonOpen(false)}
+        circuit={circuit}
+        onExecuteSim={() => {
+          setExecutionConfig((prev) => ({ ...prev, provider: 'local' }));
+          setTimeout(() => handleRun(), 50);
+        }}
+        onExecuteHardware={() => {
+          setExecutionConfig((prev) => ({ ...prev, provider: 'ibm' }));
+          setTimeout(() => handleRun(), 50);
+        }}
       />
     </div>
   );

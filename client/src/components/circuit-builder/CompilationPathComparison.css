@@ -1,0 +1,711 @@
+/* ======================================================================
+   Compilation Path Comparison — CSS
+   Educational side-by-side: Simulation vs Hardware compilation
+   Design language: matches Quantum Studio (variables.css tokens)
+   ====================================================================== */
+
+/* ── Overlay & Window ─────────────────────────────────────────── */
+.cpc-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  z-index: 9999;
+  padding: 16px;
+  animation: cpc-fade-in 0.25s ease;
+}
+
+.cpc-window {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1520px;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.7);
+  animation: cpc-slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ── Header ───────────────────────────────────────────────────── */
+.cpc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.cpc-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.cpc-header-icon {
+  font-size: 1.4rem;
+  display: flex;
+  align-items: center;
+}
+
+.cpc-header-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-text);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.cpc-header-subtitle {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  font-weight: 400;
+}
+
+.cpc-header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ── Step Navigation Timeline ─────────────────────────────────── */
+.cpc-timeline {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 0 16px;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+
+.cpc-timeline::-webkit-scrollbar { display: none; }
+
+.cpc-timeline-step {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--color-text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+  font-family: var(--font-sans);
+  position: relative;
+}
+
+.cpc-timeline-step:hover {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+}
+
+.cpc-timeline-step.active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+  font-weight: 600;
+}
+
+.cpc-timeline-step.visited {
+  color: var(--color-text);
+}
+
+.cpc-timeline-step .step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: var(--color-surface-3);
+  color: var(--color-text-muted);
+  transition: all 0.2s;
+}
+
+.cpc-timeline-step.active .step-num {
+  background: var(--color-primary);
+  color: var(--color-bg);
+}
+
+.cpc-timeline-step.visited .step-num {
+  background: var(--color-success);
+  color: var(--color-bg);
+}
+
+.cpc-timeline-connector {
+  width: 20px;
+  height: 2px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+.cpc-timeline-connector.visited {
+  background: var(--color-success);
+}
+
+/* ── Main Body: Split View ────────────────────────────────────── */
+.cpc-body {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.cpc-split-view {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Path Panels ──────────────────────────────────────────────── */
+.cpc-path-panel {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 20px 24px;
+  animation: cpc-content-fade 0.3s ease;
+}
+
+.cpc-path-panel.sim {
+  background: linear-gradient(180deg, rgba(34, 211, 238, 0.03) 0%, transparent 30%);
+}
+
+.cpc-path-panel.hw {
+  background: linear-gradient(180deg, rgba(167, 139, 250, 0.03) 0%, transparent 30%);
+}
+
+/* ── Path Headers ─────────────────────────────────────────────── */
+.cpc-path-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.cpc-path-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.cpc-path-badge.sim {
+  background: rgba(34, 211, 238, 0.12);
+  color: var(--color-primary);
+  border: 1px solid rgba(34, 211, 238, 0.25);
+}
+
+.cpc-path-badge.hw {
+  background: rgba(167, 139, 250, 0.12);
+  color: var(--color-accent);
+  border: 1px solid rgba(167, 139, 250, 0.25);
+}
+
+.cpc-path-label {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+}
+
+/* ── Divider ──────────────────────────────────────────────────── */
+.cpc-divider {
+  width: 1px;
+  background: var(--color-border-strong);
+  position: relative;
+  flex-shrink: 0;
+}
+
+.cpc-divider::after {
+  content: 'VS';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--color-surface-2);
+  color: var(--color-text-muted);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  writing-mode: vertical-rl;
+}
+
+/* ── Stage Cards ──────────────────────────────────────────────── */
+.cpc-stage-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  margin-bottom: 12px;
+  transition: all 0.2s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.cpc-stage-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 3px 0 0 3px;
+}
+
+.cpc-stage-card.sim::before {
+  background: var(--color-primary);
+}
+
+.cpc-stage-card.hw::before {
+  background: var(--color-accent);
+}
+
+.cpc-stage-card.skipped {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.cpc-stage-card.skipped::before {
+  background: var(--color-border);
+}
+
+.cpc-stage-card.active-step {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary), 0 4px 16px rgba(34, 211, 238, 0.08);
+}
+
+.cpc-stage-card.active-step.hw {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 1px var(--color-accent), 0 4px 16px rgba(167, 139, 250, 0.08);
+}
+
+/* ── Stage Card Content ───────────────────────────────────────── */
+.cpc-stage-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.cpc-stage-icon {
+  font-size: 1rem;
+}
+
+.cpc-stage-name {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.cpc-stage-status {
+  margin-left: auto;
+  font-size: 0.65rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+}
+
+.cpc-stage-status.skipped {
+  background: var(--color-surface-3);
+  color: var(--color-text-muted);
+}
+
+.cpc-stage-status.active {
+  background: rgba(52, 211, 153, 0.12);
+  color: var(--color-success);
+}
+
+.cpc-stage-status.transforms {
+  background: rgba(167, 139, 250, 0.12);
+  color: var(--color-accent);
+}
+
+.cpc-stage-desc {
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  line-height: 1.55;
+  margin: 0;
+}
+
+/* ── Educational Callout ──────────────────────────────────────── */
+.cpc-callout {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+.cpc-callout.info {
+  background: var(--color-primary-dim);
+  border: 1px solid rgba(34, 211, 238, 0.2);
+  color: var(--color-primary);
+}
+
+.cpc-callout.note {
+  background: var(--color-accent-dim);
+  border: 1px solid rgba(167, 139, 250, 0.2);
+  color: var(--color-accent);
+}
+
+.cpc-callout.success {
+  background: rgba(52, 211, 153, 0.06);
+  border: 1px solid rgba(52, 211, 153, 0.2);
+  color: var(--color-success);
+}
+
+.cpc-callout.warning {
+  background: rgba(251, 191, 36, 0.06);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  color: var(--color-warning);
+}
+
+.cpc-callout strong {
+  font-weight: 700;
+}
+
+/* ── Circuit Preview Box ──────────────────────────────────────── */
+.cpc-circuit-box {
+  margin-top: 12px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.cpc-circuit-box-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-subtle);
+  margin-bottom: 8px;
+}
+
+.cpc-circuit-ascii {
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--color-text);
+  white-space: pre;
+  line-height: 1.5;
+  overflow-x: auto;
+}
+
+/* ── Metrics Row ──────────────────────────────────────────────── */
+.cpc-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.cpc-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cpc-metric-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-subtle);
+}
+
+.cpc-metric-value {
+  font-size: 0.82rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--color-text);
+}
+
+.cpc-metric-value.changed {
+  color: var(--color-warning);
+}
+
+.cpc-metric-value.improved {
+  color: var(--color-success);
+}
+
+/* ── Comparison Summary Table ─────────────────────────────────── */
+.cpc-summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  margin-top: 12px;
+}
+
+.cpc-summary-table th {
+  text-align: left;
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--color-border);
+  color: var(--color-text-subtle);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 700;
+}
+
+.cpc-summary-table td {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+}
+
+.cpc-summary-table tr:last-child td {
+  border-bottom: none;
+}
+
+.cpc-summary-table .col-sim {
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.cpc-summary-table .col-hw {
+  color: var(--color-accent);
+  font-weight: 600;
+}
+
+/* ── Flow Arrow ───────────────────────────────────────────────── */
+.cpc-flow-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 0;
+  color: var(--color-text-subtle);
+  font-size: 0.7rem;
+  gap: 4px;
+}
+
+.cpc-flow-arrow .arrow-line {
+  width: 1px;
+  height: 16px;
+  background: var(--color-border-strong);
+}
+
+/* ── Playback Footer ──────────────────────────────────────────── */
+.cpc-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface);
+  flex-shrink: 0;
+}
+
+.cpc-pb-btn {
+  font-size: 0.75rem !important;
+  padding: 4px 10px !important;
+}
+
+.cpc-pb-play {
+  min-width: 80px;
+}
+
+.cpc-pb-progress {
+  flex: 1;
+  height: 4px;
+  background: var(--color-surface-3);
+  border-radius: var(--radius-full);
+  overflow: hidden;
+}
+
+.cpc-pb-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+
+.cpc-pb-label {
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+
+/* ── Shared Step: Intro Diagram ───────────────────────────────── */
+.cpc-intro {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px;
+  text-align: center;
+}
+
+.cpc-intro-diagram {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.cpc-intro-node {
+  padding: 10px 24px;
+  border-radius: var(--radius-lg);
+  font-size: 0.82rem;
+  font-weight: 600;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  min-width: 200px;
+}
+
+.cpc-intro-node.primary {
+  border-color: var(--color-primary);
+  background: var(--color-primary-dim);
+  color: var(--color-primary);
+}
+
+.cpc-intro-fork {
+  display: flex;
+  align-items: flex-start;
+  gap: 40px;
+  margin-top: 8px;
+}
+
+.cpc-intro-branch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.cpc-intro-branch-line {
+  width: 2px;
+  height: 24px;
+}
+
+.cpc-intro-branch-line.sim {
+  background: var(--color-primary);
+}
+
+.cpc-intro-branch-line.hw {
+  background: var(--color-accent);
+}
+
+/* ── Skipped Overlay ──────────────────────────────────────────── */
+.cpc-skipped-overlay {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  margin-top: 8px;
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  border: 1px dashed var(--color-border);
+  font-size: 0.72rem;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.cpc-skipped-icon {
+  font-size: 0.85rem;
+}
+
+/* ── Loading/Shared Panels ────────────────────────────────────── */
+.cpc-shared-panel {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 24px;
+  min-height: 300px;
+}
+
+/* ── Animations ───────────────────────────────────────────────── */
+@keyframes cpc-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes cpc-slide-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cpc-content-fade {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes cpc-pulse-border {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.15); }
+  50% { box-shadow: 0 0 0 4px rgba(34, 211, 238, 0.08); }
+}
+
+.cpc-stage-card.active-step {
+  animation: cpc-pulse-border 2s ease-in-out infinite;
+}
+
+@keyframes cpc-pulse-border-hw {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(167, 139, 250, 0.15); }
+  50% { box-shadow: 0 0 0 4px rgba(167, 139, 250, 0.08); }
+}
+
+.cpc-stage-card.active-step.hw {
+  animation: cpc-pulse-border-hw 2s ease-in-out infinite;
+}
+
+/* ── Key Takeaway Banner ──────────────────────────────────────── */
+.cpc-takeaway {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px 18px;
+  margin-top: 16px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.06), rgba(167, 139, 250, 0.06));
+  border: 1px solid rgba(148, 163, 184, 0.12);
+}
+
+.cpc-takeaway-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.cpc-takeaway-text {
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--color-text);
+}
+
+.cpc-takeaway-text strong {
+  color: var(--color-primary);
+}
+
+.cpc-takeaway-text em {
+  color: var(--color-accent);
+  font-style: normal;
+  font-weight: 600;
+}
