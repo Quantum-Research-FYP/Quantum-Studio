@@ -994,6 +994,7 @@ def _serialize_dag(circuit) -> dict:
         return {"nodes": [], "edges": []}
     try:
         from qiskit.converters import circuit_to_dag
+        from qiskit.dagcircuit import DAGOpNode, DAGInNode, DAGOutNode
         dag = circuit_to_dag(circuit)
         
         nodes = []
@@ -1004,35 +1005,82 @@ def _serialize_dag(circuit) -> dict:
             node_id = f"node_{idx}"
             node_id_map[node] = node_id
             
-            label = ""
+            label = "Gate"
             type_ = "gate"
+            qubits_str = ""
             
-            if hasattr(node, 'type'):
+            if isinstance(node, DAGOpNode):
+                type_ = "gate"
+                if hasattr(node, 'op') and hasattr(node.op, 'name'):
+                    label = node.op.name.upper()
+                elif hasattr(node, 'name'):
+                    label = str(node.name).upper()
+                else:
+                    label = "OP"
+                    
+                if hasattr(node, 'qargs') and node.qargs:
+                    q_indices = []
+                    for q in node.qargs:
+                        if hasattr(q, '_index') and q._index is not None:
+                            q_indices.append(f"q[{q._index}]")
+                        elif hasattr(circuit, 'find_bit'):
+                            try:
+                                q_indices.append(f"q[{circuit.find_bit(q).index}]")
+                            except Exception:
+                                q_indices.append(str(q))
+                        else:
+                            q_indices.append(str(q))
+                    qubits_str = ", ".join(q_indices)
+                    
+            elif isinstance(node, DAGInNode):
+                type_ = "in"
+                wire = getattr(node, 'wire', None)
+                if wire:
+                    if hasattr(wire, '_index') and wire._index is not None:
+                        label = f"In: q[{wire._index}]"
+                    elif hasattr(circuit, 'find_bit'):
+                        try:
+                            label = f"In: q[{circuit.find_bit(wire).index}]"
+                        except Exception:
+                            label = f"In: {wire}"
+                    else:
+                        label = f"In: {wire}"
+                else:
+                    label = "In"
+            elif isinstance(node, DAGOutNode):
+                type_ = "out"
+                wire = getattr(node, 'wire', None)
+                if wire:
+                    if hasattr(wire, '_index') and wire._index is not None:
+                        label = f"Out: q[{wire._index}]"
+                    elif hasattr(circuit, 'find_bit'):
+                        try:
+                            label = f"Out: q[{circuit.find_bit(wire).index}]"
+                        except Exception:
+                            label = f"Out: {wire}"
+                    else:
+                        label = f"Out: {wire}"
+                else:
+                    label = "Out"
+            elif hasattr(node, 'type'):
                 if node.type == "op":
                     label = getattr(node, 'name', 'Gate').upper()
                     type_ = "gate"
                 elif node.type == "in":
-                    wire = getattr(node, 'wire', None)
-                    if wire:
-                        reg_name = getattr(wire.register, 'name', 'q') if hasattr(wire, 'register') and wire.register else 'q'
-                        idx_val = getattr(wire, 'index', 0)
-                        label = f"{reg_name}[{idx_val}]"
-                    else:
-                        label = "In"
+                    label = "In"
                     type_ = "in"
                 elif node.type == "out":
-                    wire = getattr(node, 'wire', None)
-                    if wire:
-                        reg_name = getattr(wire.register, 'name', 'q') if hasattr(wire, 'register') and wire.register else 'q'
-                        idx_val = getattr(wire, 'index', 0)
-                        label = f"{reg_name}[{idx_val}]"
-                    else:
-                        label = "Out"
+                    label = "Out"
                     type_ = "out"
             else:
-                label = str(node)
+                label = getattr(node, 'name', 'Gate').upper() if hasattr(node, 'name') else "Gate"
                 
-            nodes.append({"id": node_id, "label": label, "type": type_})
+            nodes.append({
+                "id": node_id,
+                "label": label,
+                "type": type_,
+                "qubits": qubits_str
+            })
             
         for edge in dag.edges():
             try:
@@ -1051,9 +1099,17 @@ def _serialize_dag(circuit) -> dict:
                     
                     wire_label = ""
                     if wire:
-                        reg_name = getattr(wire.register, 'name', 'q') if hasattr(wire, 'register') and wire.register else 'q'
-                        idx_val = getattr(wire, 'index', 0)
-                        wire_label = f"{reg_name}[{idx_val}]"
+                        if hasattr(wire, '_index') and wire._index is not None:
+                            wire_label = f"q[{wire._index}]"
+                        elif hasattr(circuit, 'find_bit'):
+                            try:
+                                wire_label = f"q[{circuit.find_bit(wire).index}]"
+                            except Exception:
+                                wire_label = str(wire)
+                        else:
+                            reg_name = getattr(wire.register, 'name', 'q') if hasattr(wire, 'register') and wire.register else 'q'
+                            idx_val = getattr(wire, 'index', 0)
+                            wire_label = f"{reg_name}[{idx_val}]"
                         
                     edges.append({
                         "source": src_id,

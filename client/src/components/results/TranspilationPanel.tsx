@@ -120,7 +120,7 @@ function MetricGrid({ items }: { items: Array<{ label: string; value: ReactNode 
 // DagViewer
 // ─────────────────────────────────────────────────────────────────────────────
 
-function computeDagLayout(dagData: DagData, width = 420, height = 200) {
+function computeDagLayout(dagData: DagData, width = 500, height = 220) {
   const { nodes, edges } = dagData;
   if (!nodes.length) return null;
   const adj: Record<string, string[]> = {};
@@ -128,6 +128,7 @@ function computeDagLayout(dagData: DagData, width = 420, height = 200) {
   const nodeMap: Record<string, (typeof nodes)[0]> = {};
   nodes.forEach((n) => { adj[n.id] = []; inEdges[n.id] = []; nodeMap[n.id] = n; });
   edges.forEach((e) => { if (adj[e.source]) adj[e.source].push(e.target); if (inEdges[e.target]) inEdges[e.target].push(e.source); });
+  
   const layers: Record<string, number> = {};
   const visited = new Set<string>();
   function getRank(nodeId: string): number {
@@ -147,23 +148,28 @@ function computeDagLayout(dagData: DagData, width = 420, height = 200) {
   nodes.forEach((n) => { if (n.type === 'out') layers[n.id] = maxRank + 1; });
   maxRank = 0;
   nodes.forEach((n) => { if (layers[n.id] > maxRank) maxRank = layers[n.id]; });
+  
   const layersGroup: Record<number, string[]> = {};
   for (let r = 0; r <= maxRank; r++) layersGroup[r] = [];
   nodes.forEach((n) => { const r = layers[n.id] || 0; if (!layersGroup[r]) layersGroup[r] = []; layersGroup[r].push(n.id); });
+  
   const positions: Record<string, { x: number; y: number }> = {};
-  const paddingX = 40, paddingY = 24;
+  const paddingX = 55, paddingY = 30;
   const activeLayers = Object.keys(layersGroup).map(Number).filter((l) => layersGroup[l].length > 0).sort((a, b) => a - b);
   const layerCount = activeLayers.length;
   activeLayers.forEach((l, lIdx) => {
     const x = paddingX + (lIdx / Math.max(1, layerCount - 1)) * (width - 2 * paddingX);
     const nodeIds = layersGroup[l];
     const nVal = nodeIds.length;
-    nodeIds.forEach((id, idx) => { const y = paddingY + (nVal === 1 ? 0.5 : idx / (nVal - 1)) * (height - 2 * paddingY); positions[id] = { x, y }; });
+    nodeIds.forEach((id, idx) => {
+      const y = paddingY + (nVal === 1 ? 0.5 : idx / (nVal - 1)) * (height - 2 * paddingY);
+      positions[id] = { x, y };
+    });
   });
   return { positions, nodes, edges };
 }
 
-function DagViewer({ dagData, title, width = 420, height = 200, compact = false }: { dagData: DagData | null | undefined; title?: string; width?: number; height?: number; compact?: boolean }) {
+function DagViewer({ dagData, title, width = 520, height = 220, compact = false }: { dagData: DagData | null | undefined; title?: string; width?: number; height?: number; compact?: boolean }) {
   const layout = useMemo(() => dagData ? computeDagLayout(dagData, width, height) : null, [dagData, width, height]);
   const markerId = useMemo(() => `arrow-${Math.random().toString(36).slice(2, 7)}`, []);
   if (!dagData || !layout) return <div style={{ padding: '16px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>No DAG data available</div>;
@@ -171,38 +177,61 @@ function DagViewer({ dagData, title, width = 420, height = 200, compact = false 
   return (
     <div>
       {title && <div style={{ ...sectionHeader, marginBottom: '8px' }}>{title}</div>}
-      <div style={{ overflowX: 'auto' }}>
-        <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ maxWidth: width, display: 'block' }}>
+      <div style={{ overflowX: 'auto', background: 'var(--color-surface-2)', borderRadius: '8px', padding: '12px', border: '1px solid var(--color-border)' }}>
+        <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ maxWidth: width, display: 'block', margin: '0 auto' }}>
           <defs>
-            <marker id={markerId} viewBox="0 0 10 10" refX="18" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <marker id={markerId} viewBox="0 0 10 10" refX="16" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
               <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-text-muted)" />
             </marker>
           </defs>
           {layout.edges.map((edge, idx) => {
             const p1 = layout.positions[edge.source], p2 = layout.positions[edge.target];
             if (!p1 || !p2) return null;
-            return <g key={idx}><line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="var(--color-border-strong)" strokeWidth="1.5" markerEnd={`url(#${markerId})`} />{edge.label && <text x={(p1.x+p2.x)/2} y={(p1.y+p2.y)/2-5} textAnchor="middle" fontSize="6.5" fill="var(--color-text-muted)">{edge.label}</text>}</g>;
+            return (
+              <g key={idx}>
+                <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="var(--color-border-strong)" strokeWidth="1.5" markerEnd={`url(#${markerId})`} />
+                {edge.label && <text x={(p1.x+p2.x)/2} y={(p1.y+p2.y)/2-5} textAnchor="middle" fontSize="7" fill="var(--color-text-muted)" fontFamily="var(--font-mono)">{edge.label}</text>}
+              </g>
+            );
           })}
           {layout.nodes.map((node) => {
             const pos = layout.positions[node.id];
             if (!pos) return null;
             const isGate = node.type === 'gate', isIn = node.type === 'in', isOut = node.type === 'out';
-            const isMeasure = node.label.toLowerCase() === 'measure';
-            const is2Q = ['CX','ECR','CZ','SWAP'].includes(node.label);
-            let fill = 'var(--color-surface-2)', stroke = 'var(--color-border-strong)';
-            const r = compact ? '10' : '13';
-            if (isGate && is2Q) { fill = 'rgba(167,139,250,0.15)'; stroke = 'var(--color-accent)'; }
-            else if (isGate && isMeasure) { fill = 'rgba(251,191,36,0.12)'; stroke = 'var(--color-warning)'; }
-            else if (isGate) { fill = 'var(--color-primary-dim)'; stroke = 'var(--color-primary)'; }
-            else if (isIn) { fill = 'var(--color-surface-3)'; stroke = 'var(--color-border)'; }
-            else if (isOut) { fill = 'rgba(52,211,153,0.08)'; stroke = 'var(--color-success)'; }
-            return <g key={node.id}><circle cx={pos.x} cy={pos.y} r={r} fill={fill} stroke={stroke} strokeWidth="1.5" /><text x={pos.x} y={pos.y + (compact ? 3 : 4)} textAnchor="middle" fontSize={compact ? '6.5' : '7.5'} fontWeight="bold" fill="var(--color-text)">{node.label.length > 6 ? node.label.slice(0, 5) + '…' : node.label}</text></g>;
+            const isMeasure = node.label.toLowerCase().includes('measure');
+            const is2Q = ['CX','ECR','CZ','SWAP'].some((g) => node.label.toUpperCase().includes(g));
+            let fill = 'var(--color-surface-3)', stroke = 'var(--color-border-strong)', textFill = 'var(--color-text)';
+            const r = compact ? 12 : 15;
+            
+            if (isGate && is2Q) {
+              fill = 'rgba(167,139,250,0.2)'; stroke = 'var(--color-accent)'; textFill = 'var(--color-accent)';
+            } else if (isGate && isMeasure) {
+              fill = 'rgba(251,191,36,0.15)'; stroke = 'var(--color-warning)'; textFill = 'var(--color-warning)';
+            } else if (isGate) {
+              fill = 'var(--color-primary-dim)'; stroke = 'var(--color-primary)'; textFill = 'var(--color-primary)';
+            } else if (isIn) {
+              fill = 'var(--color-surface-2)'; stroke = 'var(--color-border-strong)'; textFill = 'var(--color-text-muted)';
+            } else if (isOut) {
+              fill = 'rgba(52,211,153,0.12)'; stroke = 'var(--color-success)'; textFill = 'var(--color-success)';
+            }
+            
+            const displayLabel = node.label.startsWith('node_') ? 'Gate' : node.label;
+            
+            return (
+              <g key={node.id}>
+                <title>{`${node.label} (${node.type})`}</title>
+                <circle cx={pos.x} cy={pos.y} r={r} fill={fill} stroke={stroke} strokeWidth="1.5" />
+                <text x={pos.x} y={pos.y + (compact ? 3.5 : 4)} textAnchor="middle" fontSize={compact ? '7' : '8'} fontWeight="bold" fill={textFill} fontFamily="var(--font-mono)">
+                  {displayLabel.length > 7 ? displayLabel.slice(0, 6) + '…' : displayLabel}
+                </text>
+              </g>
+            );
           })}
         </svg>
       </div>
-      <div style={{ display: 'flex', gap: '12px', marginTop: '6px', flexWrap: 'wrap', fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>
-        {[['var(--color-primary-dim)','var(--color-primary)','1Q gate'],['rgba(167,139,250,0.15)','var(--color-accent)','2Q gate'],['var(--color-surface-3)','var(--color-border)','wire in/out']].map(([bg,bdr,lbl]) => (
-          <span key={lbl} style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: bg, border: `1px solid ${bdr}`, display: 'inline-block' }} />{lbl}</span>
+      <div style={{ display: 'flex', gap: '14px', marginTop: '8px', flexWrap: 'wrap', fontSize: '0.68rem', color: 'var(--color-text-muted)', justifyContent: 'center' }}>
+        {[['var(--color-primary-dim)','var(--color-primary)','1Q Gate (H, X, RZ)'],['rgba(167,139,250,0.2)','var(--color-accent)','2Q Gate (CX, ECR)'],['rgba(251,191,36,0.15)','var(--color-warning)','Measurement'],['rgba(52,211,153,0.12)','var(--color-success)','Wire Input / Output']].map(([bg,bdr,lbl]) => (
+          <span key={lbl} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: bg, border: `1px solid ${bdr}`, display: 'inline-block' }} />{lbl}</span>
         ))}
       </div>
     </div>

@@ -485,11 +485,14 @@ function DagVisualGraph({
             stroke = 'var(--color-success)';
           }
 
+          const displayLabel = node.label.startsWith('node_') || node.label.startsWith('<') ? 'Gate' : node.label;
+
           return (
             <g key={node.id}>
-              <circle cx={pos.x} cy={pos.y} r={11} fill={fill} stroke={stroke} strokeWidth="1.5" />
-              <text x={pos.x} y={pos.y + 3.5} textAnchor="middle" fontSize="6.8" fontWeight="bold" fill="var(--color-text)">
-                {node.label.length > 5 ? node.label.slice(0, 4) + '…' : node.label}
+              <title>{`${node.label} (${node.type})`}</title>
+              <circle cx={pos.x} cy={pos.y} r={12} fill={fill} stroke={stroke} strokeWidth="1.5" />
+              <text x={pos.x} y={pos.y + 3.5} textAnchor="middle" fontSize="7" fontWeight="bold" fill="var(--color-text)" fontFamily="var(--font-mono)">
+                {displayLabel.length > 5 ? displayLabel.slice(0, 4) + '…' : displayLabel}
               </text>
             </g>
           );
