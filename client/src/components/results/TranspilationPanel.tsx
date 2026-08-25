@@ -120,15 +120,38 @@ function MetricGrid({ items }: { items: Array<{ label: string; value: ReactNode 
 // DagViewer
 // ─────────────────────────────────────────────────────────────────────────────
 
-function computeDagLayout(dagData: DagData, width = 500, height = 220) {
+function computeDagLayout(dagData: DagData, width = 600, height = 240) {
   const { nodes, edges } = dagData;
   if (!nodes.length) return null;
-  const adj: Record<string, string[]> = {};
+  
   const inEdges: Record<string, string[]> = {};
   const nodeMap: Record<string, (typeof nodes)[0]> = {};
-  nodes.forEach((n) => { adj[n.id] = []; inEdges[n.id] = []; nodeMap[n.id] = n; });
-  edges.forEach((e) => { if (adj[e.source]) adj[e.source].push(e.target); if (inEdges[e.target]) inEdges[e.target].push(e.source); });
-  
+  nodes.forEach((n) => { inEdges[n.id] = []; nodeMap[n.id] = n; });
+  edges.forEach((e) => { if (inEdges[e.target]) inEdges[e.target].push(e.source); });
+
+  // Map nodes to wire lanes (q0, q1, c0, etc.)
+  const wireLanes: string[] = [];
+  const nodeLaneMap: Record<string, number> = {};
+
+  nodes.forEach((n) => {
+    let wireName = 'q[0]';
+    if (n.label.includes('q[')) {
+      const match = n.label.match(/q\[\d+\]/);
+      if (match) wireName = match[0];
+    } else if (n.label.includes('c[')) {
+      const match = n.label.match(/c\[\d+\]/);
+      if (match) wireName = match[0];
+    } else if (n.qubits) {
+      const match = n.qubits.match(/[qc]\[\d+\]/);
+      if (match) wireName = match[0];
+    }
+    if (!wireLanes.includes(wireName)) wireLanes.push(wireName);
+    nodeLaneMap[n.id] = wireLanes.indexOf(wireName);
+  });
+
+  if (wireLanes.length === 0) wireLanes.push('q[0]');
+
+  // Compute topological layer/depth rank
   const layers: Record<string, number> = {};
   const visited = new Set<string>();
   function getRank(nodeId: string): number {
@@ -142,87 +165,165 @@ function computeDagLayout(dagData: DagData, width = 500, height = 220) {
     visited.delete(nodeId);
     return (layers[nodeId] = maxParent + 1);
   }
+
   nodes.forEach((n) => getRank(n.id));
   let maxRank = 0;
   nodes.forEach((n) => { if (layers[n.id] > maxRank) maxRank = layers[n.id]; });
   nodes.forEach((n) => { if (n.type === 'out') layers[n.id] = maxRank + 1; });
   maxRank = 0;
   nodes.forEach((n) => { if (layers[n.id] > maxRank) maxRank = layers[n.id]; });
-  
-  const layersGroup: Record<number, string[]> = {};
-  for (let r = 0; r <= maxRank; r++) layersGroup[r] = [];
-  nodes.forEach((n) => { const r = layers[n.id] || 0; if (!layersGroup[r]) layersGroup[r] = []; layersGroup[r].push(n.id); });
-  
+
+  const numLanes = Math.max(1, wireLanes.length);
+  const paddingX = 60;
+  const paddingY = 35;
+  const totalLayers = Math.max(1, maxRank);
+
+  const nodeWidths: Record<string, number> = {};
   const positions: Record<string, { x: number; y: number }> = {};
-  const paddingX = 55, paddingY = 30;
-  const activeLayers = Object.keys(layersGroup).map(Number).filter((l) => layersGroup[l].length > 0).sort((a, b) => a - b);
-  const layerCount = activeLayers.length;
-  activeLayers.forEach((l, lIdx) => {
-    const x = paddingX + (lIdx / Math.max(1, layerCount - 1)) * (width - 2 * paddingX);
-    const nodeIds = layersGroup[l];
-    const nVal = nodeIds.length;
-    nodeIds.forEach((id, idx) => {
-      const y = paddingY + (nVal === 1 ? 0.5 : idx / (nVal - 1)) * (height - 2 * paddingY);
-      positions[id] = { x, y };
-    });
+
+  nodes.forEach((n) => {
+    const displayLabel = n.label.startsWith('node_') ? 'Gate' : n.label;
+    const badgeW = Math.max(48, displayLabel.length * 7.5 + 18);
+    nodeWidths[n.id] = badgeW;
+
+    const rank = layers[n.id] || 0;
+    const x = paddingX + (rank / totalLayers) * (width - 2 * paddingX);
+    const laneIdx = nodeLaneMap[n.id] ?? 0;
+    const y = paddingY + (laneIdx / Math.max(1, numLanes - 1)) * (height - 2 * paddingY);
+    positions[n.id] = { x, y: numLanes === 1 ? height / 2 : y };
   });
-  return { positions, nodes, edges };
+
+  return { positions, nodes, edges, nodeWidths, wireLanes };
 }
 
-function DagViewer({ dagData, title, width = 520, height = 220, compact = false }: { dagData: DagData | null | undefined; title?: string; width?: number; height?: number; compact?: boolean }) {
+function DagViewer({ dagData, title, width = 560, height = 220, compact = false }: { dagData: DagData | null | undefined; title?: string; width?: number; height?: number; compact?: boolean }) {
   const layout = useMemo(() => dagData ? computeDagLayout(dagData, width, height) : null, [dagData, width, height]);
   const markerId = useMemo(() => `arrow-${Math.random().toString(36).slice(2, 7)}`, []);
+  
   if (!dagData || !layout) return <div style={{ padding: '16px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>No DAG data available</div>;
   if (dagData.nodes.length === 0) return <div style={{ padding: '16px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>Empty DAG</div>;
+  
   return (
     <div>
       {title && <div style={{ ...sectionHeader, marginBottom: '8px' }}>{title}</div>}
-      <div style={{ overflowX: 'auto', background: 'var(--color-surface-2)', borderRadius: '8px', padding: '12px', border: '1px solid var(--color-border)' }}>
+      <div style={{ overflowX: 'auto', background: 'var(--color-surface-2)', borderRadius: '8px', padding: '14px', border: '1px solid var(--color-border)' }}>
         <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ maxWidth: width, display: 'block', margin: '0 auto' }}>
           <defs>
-            <marker id={markerId} viewBox="0 0 10 10" refX="16" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-text-muted)" />
+            <marker id={markerId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="var(--color-text-muted)" />
             </marker>
           </defs>
+          
+          {/* Edges with boundary clipping */}
           {layout.edges.map((edge, idx) => {
-            const p1 = layout.positions[edge.source], p2 = layout.positions[edge.target];
+            const p1 = layout.positions[edge.source];
+            const p2 = layout.positions[edge.target];
             if (!p1 || !p2) return null;
+            
+            const w1 = layout.nodeWidths[edge.source] || 40;
+            const w2 = layout.nodeWidths[edge.target] || 40;
+            const h = 24;
+            
+            const dx = p2.x - p1.x;
+            const dy = p2.y - p1.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            
+            const startX = p1.x + (w1 / 2) * (dx / dist);
+            const startY = p1.y + (h / 2) * (dy / dist);
+            const endX = p2.x - (w2 / 2 + 5) * (dx / dist);
+            const endY = p2.y - (h / 2 + 5) * (dy / dist);
+            
             return (
               <g key={idx}>
-                <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="var(--color-border-strong)" strokeWidth="1.5" markerEnd={`url(#${markerId})`} />
-                {edge.label && <text x={(p1.x+p2.x)/2} y={(p1.y+p2.y)/2-5} textAnchor="middle" fontSize="7" fill="var(--color-text-muted)" fontFamily="var(--font-mono)">{edge.label}</text>}
+                <line
+                  x1={startX}
+                  y1={startY}
+                  x2={endX}
+                  y2={endY}
+                  stroke="var(--color-border-strong)"
+                  strokeWidth="1.6"
+                  markerEnd={`url(#${markerId})`}
+                />
+                {edge.label && (
+                  <text
+                    x={(startX + endX) / 2}
+                    y={(startY + endY) / 2 - 5}
+                    textAnchor="middle"
+                    fontSize="7.5"
+                    fill="var(--color-text-muted)"
+                    fontFamily="var(--font-mono)"
+                  >
+                    {edge.label}
+                  </text>
+                )}
               </g>
             );
           })}
+          
+          {/* Nodes rendered as clean rounded pill cards */}
           {layout.nodes.map((node) => {
             const pos = layout.positions[node.id];
             if (!pos) return null;
-            const isGate = node.type === 'gate', isIn = node.type === 'in', isOut = node.type === 'out';
+            const isGate = node.type === 'gate';
+            const isIn = node.type === 'in';
+            const isOut = node.type === 'out';
             const isMeasure = node.label.toLowerCase().includes('measure');
-            const is2Q = ['CX','ECR','CZ','SWAP'].some((g) => node.label.toUpperCase().includes(g));
-            let fill = 'var(--color-surface-3)', stroke = 'var(--color-border-strong)', textFill = 'var(--color-text)';
-            const r = compact ? 12 : 15;
+            const is2Q = ['CX', 'ECR', 'CZ', 'SWAP'].some((g) => node.label.toUpperCase().includes(g));
+            
+            let fill = 'var(--color-surface-3)';
+            let stroke = 'var(--color-border-strong)';
+            let textFill = 'var(--color-text)';
             
             if (isGate && is2Q) {
-              fill = 'rgba(167,139,250,0.2)'; stroke = 'var(--color-accent)'; textFill = 'var(--color-accent)';
+              fill = 'rgba(167, 139, 250, 0.18)';
+              stroke = 'var(--color-accent)';
+              textFill = 'var(--color-accent)';
             } else if (isGate && isMeasure) {
-              fill = 'rgba(251,191,36,0.15)'; stroke = 'var(--color-warning)'; textFill = 'var(--color-warning)';
+              fill = 'rgba(251, 191, 36, 0.15)';
+              stroke = 'var(--color-warning)';
+              textFill = 'var(--color-warning)';
             } else if (isGate) {
-              fill = 'var(--color-primary-dim)'; stroke = 'var(--color-primary)'; textFill = 'var(--color-primary)';
+              fill = 'var(--color-primary-dim)';
+              stroke = 'var(--color-primary)';
+              textFill = 'var(--color-primary)';
             } else if (isIn) {
-              fill = 'var(--color-surface-2)'; stroke = 'var(--color-border-strong)'; textFill = 'var(--color-text-muted)';
+              fill = 'var(--color-surface-3)';
+              stroke = 'var(--color-border-strong)';
+              textFill = 'var(--color-text-muted)';
             } else if (isOut) {
-              fill = 'rgba(52,211,153,0.12)'; stroke = 'var(--color-success)'; textFill = 'var(--color-success)';
+              fill = 'rgba(52, 211, 153, 0.12)';
+              stroke = 'var(--color-success)';
+              textFill = 'var(--color-success)';
             }
             
             const displayLabel = node.label.startsWith('node_') ? 'Gate' : node.label;
+            const w = layout.nodeWidths[node.id] || 48;
+            const h = 24;
             
             return (
-              <g key={node.id}>
-                <title>{`${node.label} (${node.type})`}</title>
-                <circle cx={pos.x} cy={pos.y} r={r} fill={fill} stroke={stroke} strokeWidth="1.5" />
-                <text x={pos.x} y={pos.y + (compact ? 3.5 : 4)} textAnchor="middle" fontSize={compact ? '7' : '8'} fontWeight="bold" fill={textFill} fontFamily="var(--font-mono)">
-                  {displayLabel.length > 7 ? displayLabel.slice(0, 6) + '…' : displayLabel}
+              <g key={node.id} style={{ cursor: 'pointer' }}>
+                <title>{`${node.label} (${node.type})${node.qubits ? ` on ${node.qubits}` : ''}`}</title>
+                <rect
+                  x={pos.x - w / 2}
+                  y={pos.y - h / 2}
+                  width={w}
+                  height={h}
+                  rx={6}
+                  ry={6}
+                  fill={fill}
+                  stroke={stroke}
+                  strokeWidth="1.5"
+                />
+                <text
+                  x={pos.x}
+                  y={pos.y + 4}
+                  textAnchor="middle"
+                  fontSize="8.5"
+                  fontWeight="700"
+                  fill={textFill}
+                  fontFamily="var(--font-mono)"
+                >
+                  {displayLabel}
                 </text>
               </g>
             );
@@ -230,8 +331,8 @@ function DagViewer({ dagData, title, width = 520, height = 220, compact = false 
         </svg>
       </div>
       <div style={{ display: 'flex', gap: '14px', marginTop: '8px', flexWrap: 'wrap', fontSize: '0.68rem', color: 'var(--color-text-muted)', justifyContent: 'center' }}>
-        {[['var(--color-primary-dim)','var(--color-primary)','1Q Gate (H, X, RZ)'],['rgba(167,139,250,0.2)','var(--color-accent)','2Q Gate (CX, ECR)'],['rgba(251,191,36,0.15)','var(--color-warning)','Measurement'],['rgba(52,211,153,0.12)','var(--color-success)','Wire Input / Output']].map(([bg,bdr,lbl]) => (
-          <span key={lbl} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: bg, border: `1px solid ${bdr}`, display: 'inline-block' }} />{lbl}</span>
+        {[['var(--color-primary-dim)','var(--color-primary)','1Q Gate (H, X, RZ)'],['rgba(167,139,250,0.18)','var(--color-accent)','2Q Gate (CX, ECR)'],['rgba(251,191,36,0.15)','var(--color-warning)','Measurement'],['rgba(52,211,153,0.12)','var(--color-success)','Wire In / Out']].map(([bg,bdr,lbl]) => (
+          <span key={lbl} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: 12, height: 12, borderRadius: '4px', backgroundColor: bg, border: `1px solid ${bdr}`, display: 'inline-block' }} />{lbl}</span>
         ))}
       </div>
     </div>

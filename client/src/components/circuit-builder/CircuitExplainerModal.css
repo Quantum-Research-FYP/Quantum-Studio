@@ -1,0 +1,175 @@
+.circuit-explainer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 30, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.circuit-explainer-window {
+  width: 100%;
+  max-width: 720px;
+  max-height: 88vh;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.circuit-explainer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.circuit-explainer-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.circuit-explainer-icon {
+  font-size: 1.5rem;
+}
+
+.circuit-explainer-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.circuit-explainer-subtitle {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.circuit-explainer-body {
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  overflow-y: auto;
+}
+
+.circuit-explainer-card {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.circuit-explainer-card-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-subtle);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.circuit-explainer-classification {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(167, 139, 250, 0.1));
+  border: 1px solid rgba(34, 211, 238, 0.3);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+}
+
+.classification-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--color-primary-dim);
+  color: var(--color-primary);
+  padding: 3px 10px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  font-size: 0.78rem;
+  margin-bottom: 6px;
+}
+
+.classification-summary {
+  font-size: 0.88rem;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.wire-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wire-timeline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  background: var(--color-surface-3);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 0.78rem;
+  color: var(--color-text);
+}
+
+.wire-badge {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  background: var(--color-surface-2);
+  color: var(--color-primary);
+  border: 1px solid var(--color-border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.prob-outcome-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 8px;
+}
+
+.prob-outcome-card {
+  background: var(--color-surface-3);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--color-border);
+}
+
+.prob-outcome-basis {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  color: var(--color-accent);
+  font-size: 0.86rem;
+}
+
+.prob-outcome-val {
+  font-size: 0.74rem;
+  color: var(--color-text-muted);
+}
+
+.circuit-explainer-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 22px;
+  background: var(--color-surface-2);
+  border-top: 1px solid var(--color-border);
+}

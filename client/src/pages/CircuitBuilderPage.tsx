@@ -31,6 +31,9 @@ import type { AiImportInfo } from '../components/circuit-builder/AiImportBanner'
 import StateVisualizer from '../components/circuit-builder/StateVisualizer';
 import TranspilationEngine from '../components/circuit-builder/TranspilationEngine';
 import CompilationPathComparison from '../components/circuit-builder/CompilationPathComparison';
+import PlatformGuideModal from '../components/common/PlatformGuideModal';
+import GateExplainerModal from '../components/circuit-builder/GateExplainerModal';
+import CircuitExplainerModal from '../components/circuit-builder/CircuitExplainerModal';
 import { useStepSimulation } from '../hooks/useStepSimulation';
 import { useCircuitHistory } from '../hooks/useCircuitHistory';
 import { useExperiment } from '../hooks/useExperiment';
@@ -110,6 +113,10 @@ export default function CircuitBuilderPage() {
   const [runError, setRunError] = useState<string | null>(null);
   const [isTranspilationModalOpen, setIsTranspilationModalOpen] = useState(false);
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
+  const [isLearningMode, setIsLearningMode] = useState(true);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isCircuitExplainerOpen, setIsCircuitExplainerOpen] = useState(false);
+  const [explainingGateType, setExplainingGateType] = useState<GateType | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -403,6 +410,46 @@ export default function CircuitBuilderPage() {
           AI Chat
         </button>
 
+        <button
+          className="btn btn--sm"
+          onClick={() => setIsCircuitExplainerOpen(true)}
+          style={{
+            background: 'linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(167, 139, 250, 0.15))',
+            border: '1px solid rgba(34, 211, 238, 0.35)',
+            color: 'var(--color-primary)',
+            fontWeight: 600,
+          }}
+          title="Explain active circuit physics, state math, and measurement probabilities"
+          aria-label="Explain circuit"
+        >
+          💡 Explain Circuit
+        </button>
+
+        <button
+          className="btn btn--ghost btn--sm"
+          onClick={() => setIsGuideOpen(true)}
+          title="Open Quantum Studio user guide and walkthrough"
+          aria-label="Platform Guide"
+        >
+          📖 Guide
+        </button>
+
+        <button
+          className="btn btn--sm"
+          onClick={() => setIsLearningMode((prev) => !prev)}
+          style={{
+            background: isLearningMode ? 'rgba(52, 211, 153, 0.12)' : 'var(--color-surface-2)',
+            border: isLearningMode ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid var(--color-border)',
+            color: isLearningMode ? 'var(--color-success)' : 'var(--color-text-muted)',
+            fontSize: '0.74rem',
+            padding: '3px 8px',
+          }}
+          title={isLearningMode ? 'Currently in Learning Mode (Simplified UI)' : 'Currently in Pro Lab Mode (Advanced Tools)'}
+          aria-label="Toggle Learning / Pro Mode"
+        >
+          {isLearningMode ? '🎓 Learning Mode' : '🔬 Pro Mode'}
+        </button>
+
         {/* Experiment save controls */}
         <div className="builder__save-controls">
           <button
@@ -545,7 +592,11 @@ export default function CircuitBuilderPage() {
         <div className="builder__loading">Loading experiment...</div>
       ) : (
         <div className="builder__workspace">
-          <GatePalette selectedGate={selectedGate} onSelectGate={setSelectedGate} />
+          <GatePalette
+            selectedGate={selectedGate}
+            onSelectGate={setSelectedGate}
+            onExplainGate={(gate) => setExplainingGateType(gate)}
+          />
 
           <div className="builder__center">
             <CircuitCanvas
@@ -610,6 +661,30 @@ export default function CircuitBuilderPage() {
         onExecuteHardware={() => {
           setExecutionConfig((prev) => ({ ...prev, provider: 'ibm' }));
           setTimeout(() => handleRun(), 50);
+        }}
+      />
+
+      <PlatformGuideModal
+        isOpen={isGuideOpen}
+        onClose={() => setIsGuideOpen(false)}
+      />
+
+      <GateExplainerModal
+        gateType={explainingGateType}
+        onClose={() => setExplainingGateType(null)}
+        onAskAi={(gateName) => {
+          setExplainingGateType(null);
+          setShowAiPanel(true);
+        }}
+      />
+
+      <CircuitExplainerModal
+        isOpen={isCircuitExplainerOpen}
+        onClose={() => setIsCircuitExplainerOpen(false)}
+        circuit={circuit}
+        onAskAiWithContext={() => {
+          setIsCircuitExplainerOpen(false);
+          setShowAiPanel(true);
         }}
       />
     </div>

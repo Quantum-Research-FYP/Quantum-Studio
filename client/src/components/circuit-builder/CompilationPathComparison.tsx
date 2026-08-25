@@ -335,24 +335,35 @@ const STEP_CONFIGS: StepConfig[] = [
 // DAG SVG Layout Computer for Beginners
 // ─────────────────────────────────────────────────────────────────────────────
 
-function computeDagLayout(dagData: DagData, width = 360, height = 160) {
+function computeDagLayout(dagData: DagData, width = 420, height = 180) {
   const { nodes, edges } = dagData;
   if (!nodes.length) return null;
-  const adj: Record<string, string[]> = {};
+
   const inEdges: Record<string, string[]> = {};
   const nodeMap: Record<string, (typeof nodes)[0]> = {};
+  nodes.forEach((n) => { inEdges[n.id] = []; nodeMap[n.id] = n; });
+  edges.forEach((e) => { if (inEdges[e.target]) inEdges[e.target].push(e.source); });
+
+  const wireLanes: string[] = [];
+  const nodeLaneMap: Record<string, number> = {};
+
   nodes.forEach((n) => {
-    adj[n.id] = [];
-    inEdges[n.id] = [];
-    nodeMap[n.id] = n;
+    let wireName = 'q[0]';
+    if (n.label.includes('q[')) {
+      const match = n.label.match(/q\[\d+\]/);
+      if (match) wireName = match[0];
+    } else if (n.label.includes('c[')) {
+      const match = n.label.match(/c\[\d+\]/);
+      if (match) wireName = match[0];
+    }
+    if (!wireLanes.includes(wireName)) wireLanes.push(wireName);
+    nodeLaneMap[n.id] = wireLanes.indexOf(wireName);
   });
-  edges.forEach((e) => {
-    if (adj[e.source]) adj[e.source].push(e.target);
-    if (inEdges[e.target]) inEdges[e.target].push(e.source);
-  });
+
+  if (wireLanes.length === 0) wireLanes.push('q[0]');
+
   const layers: Record<string, number> = {};
   const visited = new Set<string>();
-
   function getRank(nodeId: string): number {
     if (layers[nodeId] !== undefined) return layers[nodeId];
     const node = nodeMap[nodeId];
@@ -360,60 +371,45 @@ function computeDagLayout(dagData: DagData, width = 360, height = 160) {
     if (visited.has(nodeId)) return 0;
     visited.add(nodeId);
     let maxParent = 0;
-    inEdges[nodeId].forEach((pId) => {
-      maxParent = Math.max(maxParent, getRank(pId));
-    });
+    inEdges[nodeId].forEach((pId) => { maxParent = Math.max(maxParent, getRank(pId)); });
     visited.delete(nodeId);
     return (layers[nodeId] = maxParent + 1);
   }
 
   nodes.forEach((n) => getRank(n.id));
   let maxRank = 0;
-  nodes.forEach((n) => {
-    if (layers[n.id] > maxRank) maxRank = layers[n.id];
-  });
-  nodes.forEach((n) => {
-    if (n.type === 'out') layers[n.id] = maxRank + 1;
-  });
+  nodes.forEach((n) => { if (layers[n.id] > maxRank) maxRank = layers[n.id]; });
+  nodes.forEach((n) => { if (n.type === 'out') layers[n.id] = maxRank + 1; });
   maxRank = 0;
-  nodes.forEach((n) => {
-    if (layers[n.id] > maxRank) maxRank = layers[n.id];
-  });
+  nodes.forEach((n) => { if (layers[n.id] > maxRank) maxRank = layers[n.id]; });
 
-  const layersGroup: Record<number, string[]> = {};
-  for (let r = 0; r <= maxRank; r++) layersGroup[r] = [];
-  nodes.forEach((n) => {
-    const r = layers[n.id] || 0;
-    if (!layersGroup[r]) layersGroup[r] = [];
-    layersGroup[r].push(n.id);
-  });
+  const numLanes = Math.max(1, wireLanes.length);
+  const paddingX = 45;
+  const paddingY = 28;
+  const totalLayers = Math.max(1, maxRank);
 
+  const nodeWidths: Record<string, number> = {};
   const positions: Record<string, { x: number; y: number }> = {};
-  const paddingX = 35;
-  const paddingY = 22;
-  const activeLayers = Object.keys(layersGroup)
-    .map(Number)
-    .filter((l) => layersGroup[l].length > 0)
-    .sort((a, b) => a - b);
-  const layerCount = activeLayers.length;
 
-  activeLayers.forEach((l, lIdx) => {
-    const x = paddingX + (lIdx / Math.max(1, layerCount - 1)) * (width - 2 * paddingX);
-    const nodeIds = layersGroup[l];
-    const nVal = nodeIds.length;
-    nodeIds.forEach((id, idx) => {
-      const y = paddingY + (nVal === 1 ? 0.5 : idx / (nVal - 1)) * (height - 2 * paddingY);
-      positions[id] = { x, y };
-    });
+  nodes.forEach((n) => {
+    const displayLabel = n.label.startsWith('node_') ? 'Gate' : n.label;
+    const badgeW = Math.max(42, displayLabel.length * 7 + 16);
+    nodeWidths[n.id] = badgeW;
+
+    const rank = layers[n.id] || 0;
+    const x = paddingX + (rank / totalLayers) * (width - 2 * paddingX);
+    const laneIdx = nodeLaneMap[n.id] ?? 0;
+    const y = paddingY + (laneIdx / Math.max(1, numLanes - 1)) * (height - 2 * paddingY);
+    positions[n.id] = { x, y: numLanes === 1 ? height / 2 : y };
   });
 
-  return { positions, nodes, edges };
+  return { positions, nodes, edges, nodeWidths, wireLanes };
 }
 
 function DagVisualGraph({
   dagData,
-  width = 380,
-  height = 150,
+  width = 420,
+  height = 180,
 }: {
   dagData: DagData | null | undefined;
   width?: number;
@@ -431,82 +427,136 @@ function DagVisualGraph({
   }
 
   return (
-    <div style={{ overflowX: 'auto', background: 'var(--color-surface-3)', borderRadius: '6px', padding: '8px' }}>
+    <div style={{ overflowX: 'auto', background: 'var(--color-surface-2)', borderRadius: '8px', padding: '10px', border: '1px solid var(--color-border)' }}>
       <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ maxWidth: width, display: 'block', margin: '0 auto' }}>
         <defs>
-          <marker id={markerId} viewBox="0 0 10 10" refX="16" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-text-muted)" />
+          <marker id={markerId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="var(--color-text-muted)" />
           </marker>
         </defs>
+
         {layout.edges.map((edge, idx) => {
           const p1 = layout.positions[edge.source];
           const p2 = layout.positions[edge.target];
           if (!p1 || !p2) return null;
+
+          const w1 = layout.nodeWidths[edge.source] || 40;
+          const w2 = layout.nodeWidths[edge.target] || 40;
+          const h = 22;
+
+          const dx = p2.x - p1.x;
+          const dy = p2.y - p1.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+
+          const startX = p1.x + (w1 / 2) * (dx / dist);
+          const startY = p1.y + (h / 2) * (dy / dist);
+          const endX = p2.x - (w2 / 2 + 4) * (dx / dist);
+          const endY = p2.y - (h / 2 + 4) * (dy / dist);
+
           return (
             <g key={idx}>
               <line
-                x1={p1.x}
-                y1={p1.y}
-                x2={p2.x}
-                y2={p2.y}
+                x1={startX}
+                y1={startY}
+                x2={endX}
+                y2={endY}
                 stroke="var(--color-border-strong)"
                 strokeWidth="1.5"
                 markerEnd={`url(#${markerId})`}
               />
               {edge.label && (
-                <text x={(p1.x + p2.x) / 2} y={(p1.y + p2.y) / 2 - 4} textAnchor="middle" fontSize="6.5" fill="var(--color-text-muted)">
+                <text
+                  x={(startX + endX) / 2}
+                  y={(startY + endY) / 2 - 4}
+                  textAnchor="middle"
+                  fontSize="7"
+                  fill="var(--color-text-muted)"
+                  fontFamily="var(--font-mono)"
+                >
                   {edge.label}
                 </text>
               )}
             </g>
           );
         })}
+
         {layout.nodes.map((node) => {
           const pos = layout.positions[node.id];
           if (!pos) return null;
           const isGate = node.type === 'gate';
           const isIn = node.type === 'in';
           const isOut = node.type === 'out';
-          const is2Q = ['CX', 'ECR', 'CZ', 'SWAP'].includes(node.label.toUpperCase());
-          let fill = 'var(--color-surface-2)';
+          const isMeasure = node.label.toLowerCase().includes('measure');
+          const is2Q = ['CX', 'ECR', 'CZ', 'SWAP'].some((g) => node.label.toUpperCase().includes(g));
+
+          let fill = 'var(--color-surface-3)';
           let stroke = 'var(--color-border-strong)';
+          let textFill = 'var(--color-text)';
 
           if (isGate && is2Q) {
-            fill = 'rgba(167,139,250,0.2)';
+            fill = 'rgba(167, 139, 250, 0.18)';
             stroke = 'var(--color-accent)';
+            textFill = 'var(--color-accent)';
+          } else if (isGate && isMeasure) {
+            fill = 'rgba(251, 191, 36, 0.15)';
+            stroke = 'var(--color-warning)';
+            textFill = 'var(--color-warning)';
           } else if (isGate) {
             fill = 'var(--color-primary-dim)';
             stroke = 'var(--color-primary)';
+            textFill = 'var(--color-primary)';
           } else if (isIn) {
             fill = 'var(--color-surface-3)';
-            stroke = 'var(--color-border)';
+            stroke = 'var(--color-border-strong)';
+            textFill = 'var(--color-text-muted)';
           } else if (isOut) {
-            fill = 'rgba(52,211,153,0.12)';
+            fill = 'rgba(52, 211, 153, 0.12)';
             stroke = 'var(--color-success)';
+            textFill = 'var(--color-success)';
           }
 
           const displayLabel = node.label.startsWith('node_') || node.label.startsWith('<') ? 'Gate' : node.label;
+          const w = layout.nodeWidths[node.id] || 44;
+          const h = 22;
 
           return (
-            <g key={node.id}>
+            <g key={node.id} style={{ cursor: 'pointer' }}>
               <title>{`${node.label} (${node.type})`}</title>
-              <circle cx={pos.x} cy={pos.y} r={12} fill={fill} stroke={stroke} strokeWidth="1.5" />
-              <text x={pos.x} y={pos.y + 3.5} textAnchor="middle" fontSize="7" fontWeight="bold" fill="var(--color-text)" fontFamily="var(--font-mono)">
-                {displayLabel.length > 5 ? displayLabel.slice(0, 4) + '…' : displayLabel}
+              <rect
+                x={pos.x - w / 2}
+                y={pos.y - h / 2}
+                width={w}
+                height={h}
+                rx={5}
+                ry={5}
+                fill={fill}
+                stroke={stroke}
+                strokeWidth="1.5"
+              />
+              <text
+                x={pos.x}
+                y={pos.y + 3.5}
+                textAnchor="middle"
+                fontSize="7.5"
+                fontWeight="bold"
+                fill={textFill}
+                fontFamily="var(--font-mono)"
+              >
+                {displayLabel}
               </text>
             </g>
           );
         })}
       </svg>
-      <div style={{ display: 'flex', gap: '10px', marginTop: '6px', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>
+      <div style={{ display: 'flex', gap: '12px', marginTop: '6px', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-primary-dim)', border: '1px solid var(--color-primary)' }} /> 1Q Gate
+          <span style={{ width: 10, height: 10, borderRadius: '3px', background: 'var(--color-primary-dim)', border: '1px solid var(--color-primary)' }} /> 1Q Gate
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(167,139,250,0.2)', border: '1px solid var(--color-accent)' }} /> 2Q Gate
+          <span style={{ width: 10, height: 10, borderRadius: '3px', background: 'rgba(167,139,250,0.18)', border: '1px solid var(--color-accent)' }} /> 2Q Gate
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(52,211,153,0.12)', border: '1px solid var(--color-success)' }} /> Input / Output
+          <span style={{ width: 10, height: 10, borderRadius: '3px', background: 'rgba(52,211,153,0.12)', border: '1px solid var(--color-success)' }} /> Wire In / Out
         </span>
       </div>
     </div>

@@ -215,16 +215,17 @@ export const GATE_DESCRIPTIONS = GATE_CATEGORIES.reduce(
 interface GatePaletteProps {
   selectedGate: GateType | null;
   onSelectGate: (gate: GateType | null) => void;
+  onExplainGate?: (gate: GateType) => void;
 }
 
-export default function GatePalette({ selectedGate, onSelectGate }: GatePaletteProps) {
+export default function GatePalette({ selectedGate, onSelectGate, onExplainGate }: GatePaletteProps) {
   return (
     <aside className="gate-palette" aria-label="Gate palette">
       <h3 className="gate-palette__title">
         Gates
         <button
           className="info-btn"
-          data-tooltip="Select and place quantum gates onto the circuit wires."
+          data-tooltip="Select and place quantum gates onto the circuit wires. Click ⓘ on any gate to learn its math and physics."
           aria-label="Info"
         >
           !
@@ -235,17 +236,50 @@ export default function GatePalette({ selectedGate, onSelectGate }: GatePaletteP
           <span className="gate-palette__category-label">{title}</span>
           <div className="gate-palette__grid">
             {gates.map(({ type, label, description }) => (
-              <button
-                key={type}
-                type="button"
-                className={`gate-palette__btn${selectedGate === type ? ' gate-palette__btn--selected' : ''}`}
-                data-tooltip={description}
-                aria-label={description}
-                aria-pressed={selectedGate === type}
-                onClick={() => onSelectGate(selectedGate === type ? null : type)}
-              >
-                {label}
-              </button>
+              <div key={type} style={{ position: 'relative', display: 'inline-flex' }}>
+                <button
+                  type="button"
+                  className={`gate-palette__btn${selectedGate === type ? ' gate-palette__btn--selected' : ''}`}
+                  data-tooltip={description}
+                  aria-label={description}
+                  aria-pressed={selectedGate === type}
+                  onClick={() => onSelectGate(selectedGate === type ? null : type)}
+                >
+                  {label}
+                </button>
+                {onExplainGate && (
+                  <button
+                    type="button"
+                    className="gate-palette__info-badge"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onExplainGate(type);
+                    }}
+                    title={`Explain ${label} gate math & physics`}
+                    aria-label={`Explain ${label} gate`}
+                    style={{
+                      position: 'absolute',
+                      top: '-3px',
+                      right: '-3px',
+                      width: '14px',
+                      height: '14px',
+                      borderRadius: '50%',
+                      background: 'var(--color-surface-2)',
+                      border: '1px solid var(--color-border-strong)',
+                      color: 'var(--color-primary)',
+                      fontSize: '9px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      padding: 0,
+                      zIndex: 2,
+                    }}
+                  >
+                    ⓘ
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         </div>

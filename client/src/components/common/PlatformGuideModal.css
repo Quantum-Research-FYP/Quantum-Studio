@@ -1,0 +1,205 @@
+.platform-guide-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 15, 30, 0.85);
+  backdrop-filter: blur(8px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.platform-guide-window {
+  width: 100%;
+  max-width: 860px;
+  max-height: 90vh;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+}
+
+.platform-guide-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 24px;
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.platform-guide-title-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.platform-guide-icon {
+  font-size: 1.6rem;
+}
+
+.platform-guide-title {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.platform-guide-subtitle {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+}
+
+.platform-guide-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 24px;
+  background: var(--color-surface-3);
+  border-bottom: 1px solid var(--color-border);
+  overflow-x: auto;
+}
+
+.platform-guide-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--color-text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.platform-guide-tab:hover {
+  color: var(--color-text);
+  background: var(--color-surface-2);
+}
+
+.platform-guide-tab.active {
+  color: var(--color-primary);
+  background: var(--color-primary-dim);
+  border-color: rgba(34, 211, 238, 0.3);
+}
+
+.platform-guide-body {
+  flex: 1;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.guide-step-card {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.guide-step-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.guide-step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.guide-step-title {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.guide-step-desc {
+  font-size: 0.86rem;
+  color: var(--color-text-muted);
+  line-height: 1.6;
+  margin: 0;
+}
+
+.guide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 14px;
+  margin-top: 8px;
+}
+
+.guide-feature-box {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.guide-feature-icon {
+  font-size: 1.4rem;
+  margin-bottom: 2px;
+}
+
+.guide-feature-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: var(--color-text);
+}
+
+.guide-feature-desc {
+  font-size: 0.76rem;
+  color: var(--color-text-muted);
+  line-height: 1.5;
+}
+
+.guide-code-example {
+  background: var(--color-surface-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: #a5f3fc;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.guide-tip-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.08), rgba(167, 139, 250, 0.08));
+  border: 1px solid rgba(167, 139, 250, 0.25);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  font-size: 0.8rem;
+  color: var(--color-text);
+  line-height: 1.5;
+}
+
+.platform-guide-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  background: var(--color-surface-2);
+  border-top: 1px solid var(--color-border);
+}

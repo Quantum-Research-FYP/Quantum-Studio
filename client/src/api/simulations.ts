@@ -165,7 +165,7 @@ export function analyzeCircuit(input: SubmitJobInput): Promise<AnalyzeResponse> 
 // ---------------------------------------------------------------------------
 
 export interface DagData {
-  nodes: Array<{ id: string; label: string; type: string }>;
+  nodes: Array<{ id: string; label: string; type: string; qubits?: string }>;
   edges: Array<{ source: string; target: string; label: string }>;
 }
 
