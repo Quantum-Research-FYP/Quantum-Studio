@@ -6,6 +6,7 @@
  * and real IBM Hardware compilation for the user's active circuit.
  *
  * Features:
+ * - Beginner-friendly DAG (Directed Acyclic Graph) visual flowchart & explainer
  * - Live real-time transpilation trace fetch (`getTranspileTrace`)
  * - Stage-by-stage real metric deltas (gate count, depth, SWAPs, qubit mapping)
  * - Actual intermediate and final ISA QASM
@@ -18,6 +19,7 @@ import {
   getTranspileTrace,
   type TranspileTraceResponse,
   type TranspileStageSummary,
+  type DagData,
 } from '../../api/simulations';
 import './CompilationPathComparison.css';
 
@@ -80,30 +82,30 @@ const STEP_CONFIGS: StepConfig[] = [
   {
     id: 'dag',
     icon: '🌐',
-    name: '2. DAG Graph',
+    name: '2. DAG Flowchart',
     stageName: 'Analysis',
     sim: {
       status: 'passthrough',
-      title: 'DAG Representation (Read-Only)',
+      title: 'DAG as a Read-Only Recipe',
       description:
-        'Qiskit parses operations into a Directed Acyclic Graph (DAG) for dependency tracking. For simulation, no transformation passes modify this graph.',
+        'A DAG (Directed Acyclic Graph) is simply a "Dependency Flowchart" of your gates. For simulation, Aer reads this recipe step-by-step to compute the math, without needing to rearrange or modify anything.',
       callout: {
         type: 'info',
-        text: 'The simulator calculates state transitions layer-by-layer without rewriting gate nodes.',
+        text: 'Analogy: Like following a baking recipe in order. You read the steps, but you don’t need to rewrite the cookbook.',
       },
     },
     hw: {
       status: 'transforms',
-      title: 'DAG Working Graph (Active)',
+      title: 'DAG as a Working Blueprint',
       description:
-        'The DAG is the live compiler data structure. Transpiler passes will mutate, replace, and insert nodes in this graph.',
+        'For hardware, the DAG is an active blueprint. The compiler searches the graph for gates that can be cancelled (e.g. X·X=I), reordered, or replaced with physical native pulses.',
       callout: {
         type: 'note',
-        text: 'Analysis passes inspect topological depth; transformation passes rewrite the graph nodes.',
+        text: 'Analogy: Like editing a movie script. The compiler cuts out unnecessary scenes, replaces complex stunts with standard moves, and rearranges actions for the actors (qubits).',
       },
     },
     takeaway:
-      'The DAG is the internal data structure: **read-only** for simulation, but **actively rewritten** for hardware.',
+      'A DAG is a **gate dependency flowchart** (Arrows = Qubit wires, Nodes = Gates). Simulation **reads it in order**; Hardware **rewrites and optimizes it**.',
   },
   {
     id: 'init',
@@ -329,6 +331,251 @@ const STEP_CONFIGS: StepConfig[] = [
   },
 ];
 
+// ─────────────────────────────────────────────────────────────────────────────
+// DAG SVG Layout Computer for Beginners
+// ─────────────────────────────────────────────────────────────────────────────
+
+function computeDagLayout(dagData: DagData, width = 360, height = 160) {
+  const { nodes, edges } = dagData;
+  if (!nodes.length) return null;
+  const adj: Record<string, string[]> = {};
+  const inEdges: Record<string, string[]> = {};
+  const nodeMap: Record<string, (typeof nodes)[0]> = {};
+  nodes.forEach((n) => {
+    adj[n.id] = [];
+    inEdges[n.id] = [];
+    nodeMap[n.id] = n;
+  });
+  edges.forEach((e) => {
+    if (adj[e.source]) adj[e.source].push(e.target);
+    if (inEdges[e.target]) inEdges[e.target].push(e.source);
+  });
+  const layers: Record<string, number> = {};
+  const visited = new Set<string>();
+
+  function getRank(nodeId: string): number {
+    if (layers[nodeId] !== undefined) return layers[nodeId];
+    const node = nodeMap[nodeId];
+    if (!node || node.type === 'in' || inEdges[nodeId].length === 0) return (layers[nodeId] = 0);
+    if (visited.has(nodeId)) return 0;
+    visited.add(nodeId);
+    let maxParent = 0;
+    inEdges[nodeId].forEach((pId) => {
+      maxParent = Math.max(maxParent, getRank(pId));
+    });
+    visited.delete(nodeId);
+    return (layers[nodeId] = maxParent + 1);
+  }
+
+  nodes.forEach((n) => getRank(n.id));
+  let maxRank = 0;
+  nodes.forEach((n) => {
+    if (layers[n.id] > maxRank) maxRank = layers[n.id];
+  });
+  nodes.forEach((n) => {
+    if (n.type === 'out') layers[n.id] = maxRank + 1;
+  });
+  maxRank = 0;
+  nodes.forEach((n) => {
+    if (layers[n.id] > maxRank) maxRank = layers[n.id];
+  });
+
+  const layersGroup: Record<number, string[]> = {};
+  for (let r = 0; r <= maxRank; r++) layersGroup[r] = [];
+  nodes.forEach((n) => {
+    const r = layers[n.id] || 0;
+    if (!layersGroup[r]) layersGroup[r] = [];
+    layersGroup[r].push(n.id);
+  });
+
+  const positions: Record<string, { x: number; y: number }> = {};
+  const paddingX = 35;
+  const paddingY = 22;
+  const activeLayers = Object.keys(layersGroup)
+    .map(Number)
+    .filter((l) => layersGroup[l].length > 0)
+    .sort((a, b) => a - b);
+  const layerCount = activeLayers.length;
+
+  activeLayers.forEach((l, lIdx) => {
+    const x = paddingX + (lIdx / Math.max(1, layerCount - 1)) * (width - 2 * paddingX);
+    const nodeIds = layersGroup[l];
+    const nVal = nodeIds.length;
+    nodeIds.forEach((id, idx) => {
+      const y = paddingY + (nVal === 1 ? 0.5 : idx / (nVal - 1)) * (height - 2 * paddingY);
+      positions[id] = { x, y };
+    });
+  });
+
+  return { positions, nodes, edges };
+}
+
+function DagVisualGraph({
+  dagData,
+  width = 380,
+  height = 150,
+}: {
+  dagData: DagData | null | undefined;
+  width?: number;
+  height?: number;
+}) {
+  const layout = useMemo(() => (dagData ? computeDagLayout(dagData, width, height) : null), [dagData, width, height]);
+  const markerId = useMemo(() => `dag-arrow-${Math.random().toString(36).slice(2, 7)}`, []);
+
+  if (!dagData || !layout || dagData.nodes.length === 0) {
+    return (
+      <div style={{ padding: '16px', textAlign: 'center', fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+        No DAG graph captured yet.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ overflowX: 'auto', background: 'var(--color-surface-3)', borderRadius: '6px', padding: '8px' }}>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ maxWidth: width, display: 'block', margin: '0 auto' }}>
+        <defs>
+          <marker id={markerId} viewBox="0 0 10 10" refX="16" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-text-muted)" />
+          </marker>
+        </defs>
+        {layout.edges.map((edge, idx) => {
+          const p1 = layout.positions[edge.source];
+          const p2 = layout.positions[edge.target];
+          if (!p1 || !p2) return null;
+          return (
+            <g key={idx}>
+              <line
+                x1={p1.x}
+                y1={p1.y}
+                x2={p2.x}
+                y2={p2.y}
+                stroke="var(--color-border-strong)"
+                strokeWidth="1.5"
+                markerEnd={`url(#${markerId})`}
+              />
+              {edge.label && (
+                <text x={(p1.x + p2.x) / 2} y={(p1.y + p2.y) / 2 - 4} textAnchor="middle" fontSize="6.5" fill="var(--color-text-muted)">
+                  {edge.label}
+                </text>
+              )}
+            </g>
+          );
+        })}
+        {layout.nodes.map((node) => {
+          const pos = layout.positions[node.id];
+          if (!pos) return null;
+          const isGate = node.type === 'gate';
+          const isIn = node.type === 'in';
+          const isOut = node.type === 'out';
+          const is2Q = ['CX', 'ECR', 'CZ', 'SWAP'].includes(node.label.toUpperCase());
+          let fill = 'var(--color-surface-2)';
+          let stroke = 'var(--color-border-strong)';
+
+          if (isGate && is2Q) {
+            fill = 'rgba(167,139,250,0.2)';
+            stroke = 'var(--color-accent)';
+          } else if (isGate) {
+            fill = 'var(--color-primary-dim)';
+            stroke = 'var(--color-primary)';
+          } else if (isIn) {
+            fill = 'var(--color-surface-3)';
+            stroke = 'var(--color-border)';
+          } else if (isOut) {
+            fill = 'rgba(52,211,153,0.12)';
+            stroke = 'var(--color-success)';
+          }
+
+          return (
+            <g key={node.id}>
+              <circle cx={pos.x} cy={pos.y} r={11} fill={fill} stroke={stroke} strokeWidth="1.5" />
+              <text x={pos.x} y={pos.y + 3.5} textAnchor="middle" fontSize="6.8" fontWeight="bold" fill="var(--color-text)">
+                {node.label.length > 5 ? node.label.slice(0, 4) + '…' : node.label}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+      <div style={{ display: 'flex', gap: '10px', marginTop: '6px', justifyContent: 'center', fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--color-primary-dim)', border: '1px solid var(--color-primary)' }} /> 1Q Gate
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(167,139,250,0.2)', border: '1px solid var(--color-accent)' }} /> 2Q Gate
+        </span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ width: 8, height: 8, borderRadius: '50%', background: 'rgba(52,211,153,0.12)', border: '1px solid var(--color-success)' }} /> Input / Output
+        </span>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Beginner DAG Explainer Card
+// ─────────────────────────────────────────────────────────────────────────────
+
+function BeginnerDagExplainer() {
+  return (
+    <div className="cpc-dag-explainer">
+      <div className="cpc-dag-explainer-title">
+        <span>💡 What is a DAG? (Beginner Guide)</span>
+      </div>
+
+      <div className="cpc-dag-letters">
+        <div className="cpc-dag-letter-card">
+          <div className="letter-badge">D</div>
+          <div className="letter-title">Directed</div>
+          <div className="letter-desc">Arrows only point <strong>forward in time</strong> (left ➔ right).</div>
+        </div>
+
+        <div className="cpc-dag-letter-card">
+          <div className="letter-badge">A</div>
+          <div className="letter-title">Acyclic</div>
+          <div className="letter-desc"><strong>No loops</strong>. Quantum states cannot travel back in time.</div>
+        </div>
+
+        <div className="cpc-dag-letter-card">
+          <div className="letter-badge">G</div>
+          <div className="letter-title">Graph</div>
+          <div className="letter-desc"><strong>Circles</strong> = Gates (H, CX). <strong>Arrows</strong> = Qubit wires.</div>
+        </div>
+      </div>
+
+      <div className="cpc-dag-comparison-box">
+        <div className="cpc-dag-comparison-col">
+          <div className="col-header">1. Circuit View (Drawing)</div>
+          <div className="col-visual">
+            <div>q0 ──[ H ]──●─────</div>
+            <div>           │     </div>
+            <div>q1 ────────[ + ]───</div>
+          </div>
+          <div className="col-note">Shows gates in fixed visual columns.</div>
+        </div>
+
+        <div className="cpc-dag-comparison-arrow">➔</div>
+
+        <div className="cpc-dag-comparison-col">
+          <div className="col-header">2. DAG View (Flowchart)</div>
+          <div className="col-visual">
+            <div>(q0_in) ➔ [ H ] ➔ [ CX_ctrl ] ➔ (q0_out)</div>
+            <div>                       │                 </div>
+            <div>(q1_in) ──────────➔ [ CX_targ ] ➔ (q1_out)</div>
+          </div>
+          <div className="col-note">Reveals the TRUE gate dependencies.</div>
+        </div>
+      </div>
+
+      <div className="cpc-dag-benefit">
+        🎯 <strong>Why does the compiler use it?</strong> It lets Qiskit instantly see which gates can run in parallel, which gates cancel out (like X·X=I), and where SWAP gates must be inserted!
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main Component
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function CompilationPathComparison({
   isOpen,
   onClose,
@@ -546,6 +793,13 @@ export default function CompilationPathComparison({
             </div>
           )}
 
+          {/* STEP 2 SPECIAL: Beginner-friendly DAG Explainer Card */}
+          {step.id === 'dag' && (
+            <div style={{ padding: '14px 24px 0' }}>
+              <BeginnerDagExplainer />
+            </div>
+          )}
+
           <div className="cpc-split-view">
             {/* LEFT: Simulation Path */}
             <div className="cpc-path-panel sim" key={`sim-${step.id}`}>
@@ -566,18 +820,26 @@ export default function CompilationPathComparison({
                 <p className="cpc-stage-desc">{step.sim.description}</p>
                 <div className={`cpc-callout ${step.sim.callout.type}`}>{step.sim.callout.text}</div>
 
-                <div className="cpc-circuit-box">
-                  <div className="cpc-circuit-box-label">Simulation Circuit Model</div>
-                  <div style={{ fontSize: '0.74rem', color: 'var(--color-text-muted)', marginBottom: '6px' }}>
-                    {step.sim.status === 'skipped'
-                      ? 'No transformation applied. Circuit remains unchanged:'
-                      : 'Raw Abstract Input Circuit:'}
+                {/* If Step 2 DAG: show visual DAG graph */}
+                {step.id === 'dag' && trace?.initialDag ? (
+                  <div className="cpc-circuit-box">
+                    <div className="cpc-circuit-box-label">Live Circuit Dependency Graph (Read-Only)</div>
+                    <DagVisualGraph dagData={trace.initialDag} />
                   </div>
-                  <pre className="cpc-circuit-ascii">
-                    {qasm.split('\n').slice(0, 10).join('\n')}
-                    {qasm.split('\n').length > 10 ? '\n...' : ''}
-                  </pre>
-                </div>
+                ) : (
+                  <div className="cpc-circuit-box">
+                    <div className="cpc-circuit-box-label">Simulation Circuit Model</div>
+                    <div style={{ fontSize: '0.74rem', color: 'var(--color-text-muted)', marginBottom: '6px' }}>
+                      {step.sim.status === 'skipped'
+                        ? 'No transformation applied. Circuit remains unchanged:'
+                        : 'Raw Abstract Input Circuit:'}
+                    </div>
+                    <pre className="cpc-circuit-ascii">
+                      {qasm.split('\n').slice(0, 10).join('\n')}
+                      {qasm.split('\n').length > 10 ? '\n...' : ''}
+                    </pre>
+                  </div>
+                )}
 
                 {/* Simulation Metrics */}
                 <div className="cpc-metrics">
@@ -646,60 +908,70 @@ export default function CompilationPathComparison({
                 <p className="cpc-stage-desc">{step.hw.description}</p>
                 <div className={`cpc-callout ${step.hw.callout.type}`}>{step.hw.callout.text}</div>
 
-                {/* Live Data from Real Trace */}
-                {matchedStage && (
-                  <div style={{ marginTop: '12px', padding: '10px', backgroundColor: 'var(--color-surface-2)', borderRadius: '6px' }}>
-                    <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-accent)', marginBottom: '6px' }}>
-                      Live Compiler Pass Trace ({matchedStage.passes.length} passes · {matchedStage.executionTimeMs.toFixed(1)}ms)
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.72rem' }}>
-                      <div>Gates: <b>{matchedStage.gateCountBefore} → {matchedStage.gateCountAfter}</b></div>
-                      <div>Depth: <b>{matchedStage.depthBefore} → {matchedStage.depthAfter}</b></div>
-                      <div>1Q Gates: <b>{matchedStage.oneQGatesAfter}</b></div>
-                      <div>2Q Gates: <b>{matchedStage.twoQGatesAfter}</b></div>
-                    </div>
-                    {matchedStage.swapCount > 0 && (
-                      <div style={{ marginTop: '6px', fontSize: '0.72rem', color: 'var(--color-warning)' }}>
-                        ⚠️ {matchedStage.swapCount} SWAP gates inserted for hardware coupling compliance.
+                {/* If Step 2 DAG: show live mutable DAG graph */}
+                {step.id === 'dag' && trace?.initialDag ? (
+                  <div className="cpc-circuit-box">
+                    <div className="cpc-circuit-box-label">Compiler Working DAG Graph (Target for Rewrite Passes)</div>
+                    <DagVisualGraph dagData={trace.initialDag} />
+                  </div>
+                ) : (
+                  <>
+                    {/* Live Data from Real Trace */}
+                    {matchedStage && (
+                      <div style={{ marginTop: '12px', padding: '10px', backgroundColor: 'var(--color-surface-2)', borderRadius: '6px' }}>
+                        <div style={{ fontSize: '0.68rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-accent)', marginBottom: '6px' }}>
+                          Live Compiler Pass Trace ({matchedStage.passes.length} passes · {matchedStage.executionTimeMs.toFixed(1)}ms)
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '0.72rem' }}>
+                          <div>Gates: <b>{matchedStage.gateCountBefore} → {matchedStage.gateCountAfter}</b></div>
+                          <div>Depth: <b>{matchedStage.depthBefore} → {matchedStage.depthAfter}</b></div>
+                          <div>1Q Gates: <b>{matchedStage.oneQGatesAfter}</b></div>
+                          <div>2Q Gates: <b>{matchedStage.twoQGatesAfter}</b></div>
+                        </div>
+                        {matchedStage.swapCount > 0 && (
+                          <div style={{ marginTop: '6px', fontSize: '0.72rem', color: 'var(--color-warning)' }}>
+                            ⚠️ {matchedStage.swapCount} SWAP gates inserted for hardware coupling compliance.
+                          </div>
+                        )}
                       </div>
                     )}
-                  </div>
-                )}
 
-                {/* Qubit Layout Mapping if in Layout Stage */}
-                {step.stageName === 'Mapping' && trace?.logicalToPhysicalLayout && (
-                  <div className="cpc-circuit-box">
-                    <div className="cpc-circuit-box-label">Logical → Physical Qubit Mapping</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
-                      {Object.entries(trace.logicalToPhysicalLayout).map(([log, phys]) => (
-                        <span
-                          key={log}
-                          style={{
-                            fontSize: '0.7rem',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            backgroundColor: 'var(--color-surface-3)',
-                            fontFamily: 'var(--font-mono)',
-                            color: 'var(--color-accent)',
-                          }}
-                        >
-                          {log} ➔ Q{phys}
-                        </span>
-                      ))}
+                    {/* Qubit Layout Mapping if in Layout Stage */}
+                    {step.stageName === 'Mapping' && trace?.logicalToPhysicalLayout && (
+                      <div className="cpc-circuit-box">
+                        <div className="cpc-circuit-box-label">Logical → Physical Qubit Mapping</div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                          {Object.entries(trace.logicalToPhysicalLayout).map(([log, phys]) => (
+                            <span
+                              key={log}
+                              style={{
+                                fontSize: '0.7rem',
+                                padding: '2px 8px',
+                                borderRadius: '4px',
+                                backgroundColor: 'var(--color-surface-3)',
+                                fontFamily: 'var(--font-mono)',
+                                color: 'var(--color-accent)',
+                              }}
+                            >
+                              {log} ➔ Q{phys}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Hardware ISA QASM */}
+                    <div className="cpc-circuit-box">
+                      <div className="cpc-circuit-box-label">
+                        {step.id === 'results' || step.id === 'execution' ? 'Final Hardware ISA Circuit' : 'Transpiled Circuit Representation'}
+                      </div>
+                      <pre className="cpc-circuit-ascii">
+                        {(trace?.finalQasm || qasm).split('\n').slice(0, 10).join('\n')}
+                        {(trace?.finalQasm || qasm).split('\n').length > 10 ? '\n...' : ''}
+                      </pre>
                     </div>
-                  </div>
+                  </>
                 )}
-
-                {/* Hardware ISA QASM */}
-                <div className="cpc-circuit-box">
-                  <div className="cpc-circuit-box-label">
-                    {step.id === 'results' || step.id === 'execution' ? 'Final Hardware ISA Circuit' : 'Transpiled Circuit Representation'}
-                  </div>
-                  <pre className="cpc-circuit-ascii">
-                    {(trace?.finalQasm || qasm).split('\n').slice(0, 10).join('\n')}
-                    {(trace?.finalQasm || qasm).split('\n').length > 10 ? '\n...' : ''}
-                  </pre>
-                </div>
 
                 {/* Hardware Live Metrics */}
                 <div className="cpc-metrics">
