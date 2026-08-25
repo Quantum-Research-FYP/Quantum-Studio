@@ -184,6 +184,8 @@ export interface GnnFeatures {
 export interface TranspilePassTrace {
   passName: string;
   passClass: string;
+  /** 'AnalysisPass' = read-only DAG inspection, 'TransformationPass' = may modify DAG */
+  passType: 'AnalysisPass' | 'TransformationPass';
   stage: string;
   executionTimeMs: number;
   /** QASM after this pass */
