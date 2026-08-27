@@ -28,9 +28,21 @@ export const superdenseCodingTemplate: TemplateDefinition = {
     shots: 1024,
   },
   learnMore: {
-    imageSrc: '/images/algorithms/superdense-coding.jpg',
-    longDescription: `Superdense coding is a quantum communication protocol that allows a sender (Alice) to transmit two classical bits of information to a receiver (Bob) by sending only a single qubit, provided they share an entangled pair beforehand.
-
-The protocol works in reverse to quantum teleportation. Alice applies a set of gates (like X and Z) to her qubit to encode one of four possible messages (00, 01, 10, 11). She sends her qubit to Bob, who then performs a Bell measurement on both qubits to decode the two classical bits. This template encodes and decodes the message "11".`,
-  },
+    headerImageSrc: '/images/algorithms/superdense-coding.jpg',
+    description: "Transmits two classical bits of information using only one quantum bit.",
+    sections: [
+      {
+        title: "Overview",
+        content: `Superdense coding is a remarkable quantum communication protocol that allows a sender (Alice) to transmit two classical bits of information to a receiver (Bob) by sending only a single qubit.\n\nThis is achieved by pre-sharing an entangled Bell pair. Alice performs one of four possible quantum operations (I, X, Z, or XZ) on her half of the entangled pair, then sends her qubit to Bob. Bob performs a Bell measurement on the two qubits to decode the two classical bits.`
+      },
+      {
+        title: "Protocol Steps",
+        content: `1. Entanglement: Alice and Bob share a Bell pair.\n2. Encoding: Alice applies a local gate to her qubit based on the 2-bit message:\n   - '00': Apply Identity (I)\n   - '01': Apply Pauli-X (X)\n   - '10': Apply Pauli-Z (Z)\n   - '11': Apply Pauli-X then Pauli-Z (iY)\n3. Transmission: Alice sends her qubit to Bob.\n4. Decoding: Bob applies a CNOT and H gate, then measures to reveal the 2 bits.`
+      },
+      {
+        title: "Use Cases",
+        content: `• Channel Capacity: Doubling the classical information capacity of a quantum channel.\n• Quantum Cryptography: Enhancing secure communication protocols.\n• Resource Optimization: Maximizing information transfer in resource-constrained quantum networks.`
+      }
+    ]
+  }
 };

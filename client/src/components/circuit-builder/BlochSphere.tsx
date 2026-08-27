@@ -90,8 +90,8 @@ export default function BlochSphere({ x, y, z, label }: BlochSphereProps) {
           cx={cx}
           cy={cy}
           r={R}
-          fill="rgba(255, 255, 255, 0.03)"
-          stroke="var(--border)"
+          fill="transparent"
+          stroke="var(--color-border-strong)"
           strokeWidth="1"
         />
 
@@ -102,7 +102,7 @@ export default function BlochSphere({ x, y, z, label }: BlochSphereProps) {
           rx={R}
           ry={Math.abs(R * Math.sin(tilt))}
           fill="none"
-          stroke="var(--border)"
+          stroke="var(--color-border-strong)"
           strokeWidth="1"
           strokeDasharray="4 4"
         />
@@ -115,17 +115,17 @@ export default function BlochSphere({ x, y, z, label }: BlochSphereProps) {
               y1={axis.p1.y2d}
               x2={axis.p2.x2d}
               y2={axis.p2.y2d}
-              stroke="rgba(255,255,255,0.15)"
+              stroke="var(--color-border-strong)"
               strokeWidth="1"
             />
-            <text x={axis.p2.x2d + 5} y={axis.p2.y2d} fill="rgba(255,255,255,0.5)" fontSize="10">
+            <text x={axis.p2.x2d + 5} y={axis.p2.y2d} fill="var(--color-text-muted)" fontSize="10">
               {axis.name === 'z' ? '|0⟩' : axis.name}
             </text>
             {axis.name === 'z' && (
               <text
                 x={axis.p1.x2d + 5}
                 y={axis.p1.y2d + 10}
-                fill="rgba(255,255,255,0.5)"
+                fill="var(--color-text-muted)"
                 fontSize="10"
               >
                 |1⟩

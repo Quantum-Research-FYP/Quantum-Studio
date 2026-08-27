@@ -16,6 +16,23 @@ import {
 } from '../../api/simulations';
 
 // ─────────────────────────────────────────────────────────────────────────────
+// SVG Icons
+// ─────────────────────────────────────────────────────────────────────────────
+
+const SVGIcons = {
+  Clipboard: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"></path><rect x="8" y="2" width="8" height="4" rx="1" ry="1"></rect></svg>,
+  Network: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="16" y="16" width="6" height="6" rx="1"></rect><rect x="2" y="16" width="6" height="6" rx="1"></rect><rect x="9" y="2" width="6" height="6" rx="1"></rect><path d="M5 16v-3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v3"></path><path d="M12 8v3"></path></svg>,
+  Search: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>,
+  Map: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"></polygon><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line></svg>,
+  Shuffle: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 3 21 3 21 8"></polyline><line x1="4" y1="20" x2="21" y2="3"></line><polyline points="21 16 21 21 16 21"></polyline><line x1="15" y1="15" x2="21" y2="21"></line><line x1="4" y1="4" x2="9" y2="9"></line></svg>,
+  Wrench: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>,
+  Zap: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>,
+  Clock: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>,
+  Check: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>,
+  BarChart: <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"></line><line x1="18" y1="20" x2="18" y2="4"></line><line x1="6" y1="20" x2="6" y2="16"></line></svg>
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Component props
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -50,9 +67,11 @@ const SECTION_IDS = [
 const card: CSSProperties = {
   backgroundColor: 'var(--color-surface)',
   border: '1px solid var(--color-border)',
-  borderRadius: '8px',
-  padding: '16px',
-  marginBottom: '16px',
+  borderRadius: 'var(--radius-lg)',
+  padding: 'var(--spacing-md)',
+  marginBottom: 'var(--spacing-md)',
+  boxShadow: 'var(--shadow-sm)',
+  transition: 'all 0.2s ease',
 };
 
 const sectionHeader: CSSProperties = {
@@ -61,13 +80,13 @@ const sectionHeader: CSSProperties = {
   textTransform: 'uppercase',
   letterSpacing: '0.08em',
   color: 'var(--color-text-subtle)',
-  marginBottom: '4px',
+  marginBottom: 'var(--spacing-xs)',
 };
 
 const badge = (color: string, bg: string): CSSProperties => ({
   fontSize: '0.65rem',
-  padding: '2px 7px',
-  borderRadius: '10px',
+  padding: '4px 10px',
+  borderRadius: 'var(--radius-full)',
   backgroundColor: bg,
   color,
   fontWeight: 600,
@@ -174,9 +193,14 @@ function computeDagLayout(dagData: DagData, width = 600, height = 240) {
   nodes.forEach((n) => { if (layers[n.id] > maxRank) maxRank = layers[n.id]; });
 
   const numLanes = Math.max(1, wireLanes.length);
+  const totalLayers = Math.max(1, maxRank);
+
   const paddingX = 60;
   const paddingY = 35;
-  const totalLayers = Math.max(1, maxRank);
+  
+  // Dynamically calculate width and height to prevent overlap
+  const computedWidth = Math.max(width, paddingX * 2 + (totalLayers * 95));
+  const computedHeight = Math.max(height, paddingY * 2 + (numLanes - 1) * 45);
 
   const nodeWidths: Record<string, number> = {};
   const positions: Record<string, { x: number; y: number }> = {};
@@ -187,13 +211,13 @@ function computeDagLayout(dagData: DagData, width = 600, height = 240) {
     nodeWidths[n.id] = badgeW;
 
     const rank = layers[n.id] || 0;
-    const x = paddingX + (rank / totalLayers) * (width - 2 * paddingX);
+    const x = paddingX + (rank / Math.max(1, totalLayers)) * (computedWidth - 2 * paddingX);
     const laneIdx = nodeLaneMap[n.id] ?? 0;
-    const y = paddingY + (laneIdx / Math.max(1, numLanes - 1)) * (height - 2 * paddingY);
-    positions[n.id] = { x, y: numLanes === 1 ? height / 2 : y };
+    const y = paddingY + (laneIdx / Math.max(1, numLanes - 1)) * (computedHeight - 2 * paddingY);
+    positions[n.id] = { x, y: numLanes === 1 ? computedHeight / 2 : y };
   });
 
-  return { positions, nodes, edges, nodeWidths, wireLanes };
+  return { positions, nodes, edges, nodeWidths, wireLanes, computedWidth, computedHeight };
 }
 
 function DagViewer({ dagData, title, width = 560, height = 220, compact = false }: { dagData: DagData | null | undefined; title?: string; width?: number; height?: number; compact?: boolean }) {
@@ -206,8 +230,8 @@ function DagViewer({ dagData, title, width = 560, height = 220, compact = false 
   return (
     <div>
       {title && <div style={{ ...sectionHeader, marginBottom: '8px' }}>{title}</div>}
-      <div style={{ overflowX: 'auto', background: 'var(--color-surface-2)', borderRadius: '8px', padding: '14px', border: '1px solid var(--color-border)' }}>
-        <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} style={{ maxWidth: width, display: 'block', margin: '0 auto' }}>
+      <div style={{ overflowX: 'auto', overflowY: 'auto', background: 'var(--color-surface-2)', borderRadius: '8px', padding: '14px', border: '1px solid var(--color-border)', maxHeight: compact ? '300px' : '500px' }}>
+        <svg width={layout.computedWidth} height={layout.computedHeight} viewBox={`0 0 ${layout.computedWidth} ${layout.computedHeight}`} style={{ display: 'block', margin: '0 auto' }}>
           <defs>
             <marker id={markerId} viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
               <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="var(--color-text-muted)" />
@@ -270,30 +294,16 @@ function DagViewer({ dagData, title, width = 560, height = 220, compact = false 
             const isMeasure = node.label.toLowerCase().includes('measure');
             const is2Q = ['CX', 'ECR', 'CZ', 'SWAP'].some((g) => node.label.toUpperCase().includes(g));
             
-            let fill = 'var(--color-surface-3)';
+            let fill = 'var(--color-surface-2)';
             let stroke = 'var(--color-border-strong)';
             let textFill = 'var(--color-text)';
             
-            if (isGate && is2Q) {
-              fill = 'rgba(167, 139, 250, 0.18)';
-              stroke = 'var(--color-accent)';
-              textFill = 'var(--color-accent)';
-            } else if (isGate && isMeasure) {
-              fill = 'rgba(251, 191, 36, 0.15)';
-              stroke = 'var(--color-warning)';
-              textFill = 'var(--color-warning)';
-            } else if (isGate) {
-              fill = 'var(--color-primary-dim)';
-              stroke = 'var(--color-primary)';
-              textFill = 'var(--color-primary)';
-            } else if (isIn) {
+            if (isGate) {
               fill = 'var(--color-surface-3)';
-              stroke = 'var(--color-border-strong)';
+              stroke = 'var(--color-border)';
+            }
+            if (isIn || isOut) {
               textFill = 'var(--color-text-muted)';
-            } else if (isOut) {
-              fill = 'rgba(52, 211, 153, 0.12)';
-              stroke = 'var(--color-success)';
-              textFill = 'var(--color-success)';
             }
             
             const displayLabel = node.label.startsWith('node_') ? 'Gate' : node.label;
@@ -331,9 +341,8 @@ function DagViewer({ dagData, title, width = 560, height = 220, compact = false 
         </svg>
       </div>
       <div style={{ display: 'flex', gap: '14px', marginTop: '8px', flexWrap: 'wrap', fontSize: '0.68rem', color: 'var(--color-text-muted)', justifyContent: 'center' }}>
-        {[['var(--color-primary-dim)','var(--color-primary)','1Q Gate (H, X, RZ)'],['rgba(167,139,250,0.18)','var(--color-accent)','2Q Gate (CX, ECR)'],['rgba(251,191,36,0.15)','var(--color-warning)','Measurement'],['rgba(52,211,153,0.12)','var(--color-success)','Wire In / Out']].map(([bg,bdr,lbl]) => (
-          <span key={lbl} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: 12, height: 12, borderRadius: '4px', backgroundColor: bg, border: `1px solid ${bdr}`, display: 'inline-block' }} />{lbl}</span>
-        ))}
+        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: 12, height: 12, borderRadius: '4px', backgroundColor: 'var(--color-surface-3)', border: '1px solid var(--color-border)', display: 'inline-block' }} />Gates</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: 12, height: 12, borderRadius: '4px', backgroundColor: 'var(--color-surface-2)', border: '1px solid var(--color-border-strong)', display: 'inline-block' }} />I/O</span>
       </div>
     </div>
   );
@@ -348,9 +357,9 @@ function DagStats({ dagData }: { dagData: DagData | null | undefined }) {
   return (
     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '6px' }}>
       <span>Operation nodes: <b style={{ color: 'var(--color-text)' }}>{opNodes.length}</b></span>
-      <span>1Q ops: <b style={{ color: 'var(--color-primary)' }}>{oneQ}</b></span>
-      <span>2Q ops: <b style={{ color: 'var(--color-accent)' }}>{twoQ}</b></span>
-      {meas > 0 && <span>Measurements: <b style={{ color: 'var(--color-warning)' }}>{meas}</b></span>}
+      <span>1Q ops: <b style={{ color: 'var(--color-text)' }}>{oneQ}</b></span>
+      <span>2Q ops: <b style={{ color: 'var(--color-text)' }}>{twoQ}</b></span>
+      {meas > 0 && <span>Measurements: <b style={{ color: 'var(--color-text)' }}>{meas}</b></span>}
       <span>Dependency edges: <b style={{ color: 'var(--color-text)' }}>{dagData.edges.length}</b></span>
     </div>
   );
@@ -413,14 +422,13 @@ function QasmCodeView({ qasm, maxHeight = 160 }: { qasm: string; maxHeight?: num
 // SectionCard
 // ─────────────────────────────────────────────────────────────────────────────
 
-function SectionCard({ id, icon, label, sublabel, accent, children, isActive = false }: { id: string; icon: string; label: string; sublabel?: string; accent?: string; children: ReactNode; isActive?: boolean }) {
-  const accentBorder = accent || 'var(--color-border)';
+function SectionCard({ id, icon, label, sublabel, accent, children, isActive = false }: { id: string; icon: ReactNode; label: string; sublabel?: string; accent?: string; children: ReactNode; isActive?: boolean }) {
   return (
-    <div id={id} style={{ ...card, borderLeft: `3px solid ${accentBorder}`, boxShadow: isActive ? `0 0 0 1px ${accentBorder}` : undefined, transition: 'box-shadow 0.2s', scrollMarginTop: '8px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '14px' }}>
-        <span style={{ fontSize: '1.1rem' }}>{icon}</span>
+    <div id={id} style={{ ...card, borderColor: isActive ? 'var(--color-primary)' : 'var(--color-border)', boxShadow: isActive ? 'var(--shadow-md)' : 'var(--shadow-sm)', scrollMarginTop: 'var(--spacing-md)' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: 'var(--spacing-md)' }}>
+        <span style={{ display: 'flex', alignItems: 'center', color: 'var(--color-text-muted)' }}>{icon}</span>
         <div>
-          <div style={{ fontWeight: 700, fontSize: '0.9rem' }}>{label}</div>
+          <div style={{ fontWeight: 600, fontSize: '0.9rem', color: isActive ? 'var(--color-primary)' : 'var(--color-text)' }}>{label}</div>
           {sublabel && <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>{sublabel}</div>}
         </div>
       </div>
@@ -434,9 +442,7 @@ function SectionCard({ id, icon, label, sublabel, accent, children, isActive = f
 // ─────────────────────────────────────────────────────────────────────────────
 
 function InfoBanner({ children, variant = 'info' }: { children: ReactNode; variant?: 'info' | 'success' | 'warning' | 'note' }) {
-  const colorMap = { info: 'var(--color-primary)', success: 'var(--color-success)', warning: 'var(--color-warning)', note: 'var(--color-accent)' };
-  const bgMap = { info: 'var(--color-primary-dim)', success: 'rgba(52,211,153,0.08)', warning: 'rgba(251,191,36,0.08)', note: 'var(--color-accent-dim)' };
-  return <div style={{ backgroundColor: bgMap[variant], border: `1px solid ${colorMap[variant]}`, borderRadius: '6px', padding: '10px 14px', fontSize: '0.8rem', color: colorMap[variant], lineHeight: 1.5, marginBottom: '14px' }}>{children}</div>;
+  return <div style={{ backgroundColor: 'var(--color-surface-2)', border: `1px solid var(--color-border)`, borderRadius: 'var(--radius-md)', padding: '10px 14px', fontSize: '0.8rem', color: 'var(--color-text-muted)', lineHeight: 1.5, marginBottom: '14px' }}>{children}</div>;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -477,7 +483,7 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
   const depthBefore = pass.depth  - pass.deltaDepth;      // == depthBefore
 
   return (
-    <div style={{ ...card, marginBottom: '10px', padding: '12px', borderLeft: `3px solid ${statusColor}` }}>
+    <div style={{ ...card, marginBottom: '10px', padding: '12px', borderColor: changed ? 'var(--color-primary)' : 'var(--color-border)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', cursor: 'pointer' }} onClick={() => setExpanded((e) => !e)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
           <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '8px', backgroundColor: 'var(--color-surface-3)', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>#{index + 1}</span>
@@ -491,8 +497,9 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
                 backgroundColor: isAnalysis ? 'rgba(99,102,241,0.1)' : 'rgba(52,211,153,0.1)',
                 color: isAnalysis ? '#818cf8' : 'var(--color-success)',
                 fontWeight: 600, letterSpacing: '0.02em',
+                display: 'flex', alignItems: 'center', gap: '3px'
               }}>
-                {isAnalysis ? '🔍 Analysis' : '⚙ Transform'}
+                {isAnalysis ? <>{SVGIcons.Search} Analysis</> : <>{SVGIcons.Wrench} Transform</>}
               </span>
             </div>
           </div>
@@ -525,7 +532,7 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
               fontSize: '0.78rem', color: '#818cf8',
               lineHeight: 1.5, marginBottom: '12px',
             }}>
-              <strong>🔍 Analysis Pass</strong> — This pass reads and inspects the DAG to compute
+              <strong><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>{SVGIcons.Search} Analysis Pass</span></strong> — This pass reads and inspects the DAG to compute
               properties (gate count, depth, connectivity, etc.) and stores them in Qiskit's
               internal property set for use by later passes. It is contractually forbidden from
               modifying the circuit. All metrics below are identical before and after.
@@ -539,7 +546,7 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
           </div>
 
           {/* B + C. Why present / What found — skip "what found" for analysis passes */}
-          <div style={{ display: 'grid', gridTemplateColumns: isAnalysis ? '1fr' : '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: isAnalysis ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)', gap: '12px', marginBottom: '12px' }}>
             <div style={{ backgroundColor: 'var(--color-surface-2)', borderRadius: '6px', padding: '10px' }}>
               <div style={{ ...sectionHeader, color: 'var(--color-primary)', marginBottom: '6px' }}>B. Why is this pass in the pipeline?</div>
               <p style={{ margin: 0, fontSize: '0.78rem', lineHeight: 1.55, color: 'var(--color-text-muted)' }}>{pass.pipelineReason || 'This pass is part of the optimization pipeline configured for the current Qiskit transpiler settings.'}</p>
@@ -580,7 +587,7 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
 
           {/* D/E. QASM before/after — skip for analysis passes (identical) */}
           {!isAnalysis && (pass.qasmBefore || pass.qasm) && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '12px', marginBottom: '12px' }}>
               {pass.qasmBefore && <div><div style={{ ...sectionHeader, marginBottom: '6px' }}>D. Circuit Before</div><div style={{ backgroundColor: 'var(--color-surface-3)', borderRadius: '6px', padding: '10px' }}><QasmCodeView qasm={pass.qasmBefore} maxHeight={120} /></div></div>}
               {pass.qasm && <div><div style={{ ...sectionHeader, marginBottom: '6px' }}>E. Circuit After</div><div style={{ backgroundColor: 'var(--color-surface-3)', borderRadius: '6px', padding: '10px' }}><QasmCodeView qasm={pass.qasm} maxHeight={120} /></div></div>}
             </div>
@@ -588,7 +595,7 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
 
           {/* F/G. DAG before/after */}
           {(pass.dagBefore || pass.dagAfter) && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '12px', marginBottom: '12px' }}>
               <div><div style={{ ...sectionHeader, marginBottom: '6px' }}>F. DAG Before</div><div style={{ backgroundColor: 'var(--color-surface-3)', borderRadius: '6px', padding: '8px' }}>{pass.dagBefore ? <DagViewer dagData={pass.dagBefore} width={320} height={140} compact /> : <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontStyle: 'italic', padding: '8px' }}>Not captured</div>}</div></div>
               <div><div style={{ ...sectionHeader, marginBottom: '6px' }}>G. DAG After {!changed && <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>(unchanged)</span>}</div><div style={{ backgroundColor: 'var(--color-surface-3)', borderRadius: '6px', padding: '8px' }}>{pass.dagAfter ? <DagViewer dagData={pass.dagAfter} width={320} height={140} compact /> : <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontStyle: 'italic', padding: '8px' }}>{!changed ? 'DAG structure unchanged.' : 'Not captured.'}</div>}</div></div>
             </div>
@@ -710,7 +717,7 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
   }, [activeSectionIdx]);
 
   const stageAccents = ['var(--color-info)', 'var(--color-primary)', 'var(--color-accent)', '#fb923c', 'var(--color-success)', 'var(--color-warning)'];
-  const stageIcons = ['🔍', '🗺️', '🔀', '🔧', '⚡', '⏱️'];
+  const stageIcons = [SVGIcons.Search, SVGIcons.Map, SVGIcons.Shuffle, SVGIcons.Wrench, SVGIcons.Zap, SVGIcons.Clock];
   const stageLabels = ['① Circuit Analysis', '② Qubit Mapping', '③ Routing', '④ Gate Decomposition & Basis Conversion', '⑤ Optimization', '⑥ Scheduling'];
   const stageBanners = [
     'Analyzes and prepares the input circuit for hardware-aware compilation. Verifies structure, counts gates, and collects metrics needed by later stages.',
@@ -726,11 +733,11 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
   const ganttData = useMemo(() => trace ? parseQasmToGantt(trace.finalQasm || '') : { qubitGates: {}, maxDuration: 1 }, [trace]);
 
   const navLabels = [
-    { label: 'Original', icon: '📋' }, { label: 'Init DAG', icon: '🌐' },
-    { label: 'Analysis', icon: '🔍' }, { label: 'Mapping', icon: '🗺️' },
-    { label: 'Routing', icon: '🔀' }, { label: 'Decomp.', icon: '🔧' },
-    { label: 'Optimize', icon: '⚡' }, { label: 'Schedule', icon: '⏱️' },
-    { label: 'Final', icon: '✅' }, { label: 'Summary', icon: '📊' },
+    { label: 'Original', icon: SVGIcons.Clipboard }, { label: 'Init DAG', icon: SVGIcons.Network },
+    { label: 'Analysis', icon: SVGIcons.Search }, { label: 'Mapping', icon: SVGIcons.Map },
+    { label: 'Routing', icon: SVGIcons.Shuffle }, { label: 'Decomp.', icon: SVGIcons.Wrench },
+    { label: 'Optimize', icon: SVGIcons.Zap }, { label: 'Schedule', icon: SVGIcons.Clock },
+    { label: 'Final', icon: SVGIcons.Check }, { label: 'Summary', icon: SVGIcons.BarChart },
   ];
 
   return (
@@ -758,8 +765,8 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
           {navLabels.map((item, idx) => {
             const isActive = activeSectionIdx === idx;
             return (
-              <button key={idx} onClick={() => { setIsPlaying(false); setActiveSectionIdx(idx); }} style={{ display: 'flex', alignItems: 'center', gap: '4px', padding: '8px 10px', background: 'none', border: 'none', borderBottom: isActive ? '2px solid var(--color-primary)' : '2px solid transparent', fontSize: '0.72rem', fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--color-primary)' : 'var(--color-text-muted)', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'color 0.15s' }}>
-                <span style={{ fontSize: '0.85rem' }}>{item.icon}</span>{item.label}
+              <button key={idx} onClick={() => { setIsPlaying(false); setActiveSectionIdx(idx); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', background: 'none', border: 'none', borderBottom: isActive ? '2px solid var(--color-primary)' : '2px solid transparent', fontSize: '0.72rem', fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--color-primary)' : 'var(--color-text-muted)', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'color 0.15s' }}>
+                <span style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>{item.label}
               </button>
             );
           })}
@@ -772,7 +779,7 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
         <button onClick={() => setIsPlaying((p) => !p)} className="btn btn--primary" style={{ padding: '3px 12px', fontSize: '0.72rem' }}>{isPlaying ? '⏸ Pause' : '▶ Play'}</button>
         <button onClick={() => { setIsPlaying(false); setActiveSectionIdx((p) => Math.min(SECTION_IDS.length - 1, p + 1)); }} className="btn" disabled={activeSectionIdx >= SECTION_IDS.length - 1} style={{ padding: '3px 8px', fontSize: '0.72rem' }}>Next ⏭</button>
         <input type="range" min={0} max={SECTION_IDS.length - 1} value={activeSectionIdx} onChange={(e) => { setIsPlaying(false); setActiveSectionIdx(Number(e.target.value)); }} style={{ flex: 1, cursor: 'pointer' }} />
-        <span style={{ fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)' }}>{navLabels[activeSectionIdx]?.icon} {navLabels[activeSectionIdx]?.label}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)' }}>{navLabels[activeSectionIdx]?.icon} {navLabels[activeSectionIdx]?.label}</span>
       </div>
 
       {/* Loading */}
@@ -800,7 +807,7 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
 
           {/* Original Circuit */}
           <SectionCard id="tp-original" icon="📋" label="Original Circuit" sublabel="Your circuit as defined, before any transpilation" accent="var(--color-info)" isActive={activeSectionIdx === 0}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '16px', marginBottom: '16px' }}>
               <div>
                 <div style={{ ...sectionHeader, marginBottom: '10px' }}>Circuit Properties</div>
                 <MetricGrid items={[
@@ -903,7 +910,7 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
 
                 {/* Stage DAG before/after (not for optimization) */}
                 {!noPasses && !optStage && (stage.dagBefore || stage.dagAfter) && (
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '12px', marginBottom: '14px' }}>
                     <div>
                       <div style={{ ...sectionHeader, marginBottom: '6px' }}>DAG Before Stage</div>
                       <div style={{ backgroundColor: 'var(--color-surface-2)', borderRadius: '6px', padding: '8px' }}><DagViewer dagData={stage.dagBefore} width={340} height={160} compact /></div>
@@ -959,7 +966,7 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
 
           {/* Final Circuit */}
           <SectionCard id="tp-final" icon="✅" label="Final Transpiled Circuit" sublabel="Hardware-executable circuit after all compilation stages" accent="var(--color-success)" isActive={activeSectionIdx === 8}>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '16px', marginBottom: '14px' }}>
               <div>
                 <div style={{ ...sectionHeader, marginBottom: '10px' }}>Final Metrics</div>
                 <MetricGrid items={[
@@ -1016,7 +1023,7 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
                 const pct = trace.totalExecutionTimeMs > 0 ? (stage.executionTimeMs / trace.totalExecutionTimeMs) * 100 : 0;
                 return (
                   <div key={stage.stageName} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ width: '200px', fontSize: '0.72rem', flexShrink: 0 }}>{stageIcons[idx]} {stageLabels[idx].replace(/[①②③④⑤⑥]\s/, '')}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '200px', fontSize: '0.72rem', flexShrink: 0 }}>{stageIcons[idx]} {stageLabels[idx].replace(/[①②③④⑤⑥]\s/, '')}</span>
                     <div style={{ flex: 1, height: '16px', backgroundColor: 'var(--color-surface-2)', borderRadius: '4px', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${pct}%`, backgroundColor: stageAccents[idx], opacity: 0.6, borderRadius: '4px' }} />
                     </div>

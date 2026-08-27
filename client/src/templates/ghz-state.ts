@@ -34,9 +34,21 @@ export const ghzStateTemplate: TemplateDefinition = {
     shots: 1024,
   },
   learnMore: {
-    imageSrc: '/images/algorithms/ghz-state.jpg',
-    longDescription: `The Greenberger-Horne-Zeilinger (GHZ) state is a type of entangled quantum state that involves at least three subsystems (qubits). It is an extreme example of multipartite entanglement.
-
-Unlike a Bell state, GHZ states exhibit non-local properties that contradict classical physics even more strongly. In this circuit, we use an H gate followed by two CNOT gates to entangle three qubits, resulting in an equal probability of measuring 000 or 111.`,
-  },
+    headerImageSrc: '/images/algorithms/ghz-state.jpg',
+    description: "Creates a Greenberger-Horne-Zeilinger state, maximally entangling three or more qubits.",
+    sections: [
+      {
+        title: "Overview",
+        content: `A GHZ state is a type of entangled quantum state that involves at least three subsystems (qubits). The standard 3-qubit GHZ state is (|000⟩ + |111⟩) / √2.\n\nIt demonstrates multi-partite entanglement, which has fundamentally different properties than bi-partite entanglement (like Bell states). For instance, measuring one qubit immediately collapses the entire state of the other two qubits to a definite classical state.`
+      },
+      {
+        title: "Circuit Matrix",
+        content: `The circuit for a 3-qubit GHZ state involves:\n1. A Hadamard gate on q0.\n2. A CNOT gate from q0 to q1.\n3. A CNOT gate from q1 to q2.\n\nThis creates a cascade of entanglement spanning all three qubits.`
+      },
+      {
+        title: "Use Cases",
+        content: `• Quantum Secret Sharing: Distributing a secret amongst multiple parties where all must collaborate to unlock it.\n• Quantum Error Correction: Forming the basis of many error-correcting codes (like the Shor code).\n• Bell's Theorem Tests: Providing a deterministic refutation of local hidden variable theories (GHZ experiment).`
+      }
+    ]
+  }
 };

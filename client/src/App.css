@@ -190,6 +190,25 @@
 }
 
 /* ------------------------------------------------------------------ */
+/* Premium Results Table                                                */
+/* ------------------------------------------------------------------ */
+.premium-table-row {
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.premium-table-row:hover {
+  background: rgba(34, 211, 238, 0.08);
+}
+
+.premium-table-row td {
+  transition: color 0.2s ease;
+}
+
+.premium-table-row:hover td {
+  color: #fff;
+}
+
+/* ------------------------------------------------------------------ */
 /* Reset / Base                                                         */
 /* ------------------------------------------------------------------ */
 *,

@@ -5,11 +5,13 @@
  * Shows plain-English purpose, exact matrix math, state transformation rules,
  * Bloch sphere geometry, and 1-click AI queries for every quantum gate.
  */
+import { useState, useEffect } from 'react';
 import type { GateType } from '../../circuit';
+import { GATE_CATEGORIES } from './GatePalette';
 import './GateExplainerModal.css';
 
 interface Props {
-  gateType: GateType | null;
+  category: string | null;
   onClose: () => void;
   onAskAi?: (gateName: string) => void;
 }
@@ -194,17 +196,29 @@ P₀ = |0⟩⟨0|,  P₁ = |1⟩⟨1|`,
   },
 };
 
-export default function GateExplainerModal({ gateType, onClose, onAskAi }: Props) {
-  if (!gateType) return null;
+export default function GateExplainerModal({ category, onClose, onAskAi }: Props) {
+  const [selectedGateType, setSelectedGateType] = useState<GateType | null>(null);
 
-  const detail: GateDetail = GATE_DETAILS[gateType] || {
-    type: gateType,
-    symbol: gateType,
-    name: `${gateType} Gate`,
+  useEffect(() => {
+    if (category) {
+      const cat = GATE_CATEGORIES.find((c) => c.title === category);
+      if (cat && cat.gates.length > 0) {
+        setSelectedGateType(cat.gates[0].type);
+      }
+    }
+  }, [category]);
+
+  if (!category || !selectedGateType) return null;
+
+  const currentCategory = GATE_CATEGORIES.find((c) => c.title === category);
+  const detail: GateDetail = GATE_DETAILS[selectedGateType] || {
+    type: selectedGateType,
+    symbol: selectedGateType,
+    name: `${selectedGateType} Gate`,
     category: 'Quantum Gate',
-    purpose: `Applies the ${gateType} quantum operation to the qubit.`,
+    purpose: `Applies the ${selectedGateType} quantum operation to the qubit.`,
     matrixText: '[ Unitary Matrix ]',
-    rules: [{ input: '|ψ⟩', output: `${gateType}|ψ⟩` }],
+    rules: [{ input: '|ψ⟩', output: `${selectedGateType}|ψ⟩` }],
     blochAction: 'Transforms the quantum state vector on the Bloch sphere.',
     analogy: 'Performs a unitary rotation in the Hilbert space.',
   };
@@ -213,19 +227,46 @@ export default function GateExplainerModal({ gateType, onClose, onAskAi }: Props
     <div className="gate-explainer-overlay" role="dialog" aria-modal="true" aria-labelledby="gate-title">
       <div className="gate-explainer-window">
         {/* Header */}
-        <header className="gate-explainer-header">
-          <div className="gate-explainer-badge-row">
-            <div className="gate-explainer-symbol">{detail.symbol}</div>
-            <div>
-              <h3 id="gate-title" className="gate-explainer-title">
-                {detail.name}
-              </h3>
-              <span className="gate-explainer-category">{detail.category}</span>
+        <header className="gate-explainer-header" style={{ flexDirection: 'column', alignItems: 'stretch', paddingBottom: '0', display: 'flex' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', width: '100%', marginBottom: '16px' }}>
+            <div className="gate-explainer-badge-row">
+              <div className="gate-explainer-symbol">{detail.symbol}</div>
+              <div>
+                <h3 id="gate-title" className="gate-explainer-title">
+                  {detail.name}
+                </h3>
+                <span className="gate-explainer-category">{detail.category}</span>
+              </div>
             </div>
+            <button className="btn btn--ghost btn--sm" onClick={onClose} aria-label="Close">
+              ✕
+            </button>
           </div>
-          <button className="btn btn--ghost btn--sm" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
+
+          {/* Tabs for gates in category */}
+          {currentCategory && (
+            <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--color-border)', width: '100%', overflowX: 'auto', paddingBottom: '0' }}>
+              {currentCategory.gates.map((g) => (
+                <button
+                  key={g.type}
+                  onClick={() => setSelectedGateType(g.type)}
+                  style={{
+                    padding: '8px 16px',
+                    background: 'none',
+                    border: 'none',
+                    borderBottom: selectedGateType === g.type ? '2px solid var(--color-primary)' : '2px solid transparent',
+                    color: selectedGateType === g.type ? 'var(--color-primary)' : 'var(--color-text-muted)',
+                    cursor: 'pointer',
+                    fontWeight: selectedGateType === g.type ? 600 : 400,
+                    fontSize: '0.9rem',
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          )}
         </header>
 
         {/* Body */}

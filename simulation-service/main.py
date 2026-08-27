@@ -84,6 +84,7 @@ else:
 
 _ALLOWED_MODULES = frozenset({
     'qiskit', 'qiskit_aer', 'qiskit_ibm_runtime', 'spinqit',
+    'cirq', 'pennylane', 'braket', 'pytket',
     'numpy', 'math', 'cmath',
     'collections', 'itertools', 'functools',
 })
@@ -2209,6 +2210,12 @@ def _run_python_mode(code: str, shots: int, noiseConfig: dict | None = None, pro
             },
         )
 
+    # Universal check for generic framework execution output
+    if 'counts' in namespace and isinstance(namespace['counts'], dict):
+        return namespace['counts'], "python_script", 0
+    if 'result' in namespace and hasattr(namespace['result'], 'counts'):
+        return namespace['result'].counts, "python_script", 0
+
     # Expect a `qc` variable holding a QuantumCircuit for Qiskit local provider
     qc = namespace.get('qc')
     if qc is None:
@@ -2217,8 +2224,9 @@ def _run_python_mode(code: str, shots: int, noiseConfig: dict | None = None, pro
             detail={
                 "errorCode": "VALIDATION_NO_CIRCUIT",
                 "message": (
-                    "Your code must define a variable named 'qc' (QuantumCircuit). "
-                    "Example: qc = QuantumCircuit(2, 2)"
+                    "Your code must define a variable named 'qc' (QuantumCircuit), "
+                    "or perform execution and save a 'counts' dictionary. "
+                    "Example: qc = QuantumCircuit(2, 2) OR counts = {'00': 100}"
                 ),
             },
         )

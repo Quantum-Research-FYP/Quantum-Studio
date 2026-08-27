@@ -71,8 +71,8 @@ function AllRunsHistoryView() {
         }
 
         .run-history-premium-card {
-          background: rgba(13, 22, 39, 0.6);
-          border: 1px solid rgba(255, 255, 255, 0.08);
+          background: var(--color-surface);
+          border: 1px solid var(--color-border);
           border-radius: 12px;
           padding: 16px 20px;
           display: flex;
@@ -85,9 +85,9 @@ function AllRunsHistoryView() {
         }
 
         .run-history-premium-card:hover {
-          background: rgba(13, 22, 39, 0.8);
-          border-color: rgba(34, 211, 238, 0.4);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2), inset 2px 0 0 rgba(34, 211, 238, 0.6);
+          background: var(--color-surface-2);
+          border-color: var(--color-primary);
+          box-shadow: var(--shadow-md), inset 2px 0 0 var(--color-primary);
         }
 
         .run-card-left {
@@ -124,7 +124,7 @@ function AllRunsHistoryView() {
         .run-card-title {
           font-size: 1rem;
           font-weight: 600;
-          color: #fff;
+          color: var(--color-text);
           margin: 0;
         }
         
@@ -167,7 +167,7 @@ function AllRunsHistoryView() {
         
         .date-value {
           font-size: 0.9rem;
-          color: #e2e8f0;
+          color: var(--color-text);
           font-variant-numeric: tabular-nums;
         }
         
@@ -227,9 +227,9 @@ function AllRunsHistoryView() {
           style={{
             padding: '80px 0',
             textAlign: 'center',
-            background: 'rgba(255,255,255,0.02)',
+            background: 'var(--color-surface-2)',
             borderRadius: '16px',
-            border: '1px dashed rgba(255,255,255,0.1)',
+            border: '1px dashed var(--color-border-strong)',
           }}
         >
           <div style={{ opacity: 0.5, marginBottom: '16px' }}>
@@ -246,7 +246,7 @@ function AllRunsHistoryView() {
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
             </svg>
           </div>
-          <h3 style={{ fontSize: '1.25rem', color: '#fff', marginBottom: '8px' }}>No runs yet</h3>
+          <h3 style={{ fontSize: '1.25rem', color: 'var(--color-text)', marginBottom: '8px' }}>No runs yet</h3>
           <p
             style={{
               color: 'var(--color-text-muted)',
@@ -382,7 +382,7 @@ function AllRunsHistoryView() {
                 <div className="run-card-action">
                   <button
                     className="btn btn--ghost btn--sm"
-                    style={{ border: '1px solid rgba(255,255,255,0.2)' }}
+                    style={{ border: '1px solid var(--color-border-strong)' }}
                   >
                     View Results →
                   </button>
@@ -635,7 +635,9 @@ function CompletedResults({
   onToggleTable: () => void;
   onToggleShowAll: () => void;
 }) {
-  const [showTranspile, setShowTranspile] = useState(false);
+  const [searchParams] = useSearchParams();
+  const initiallyShowTranspile = searchParams.get('showTranspilation') === 'true';
+  const [showTranspile, setShowTranspile] = useState(initiallyShowTranspile);
   return (
     <>
       <div className="results-toggles">
@@ -691,18 +693,33 @@ function CompletedResults({
         </div>
       )}
 
-      {showChart && (
-        <div className="results-chart-container">
-          <h2 className="results-section__title">Probability Distribution</h2>
-          <ProbabilityBarChart outcomes={outcomes} maxDisplay={maxDisplay} />
+      {showChart && showTable ? (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '32px', marginBottom: '32px', alignItems: 'start' }}>
+          <div className="results-chart-container" style={{ margin: 0 }}>
+            <h2 className="results-section__title" style={{ fontSize: '1.25rem', marginBottom: '24px' }}>Probability Distribution</h2>
+            <ProbabilityBarChart outcomes={outcomes} maxDisplay={maxDisplay} />
+          </div>
+          <div className="results-table-container" style={{ margin: 0 }}>
+            <h2 className="results-section__title" style={{ fontSize: '1.25rem', marginBottom: '24px' }}>Measurement Results</h2>
+            <ResultsTable outcomes={outcomes} maxDisplay={maxDisplay} />
+          </div>
         </div>
-      )}
+      ) : (
+        <>
+          {showChart && (
+            <div className="results-chart-container" style={{ marginBottom: '32px' }}>
+              <h2 className="results-section__title" style={{ fontSize: '1.25rem', marginBottom: '24px' }}>Probability Distribution</h2>
+              <ProbabilityBarChart outcomes={outcomes} maxDisplay={maxDisplay} />
+            </div>
+          )}
 
-      {showTable && (
-        <div className="results-table-container">
-          <h2 className="results-section__title">Measurement Results</h2>
-          <ResultsTable outcomes={outcomes} maxDisplay={maxDisplay} />
-        </div>
+          {showTable && (
+            <div className="results-table-container" style={{ marginBottom: '32px' }}>
+              <h2 className="results-section__title" style={{ fontSize: '1.25rem', marginBottom: '24px' }}>Measurement Results</h2>
+              <ResultsTable outcomes={outcomes} maxDisplay={maxDisplay} />
+            </div>
+          )}
+        </>
       )}
 
       <ExportButtons jobId={jobId} chartVisible={showChart} />

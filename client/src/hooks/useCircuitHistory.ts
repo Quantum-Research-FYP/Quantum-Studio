@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { CircuitModel } from '../circuit';
 import { createEmptyCircuit } from '../circuit';
 
@@ -17,6 +17,8 @@ interface CircuitHistory {
   undo: () => void;
   /** Re-apply a previously undone state. */
   redo: () => void;
+  /** Reset the history with an optional initial state */
+  reset: (initial?: CircuitModel) => void;
 }
 
 /**
@@ -26,8 +28,20 @@ interface CircuitHistory {
  * Every call to `push()` records a new state and truncates any redo future.
  * Undo/redo navigate the snapshot stack without mutation.
  */
-export function useCircuitHistory(): CircuitHistory {
-  const [stack, setStack] = useState<CircuitModel[]>(() => [createEmptyCircuit()]);
+export function useCircuitHistory(cacheKey?: string): CircuitHistory {
+  const [stack, setStack] = useState<CircuitModel[]>(() => {
+    if (cacheKey) {
+      const saved = localStorage.getItem(cacheKey);
+      if (saved) {
+        try {
+          return [JSON.parse(saved)];
+        } catch (e) {
+          console.error('Failed to parse cached circuit', e);
+        }
+      }
+    }
+    return [createEmptyCircuit()];
+  });
   const [index, setIndex] = useState(0);
 
   const push = useCallback(
@@ -53,14 +67,25 @@ export function useCircuitHistory(): CircuitHistory {
   const redo = useCallback(() => {
     setIndex((prev) => {
       // Read stack length via the state to avoid stale closure
-      setStack((s) => {
-        // We can't set index inside setStack, but we can read the length.
-        // This is a no-op update to the stack.
-        return s;
-      });
+      setStack((s) => s);
       return prev + 1;
     });
   }, []);
+
+  const reset = useCallback((initial?: CircuitModel) => {
+    const c = initial || createEmptyCircuit();
+    setStack([c]);
+    setIndex(0);
+    if (cacheKey && !initial) {
+      localStorage.removeItem(cacheKey);
+    }
+  }, [cacheKey]);
+
+  useEffect(() => {
+    if (cacheKey) {
+      localStorage.setItem(cacheKey, JSON.stringify(stack[index]));
+    }
+  }, [stack, index, cacheKey]);
 
   // Guard redo to not exceed stack bounds — we enforce via canRedo disable,
   // but also clamp in case of race
@@ -73,5 +98,6 @@ export function useCircuitHistory(): CircuitHistory {
     push,
     undo,
     redo,
+    reset,
   };
 }

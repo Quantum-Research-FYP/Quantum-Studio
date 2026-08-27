@@ -29,11 +29,10 @@ import AiDraftPanel from '../components/circuit-builder/AiDraftPanel';
 import AiImportBanner from '../components/circuit-builder/AiImportBanner';
 import type { AiImportInfo } from '../components/circuit-builder/AiImportBanner';
 import StateVisualizer from '../components/circuit-builder/StateVisualizer';
-import TranspilationEngine from '../components/circuit-builder/TranspilationEngine';
+import { TranspilationPanel } from '../components/results/TranspilationPanel';
 import CompilationPathComparison from '../components/circuit-builder/CompilationPathComparison';
 import PlatformGuideModal from '../components/common/PlatformGuideModal';
 import GateExplainerModal from '../components/circuit-builder/GateExplainerModal';
-import CircuitExplainerModal from '../components/circuit-builder/CircuitExplainerModal';
 import { useStepSimulation } from '../hooks/useStepSimulation';
 import { useCircuitHistory } from '../hooks/useCircuitHistory';
 import { useExperiment } from '../hooks/useExperiment';
@@ -82,7 +81,7 @@ async function buildAiProvenance(importInfo: AiImportInfo): Promise<AiProvenance
 }
 
 export default function CircuitBuilderPage() {
-  const { circuit, canUndo, canRedo, push, undo, redo } = useCircuitHistory();
+  const { circuit, canUndo, canRedo, push, undo, redo, reset } = useCircuitHistory('circuit_builder_state');
   const [selectedGate, setSelectedGate] = useState<GateType | null>(null);
   const [exportFramework, setExportFramework] = useState<Framework>('qiskit');
   const [searchParams] = useSearchParams();
@@ -111,12 +110,13 @@ export default function CircuitBuilderPage() {
   >('unknown');
   const [isRunning, setIsRunning] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
+  const [isRunModalOpen, setIsRunModalOpen] = useState(false);
+  const [withTranspilation, setWithTranspilation] = useState(false);
   const [isTranspilationModalOpen, setIsTranspilationModalOpen] = useState(false);
+  const [pendingJobId, setPendingJobId] = useState<string | null>(null);
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
-  const [isLearningMode, setIsLearningMode] = useState(true);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
-  const [isCircuitExplainerOpen, setIsCircuitExplainerOpen] = useState(false);
-  const [explainingGateType, setExplainingGateType] = useState<GateType | null>(null);
+  const [explainingCategory, setExplainingCategory] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -179,7 +179,7 @@ export default function CircuitBuilderPage() {
 
     experiment.loadExperiment(experimentId).then((data) => {
       if (data?.circuitJson) {
-        push(data.circuitJson as unknown as CircuitModel);
+        reset(data.circuitJson as unknown as CircuitModel);
       }
       // Preserve run settings and latest result for round-trip saving
       setLoadedRunSettings(data?.runSettingsJson ?? null);
@@ -208,7 +208,7 @@ export default function CircuitBuilderPage() {
     }
 
     const circuitModel = loadTemplateCircuit(template);
-    push(circuitModel);
+    reset(circuitModel);
     setExecutionConfig(template.defaultExecutionConfig);
 
     // Reset experiment state so saving creates a new experiment
@@ -287,14 +287,19 @@ export default function CircuitBuilderPage() {
         codeType: 'qasm',
       });
 
-      // Navigate to results page immediately using unified results view
-      navigate(`/results?jobId=${job.jobId}`, { replace: true });
+      setIsRunModalOpen(false);
+      if (withTranspilation) {
+        setPendingJobId(job.jobId);
+        setIsTranspilationModalOpen(true);
+      } else {
+        navigate(`/results?jobId=${job.jobId}`, { replace: true });
+      }
     } catch (err: unknown) {
       setRunError(err instanceof Error ? err.message : 'Failed to submit execution job.');
     } finally {
       setIsRunning(false);
     }
-  }, [circuit, executionConfig, navigate]);
+  }, [circuit, executionConfig, navigate, withTranspilation]);
 
   // Validation runs on every circuit change
   const errors = useMemo(() => validateCircuit(circuit), [circuit]);
@@ -410,46 +415,6 @@ export default function CircuitBuilderPage() {
           AI Chat
         </button>
 
-        <button
-          className="btn btn--sm"
-          onClick={() => setIsCircuitExplainerOpen(true)}
-          style={{
-            background: 'linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(167, 139, 250, 0.15))',
-            border: '1px solid rgba(34, 211, 238, 0.35)',
-            color: 'var(--color-primary)',
-            fontWeight: 600,
-          }}
-          title="Explain active circuit physics, state math, and measurement probabilities"
-          aria-label="Explain circuit"
-        >
-          💡 Explain Circuit
-        </button>
-
-        <button
-          className="btn btn--ghost btn--sm"
-          onClick={() => setIsGuideOpen(true)}
-          title="Open Quantum Studio user guide and walkthrough"
-          aria-label="Platform Guide"
-        >
-          📖 Guide
-        </button>
-
-        <button
-          className="btn btn--sm"
-          onClick={() => setIsLearningMode((prev) => !prev)}
-          style={{
-            background: isLearningMode ? 'rgba(52, 211, 153, 0.12)' : 'var(--color-surface-2)',
-            border: isLearningMode ? '1px solid rgba(52, 211, 153, 0.4)' : '1px solid var(--color-border)',
-            color: isLearningMode ? 'var(--color-success)' : 'var(--color-text-muted)',
-            fontSize: '0.74rem',
-            padding: '3px 8px',
-          }}
-          title={isLearningMode ? 'Currently in Learning Mode (Simplified UI)' : 'Currently in Pro Lab Mode (Advanced Tools)'}
-          aria-label="Toggle Learning / Pro Mode"
-        >
-          {isLearningMode ? '🎓 Learning Mode' : '🔬 Pro Mode'}
-        </button>
-
         {/* Experiment save controls */}
         <div className="builder__save-controls">
           <button
@@ -470,76 +435,28 @@ export default function CircuitBuilderPage() {
               Save As
             </button>
           )}
-          <select
-            className="toolbar-selector"
-            style={{ width: 'auto' }}
-            value={executionConfig.provider || 'local'}
-            onChange={(e) =>
-              setExecutionConfig({
-                ...executionConfig,
-                provider: e.target.value as ExecutionConfig['provider'],
-                backend: undefined,
-              })
-            }
-            aria-label="Select Backend Provider"
-          >
-            <option value="local">Local Simulator</option>
-            {providers.some((p) => p.id === 'ibm_quantum' && p.available) && (
-              <option value="ibm">IBM Quantum</option>
-            )}
-            <option value="spinq">SpinQ Gemini Mini Pro</option>
-          </select>
-
-          {executionConfig.provider === 'ibm' && (
-            <select
-              className="toolbar-selector"
-              style={{ minWidth: '150px' }}
-              value={executionConfig.backend || ibmBackends[0]?.name || 'ibm_brisbane'}
-              onChange={(e) => setExecutionConfig({ ...executionConfig, backend: e.target.value })}
-              aria-label="Select Hardware Backend"
-            >
-              {loadingBackends && <option value="">Loading backends...</option>}
-              {!loadingBackends && ibmBackends.length === 0 && (
-                <option value="ibm_brisbane">ibm_brisbane (127Q)</option>
-              )}
-              {ibmBackends.map((b) => (
-                <option key={b.name} value={b.name}>
-                  {b.name} ({b.qubits}Q)
-                </option>
-              ))}
-            </select>
-          )}
-
-          <button
-            className="btn btn--primary btn--sm"
-            onClick={handleRun}
-            disabled={
-              isRunning ||
-              errors.length > 0 ||
-              circuit.operations.length === 0 ||
-              (executionConfig.provider === 'ibm' &&
-                (credentialStatus !== 'valid' || !executionConfig.backend))
-            }
-            aria-label="Run circuit"
-          >
-            {isRunning ? 'Submitting...' : 'Run'}
-          </button>
-          <button
-            className="btn btn--secondary btn--sm"
-            onClick={() => setIsTranspilationModalOpen(true)}
-            disabled={errors.length > 0 || circuit.operations.length === 0}
-            aria-label="Run with Animated Transpilation"
-          >
-            Run with Animated Transpilation
-          </button>
           <button
             className="btn btn--ghost btn--sm"
-            onClick={() => setIsComparisonOpen(true)}
-            disabled={circuit.operations.length === 0}
-            aria-label="Compare Simulation vs Hardware compilation"
-            style={{ borderColor: 'rgba(167, 139, 250, 0.3)' }}
+            onClick={() => {
+              if (window.confirm('Are you sure you want to clear the circuit?')) {
+                reset();
+                experiment.reset();
+                if (experimentId || templateId) {
+                  navigate('/builder');
+                }
+              }
+            }}
+            aria-label="Clear circuit"
           >
-            ⚖️ Sim vs Hardware
+            Clear
+          </button>
+          <button
+            className="btn btn--primary btn--sm"
+            onClick={() => setIsRunModalOpen(true)}
+            disabled={errors.length > 0 || circuit.operations.length === 0}
+            aria-label="Run circuit settings"
+          >
+            Run
           </button>
           {experiment.lastSavedAt && (
             <span className="builder__save-status">
@@ -595,7 +512,7 @@ export default function CircuitBuilderPage() {
           <GatePalette
             selectedGate={selectedGate}
             onSelectGate={setSelectedGate}
-            onExplainGate={(gate) => setExplainingGateType(gate)}
+            onExplainCategory={(category) => setExplainingCategory(category)}
           />
 
           <div className="builder__center">
@@ -644,49 +561,126 @@ export default function CircuitBuilderPage() {
         </div>
       )}
 
-      <TranspilationEngine
-        isOpen={isTranspilationModalOpen}
-        onClose={() => setIsTranspilationModalOpen(false)}
-        circuit={circuit}
-      />
+      {isTranspilationModalOpen && (
+        <div className="te-overlay" role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
+          <div style={{ width: '100%', maxWidth: '1200px', height: '100%', maxHeight: '90vh', backgroundColor: 'var(--color-bg)', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column' }}>
+            <TranspilationPanel
+              qasm={generateOpenQasm(circuit)}
+              codeType="qasm"
+              backendName={executionConfig.backend || 'ibm_brisbane'}
+              onClose={() => {
+                setIsTranspilationModalOpen(false);
+                if (pendingJobId) {
+                  navigate(`/results?jobId=${pendingJobId}`, { replace: true });
+                  setPendingJobId(null);
+                }
+              }}
+            />
+          </div>
+        </div>
+      )}
 
-      <CompilationPathComparison
-        isOpen={isComparisonOpen}
-        onClose={() => setIsComparisonOpen(false)}
-        circuit={circuit}
-        onExecuteSim={() => {
-          setExecutionConfig((prev) => ({ ...prev, provider: 'local' }));
-          setTimeout(() => handleRun(), 50);
-        }}
-        onExecuteHardware={() => {
-          setExecutionConfig((prev) => ({ ...prev, provider: 'ibm' }));
-          setTimeout(() => handleRun(), 50);
-        }}
-      />
+      {isRunModalOpen && (
+        <div className="te-overlay" role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ width: '100%', maxWidth: '400px', backgroundColor: 'var(--color-bg)', borderRadius: '8px', padding: '24px', boxShadow: '0 20px 40px rgba(0,0,0,0.4)' }}>
+            {isRunning ? (
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
+                <div style={{ width: '48px', height: '48px', border: '4px solid var(--color-border)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'spin 1s linear infinite', marginBottom: '24px' }} />
+                <h3 style={{ marginTop: 0, marginBottom: '8px' }}>Submitting Circuit...</h3>
+                <p style={{ color: 'var(--color-text-muted)', margin: 0, textAlign: 'center' }}>
+                  Please wait while your circuit is being sent to the execution backend.
+                </p>
+                <style>
+                  {`
+                    @keyframes spin {
+                      0% { transform: rotate(0deg); }
+                      100% { transform: rotate(360deg); }
+                    }
+                  `}
+                </style>
+              </div>
+            ) : (
+              <>
+                <h3 style={{ marginTop: 0, marginBottom: '16px' }}>Run Settings</h3>
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>Backend Provider</label>
+                  <select
+                    className="form-field__input"
+                    style={{ width: '100%', backgroundColor: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', padding: '8px', borderRadius: '4px' }}
+                    value={executionConfig.provider || 'local'}
+                    onChange={(e) =>
+                      setExecutionConfig({
+                        ...executionConfig,
+                        provider: e.target.value as ExecutionConfig['provider'],
+                        backend: undefined,
+                      })
+                    }
+                  >
+                    <option value="local">Local Simulator</option>
+                    {providers.some((p) => p.id === 'ibm_quantum' && p.available) && (
+                      <option value="ibm">IBM Quantum</option>
+                    )}
+                    <option value="spinq">SpinQ Gemini Mini Pro</option>
+                  </select>
+                </div>
+                
+                {executionConfig.provider === 'ibm' && (
+                  <div style={{ marginBottom: '16px' }}>
+                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>Hardware Backend</label>
+                    <select
+                      className="form-field__input"
+                      style={{ width: '100%', backgroundColor: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)', padding: '8px', borderRadius: '4px' }}
+                      value={executionConfig.backend || ibmBackends[0]?.name || 'ibm_brisbane'}
+                      onChange={(e) => setExecutionConfig({ ...executionConfig, backend: e.target.value })}
+                    >
+                      {loadingBackends && <option value="">Loading backends...</option>}
+                      {!loadingBackends && ibmBackends.length === 0 && (
+                        <option value="ibm_brisbane">ibm_brisbane (127Q)</option>
+                      )}
+                      {ibmBackends.map((b) => (
+                        <option key={b.name} value={b.name}>
+                          {b.name} ({b.qubits}Q)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-      <PlatformGuideModal
-        isOpen={isGuideOpen}
-        onClose={() => setIsGuideOpen(false)}
-      />
+                <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input 
+                    type="checkbox" 
+                    id="transpilation-viz"
+                    checked={withTranspilation}
+                    onChange={(e) => setWithTranspilation(e.target.checked)}
+                  />
+                  <label htmlFor="transpilation-viz" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>Show Transpilation Visualization</label>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                  <button className="btn btn--ghost" onClick={() => setIsRunModalOpen(false)}>Cancel</button>
+                  <button 
+                    className="btn btn--primary" 
+                    onClick={handleRun}
+                    disabled={executionConfig.provider === 'ibm' && (credentialStatus !== 'valid' || !executionConfig.backend)}
+                  >
+                    Execute
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <GateExplainerModal
-        gateType={explainingGateType}
-        onClose={() => setExplainingGateType(null)}
+        category={explainingCategory}
+        onClose={() => setExplainingCategory(null)}
         onAskAi={(gateName) => {
-          setExplainingGateType(null);
+          setExplainingCategory(null);
           setShowAiPanel(true);
         }}
       />
 
-      <CircuitExplainerModal
-        isOpen={isCircuitExplainerOpen}
-        onClose={() => setIsCircuitExplainerOpen(false)}
-        circuit={circuit}
-        onAskAiWithContext={() => {
-          setIsCircuitExplainerOpen(false);
-          setShowAiPanel(true);
-        }}
-      />
     </div>
   );
 }

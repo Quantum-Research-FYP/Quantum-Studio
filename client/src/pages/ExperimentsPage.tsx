@@ -143,8 +143,8 @@ export default function ExperimentsPage() {
   if (!loading && !error && total === 0) {
     return (
       <div className="page">
-        <h1 className="page__title">My Experiments</h1>
-        <p className="page__subtitle">You don&apos;t have any saved experiments yet.</p>
+        <h1 className="page__title">My Projects</h1>
+        <p className="page__subtitle">You don&apos;t have any saved projects yet.</p>
 
         <div className="cta-group">
           <Link to="/create" className="cta-card">
@@ -168,9 +168,9 @@ export default function ExperimentsPage() {
   return (
     <div className="experiments-page">
       <div className="experiments-page__header">
-        <h1 className="page__title">My Experiments</h1>
+        <h1 className="page__title">My Projects</h1>
         <Link to="/builder" className="btn btn--primary">
-          New Experiment
+          New Project
         </Link>
       </div>
 
@@ -181,10 +181,10 @@ export default function ExperimentsPage() {
       )}
 
       {loading ? (
-        <p className="experiments-page__loading">Loading experiments...</p>
+        <p className="experiments-page__loading">Loading projects...</p>
       ) : (
         <>
-          <table className="experiments-table" aria-label="My experiments">
+          <table className="experiments-table" aria-label="My projects">
             <thead>
               <tr>
                 <th scope="col">Name</th>
@@ -254,7 +254,7 @@ export default function ExperimentsPage() {
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <nav className="pagination" aria-label="Experiments pagination">
+            <nav className="pagination" aria-label="Projects pagination">
               <button
                 className="btn btn--ghost btn--sm"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}

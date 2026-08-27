@@ -57,9 +57,21 @@ export const groverTemplate: TemplateDefinition = {
     shots: 1024,
   },
   learnMore: {
-    imageSrc: '/images/algorithms/grover.jpg',
-    longDescription: `Grover's Search Algorithm is a quantum algorithm that finds with high probability the unique input to a black box function that produces a particular output value. 
-
-While classical algorithms require O(N) operations to search an unstructured database, Grover's algorithm provides a quadratic speedup, solving the problem in O(√N) time. It works by using amplitude amplification to increase the probability of measuring the correct answer.`,
-  },
+    headerImageSrc: '/images/algorithms/grover.jpg',
+    description: "A quantum search algorithm that provides a quadratic speedup for unstructured search problems.",
+    sections: [
+      {
+        title: "Overview",
+        content: `Grover's algorithm demonstrates a quantum advantage by searching an unsorted database of N items in O(√N) time, compared to classical algorithms which require O(N) time.\n\nIt works through amplitude amplification: iteratively reflecting the quantum state about the average amplitude and the target state to dramatically increase the probability of measuring the correct answer.`
+      },
+      {
+        title: "Circuit Components",
+        content: `1. Initialization: Apply Hadamard gates to all qubits to create an equal superposition of all states.\n2. Oracle: Flips the phase of the target state(s).\n3. Diffuser (Amplification): Inverts the amplitudes about the mean, amplifying the target state.\n4. Measurement: Collapses the state, most likely yielding the target.`
+      },
+      {
+        title: "Use Cases",
+        content: `• Database Search: Finding a specific entry in an unstructured dataset.\n• Collision Finding: Cryptographic applications and hash function inversion.\n• Optimization Problems: Speeding up exhaustive search techniques.`
+      }
+    ]
+  }
 };
