@@ -1215,7 +1215,7 @@ export default function IdePage() {
           <EditorPanel
             code={files[activeFile]}
             onChange={handleCodeChange}
-            language={activeFile === 'main.py' ? 'python' : 'qasm'}
+            language={activeFile.endsWith('.py') ? 'python' : 'qasm'}
           />
         </div>
 
@@ -1508,7 +1508,7 @@ export default function IdePage() {
               <div style={{ flex: 1, overflow: 'hidden' }}>
                 <TranspilationPanel
                   qasm={files[activeFile]}
-                  codeType={activeFile === 'main.py' ? 'python' : 'qasm'}
+                  codeType={activeFile.endsWith('.py') ? 'python' : 'qasm'}
                   backendName={
                     selectedProvider === 'ibm_quantum' ? selectedBackend : 'ibm_brisbane'
                   }
