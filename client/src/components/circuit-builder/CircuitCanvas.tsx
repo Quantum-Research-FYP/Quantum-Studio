@@ -327,6 +327,18 @@ export default function CircuitCanvas({
         key={time}
         className={cellClass}
         onClick={() => handleCellClick(wirePrefix, wireIndex, time)}
+        onDragOver={(e) => {
+          if (canPlace) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'copy';
+          }
+        }}
+        onDrop={(e) => {
+          if (canPlace) {
+            e.preventDefault();
+            handleCellClick(wirePrefix, wireIndex, time);
+          }
+        }}
         role={canPlace ? 'button' : undefined}
         tabIndex={canPlace ? 0 : undefined}
         aria-label={placementLabel}
@@ -383,6 +395,7 @@ export default function CircuitCanvas({
                   {t}
                 </th>
               ))}
+              <th className="circuit-canvas__label-col" />
             </tr>
           </thead>
           <tbody>
@@ -392,6 +405,9 @@ export default function CircuitCanvas({
                   q{q}
                 </th>
                 {timeColumns.map((t) => renderCell('q', q, t))}
+                <th className="circuit-canvas__wire-label" scope="row">
+                  q{q}
+                </th>
               </tr>
             ))}
             {Array.from({ length: clbits }, (_, c) => (
@@ -400,6 +416,9 @@ export default function CircuitCanvas({
                   c{c}
                 </th>
                 {timeColumns.map((t) => renderCell('c', c, t))}
+                <th className="circuit-canvas__wire-label" scope="row">
+                  c{c}
+                </th>
               </tr>
             ))}
           </tbody>

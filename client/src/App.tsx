@@ -17,6 +17,7 @@ const IdePage = lazy(() => import('./pages/IdePage'));
 const ResultsPage = lazy(() => import('./pages/ResultsPage'));
 const ExperimentsPage = lazy(() => import('./pages/ExperimentsPage'));
 const TemplatesPage = lazy(() => import('./pages/TemplatesPage'));
+const TemplateDetailsPage = lazy(() => import('./pages/TemplateDetailsPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 const SharedExperimentPage = lazy(() => import('./pages/SharedExperimentPage'));
 
@@ -66,6 +67,7 @@ export default function App() {
               <Route element={<ProtectedRoute />}>
                 <Route path="experiments" element={<ExperimentsPage />} />
                 <Route path="templates" element={<TemplatesPage />} />
+                <Route path="templates/:templateId" element={<TemplateDetailsPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
               <Route path="shared/:experimentId" element={<SharedExperimentPage />} />

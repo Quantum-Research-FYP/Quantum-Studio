@@ -11,7 +11,7 @@ interface GateCategory {
   gates: GateEntry[];
 }
 
-const GATE_CATEGORIES: readonly GateCategory[] = [
+export const GATE_CATEGORIES: readonly GateCategory[] = [
   {
     title: 'Pauli & H',
     gates: [
@@ -215,10 +215,10 @@ export const GATE_DESCRIPTIONS = GATE_CATEGORIES.reduce(
 interface GatePaletteProps {
   selectedGate: GateType | null;
   onSelectGate: (gate: GateType | null) => void;
-  onExplainGate?: (gate: GateType) => void;
+  onExplainCategory?: (category: string) => void;
 }
 
-export default function GatePalette({ selectedGate, onSelectGate, onExplainGate }: GatePaletteProps) {
+export default function GatePalette({ selectedGate, onSelectGate, onExplainCategory }: GatePaletteProps) {
   return (
     <aside className="gate-palette" aria-label="Gate palette">
       <h3 className="gate-palette__title">
@@ -233,7 +233,34 @@ export default function GatePalette({ selectedGate, onSelectGate, onExplainGate 
       </h3>
       {GATE_CATEGORIES.map(({ title, gates }) => (
         <div key={title} className="gate-palette__category">
-          <span className="gate-palette__category-label">{title}</span>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span className="gate-palette__category-label" style={{ marginBottom: 0 }}>{title}</span>
+            {onExplainCategory && (
+              <button
+                type="button"
+                className="gate-palette__info-badge"
+                onClick={() => onExplainCategory(title)}
+                title={`Learn about ${title} gates`}
+                aria-label={`Learn about ${title} gates`}
+                style={{
+                  width: '14px',
+                  height: '14px',
+                  borderRadius: '50%',
+                  background: 'var(--color-surface-2)',
+                  border: '1px solid var(--color-border-strong)',
+                  color: 'var(--color-primary)',
+                  fontSize: '9px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer',
+                  padding: 0,
+                }}
+              >
+                ⓘ
+              </button>
+            )}
+          </div>
           <div className="gate-palette__grid">
             {gates.map(({ type, label, description }) => (
               <div key={type} style={{ position: 'relative', display: 'inline-flex' }}>
@@ -244,41 +271,15 @@ export default function GatePalette({ selectedGate, onSelectGate, onExplainGate 
                   aria-label={description}
                   aria-pressed={selectedGate === type}
                   onClick={() => onSelectGate(selectedGate === type ? null : type)}
+                  draggable
+                  onDragStart={(e) => {
+                    onSelectGate(type);
+                    e.dataTransfer.setData('application/quantum-gate', type);
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
                 >
                   {label}
                 </button>
-                {onExplainGate && (
-                  <button
-                    type="button"
-                    className="gate-palette__info-badge"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onExplainGate(type);
-                    }}
-                    title={`Explain ${label} gate math & physics`}
-                    aria-label={`Explain ${label} gate`}
-                    style={{
-                      position: 'absolute',
-                      top: '-3px',
-                      right: '-3px',
-                      width: '14px',
-                      height: '14px',
-                      borderRadius: '50%',
-                      background: 'var(--color-surface-2)',
-                      border: '1px solid var(--color-border-strong)',
-                      color: 'var(--color-primary)',
-                      fontSize: '9px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      cursor: 'pointer',
-                      padding: 0,
-                      zIndex: 2,
-                    }}
-                  >
-                    ⓘ
-                  </button>
-                )}
               </div>
             ))}
           </div>

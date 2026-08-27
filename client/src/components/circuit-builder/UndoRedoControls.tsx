@@ -16,7 +16,7 @@ export default function UndoRedoControls({
   onRedo,
 }: UndoRedoControlsProps) {
   return (
-    <div className="undo-redo" aria-label="Undo and redo controls">
+    <div className="undo-redo" aria-label="Undo and redo controls" style={{ display: 'flex', flexWrap: 'nowrap', gap: '4px' }}>
       <button
         type="button"
         className="btn btn--ghost undo-redo__btn"
@@ -24,8 +24,9 @@ export default function UndoRedoControls({
         onClick={onUndo}
         aria-label="Undo"
         title="Undo"
+        style={{ padding: '4px 8px' }}
       >
-        &#8630; Undo
+        &#8630;
       </button>
       <button
         type="button"
@@ -34,8 +35,9 @@ export default function UndoRedoControls({
         onClick={onRedo}
         aria-label="Redo"
         title="Redo"
+        style={{ padding: '4px 8px' }}
       >
-        Redo &#8631;
+        &#8631;
       </button>
     </div>
   );

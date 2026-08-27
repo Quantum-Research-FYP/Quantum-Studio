@@ -31,9 +31,21 @@ export const quantumTeleportationTemplate: TemplateDefinition = {
     shots: 1024,
   },
   learnMore: {
-    imageSrc: '/images/algorithms/quantum-teleportation.jpg',
-    longDescription: `Quantum teleportation is a protocol that allows the quantum state of a qubit to be transmitted from one location to another, without physically moving the particle itself. It relies on quantum entanglement and classical communication.
-
-In this circuit, Alice wants to send a state (prepared on q0) to Bob (q2). They share an entangled pair (q1 and q2). Alice entangles her state with her half of the Bell pair, then measures both. Depending on her results, Bob applies specific gates to his qubit, recovering the exact state Alice originally had.`,
-  },
+    headerImageSrc: '/images/algorithms/quantum-teleportation.jpg',
+    description: "A protocol for transmitting a quantum state over a distance using classical communication and quantum entanglement.",
+    sections: [
+      {
+        title: "Overview",
+        content: `Quantum teleportation allows the transfer of a quantum state from one location to another without physically moving the particle itself. It relies on two components: a pre-shared entangled Bell pair between the sender (Alice) and receiver (Bob), and a classical communication channel.\n\nAlice performs a Bell measurement on her qubit and half of the entangled pair, then sends the two resulting classical bits to Bob. Bob uses these bits to apply the necessary Pauli corrections to his half of the pair, perfectly recreating Alice's initial state.`
+      },
+      {
+        title: "Protocol Steps",
+        content: `1. Entanglement Sharing: Create a Bell state and distribute one qubit to Alice and one to Bob.\n2. Bell Measurement: Alice applies a CNOT and H gate to the state to be teleported and her entangled qubit, then measures them.\n3. Classical Transmission: Alice sends the two classical measurement outcomes to Bob.\n4. Correction: Bob applies an X and/or Z gate based on the classical bits to recover the state.`
+      },
+      {
+        title: "Use Cases",
+        content: `• Quantum Networks: Routing quantum information between distant nodes.\n• Quantum Computing Architecture: Moving states between different processors or memory units.\n• Secure Communication: Providing the foundation for advanced quantum cryptographic protocols.`
+      }
+    ]
+  }
 };

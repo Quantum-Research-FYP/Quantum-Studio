@@ -461,11 +461,11 @@ export default function SettingsPage() {
                       <p className="form-field__hint">
                         Find your token at{' '}
                         <a
-                          href="https://quantum.ibm.com/account"
+                          href="https://quantum.cloud.ibm.com/"
                           target="_blank"
                           rel="noopener noreferrer"
                         >
-                          quantum.ibm.com/account
+                          quantum.cloud.ibm.com
                         </a>
                       </p>
                     </div>

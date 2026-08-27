@@ -27,9 +27,21 @@ export const qftTemplate: TemplateDefinition = {
     shots: 1024,
   },
   learnMore: {
-    imageSrc: '/images/algorithms/qft.jpg',
-    longDescription: `The Quantum Fourier Transform (QFT) is the quantum analogue of the discrete Fourier transform. It is a linear transformation on quantum bits, and is the key ingredient in many quantum algorithms, most notably Shor's factoring algorithm and quantum phase estimation.
-
-This template shows a 3-qubit QFT circuit. It operates by applying a sequence of Hadamard gates and controlled phase (CP) gates, followed by a SWAP gate to reverse the order of the qubits. The QFT transforms a quantum state from the computational basis to the Fourier basis.`,
-  },
+    headerImageSrc: '/images/algorithms/qft.jpg',
+    description: "The Quantum Fourier Transform, a linear transformation on quantum bits, analogous to the discrete Fourier transform.",
+    sections: [
+      {
+        title: "Overview",
+        content: `The QFT transforms a quantum state from the computational basis to the Fourier (or phase) basis. It is a critical subroutine in many of the most famous quantum algorithms, such as Shor's algorithm for factoring and quantum phase estimation.\n\nInstead of outputting probabilities directly, it encodes the frequency domain information into the relative phases of the qubits.`
+      },
+      {
+        title: "Circuit Matrix",
+        content: `The QFT matrix for an N-dimensional space (where N = 2^n) is defined by its entries:\nF_{j,k} = (1 / √N) * ω^(j*k)\nwhere ω = e^(2πi/N) is the primitive N-th root of unity.`
+      },
+      {
+        title: "Use Cases",
+        content: `• Shor's Algorithm: Factoring large integers exponentially faster than classical algorithms.\n• Quantum Phase Estimation: Estimating the eigenvalues of a unitary operator.\n• Hidden Subgroup Problem: Solving generalizations of period-finding problems.`
+      }
+    ]
+  }
 };

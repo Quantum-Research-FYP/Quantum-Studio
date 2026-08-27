@@ -25,25 +25,22 @@ import { analyzeCircuit } from '../api/simulations';
 import type { NoiseConfig, AnalyzeResponse } from '../api/simulations';
 import { TranspilationPanel } from '../components/results/TranspilationPanel';
 
-const DEFAULT_PYTHON = `from qiskit import QuantumCircuit
-
-qc = QuantumCircuit(2, 2)
-qc.h(0)
-qc.cx(0, 1)
-qc.measure([0, 1], [0, 1])
-`;
-
-const DEFAULT_QASM = `OPENQASM 2.0;
-include "qelib1.inc";
-
-qreg q[2];
-creg c[2];
-
-h q[0];
-cx q[0], q[1];
-measure q[0] -> c[0];
-measure q[1] -> c[1];
-`;
+export const FRAMEWORKS = [
+  { id: 'qiskit', name: 'Qiskit', file: 'qiskit.py', type: 'python',
+    template: `from qiskit import QuantumCircuit\n\nqc = QuantumCircuit(2, 2)\nqc.h(0)\nqc.cx(0, 1)\nqc.measure([0, 1], [0, 1])\n` },
+  { id: 'spinqit', name: 'SpinQit', file: 'spinqit.py', type: 'python',
+    template: `from spinqit import Circuit, get_basic_simulator, get_compiler, BasicSimulatorConfig\nfrom spinqit import H, CX\n\ncirc = Circuit()\nq = circ.allocateQubits(2)\ncirc << (H, q[0])\ncirc << (CX, (q[0], q[1]))\n\n# Choose the compiler and backend\ncomp = get_compiler("native")\nengine = get_basic_simulator()\n\n# Compile\nexe = comp.compile(circ, 0)\n\n# Run\nconfig = BasicSimulatorConfig()\nconfig.configure_shots(1024)\nresult = engine.execute(exe, config)\ncounts = result.counts\n` },
+  { id: 'cirq', name: 'Cirq', file: 'cirq.py', type: 'python',
+    template: `import cirq\n\nq0 = cirq.GridQubit(0, 0)\nq1 = cirq.GridQubit(0, 1)\ncircuit = cirq.Circuit(\n    cirq.H(q0),\n    cirq.CNOT(q0, q1),\n    cirq.measure(q0, key='m0'),\n    cirq.measure(q1, key='m1')\n)\n\nsimulator = cirq.Simulator()\nresult = simulator.run(circuit, repetitions=1024)\n\n# Convert Cirq result to 'counts' dict for the platform\ncounts_raw = result.multi_measurement_histogram(keys=['m0', 'm1'])\ncounts = {f"{k[0]}{k[1]}": v for k, v in counts_raw.items()}\n` },
+  { id: 'pennylane', name: 'PennyLane', file: 'pennylane.py', type: 'python',
+    template: `import pennylane as qml\n\ndev = qml.device("default.qubit", wires=2, shots=1024)\n\n@qml.qnode(dev)\ndef circuit():\n    qml.Hadamard(wires=0)\n    qml.CNOT(wires=[0, 1])\n    return qml.counts()\n\n# Get results in the expected 'counts' format\ncounts_raw = circuit()\ncounts = {str(k): int(v) for k, v in counts_raw.items()}\n` },
+  { id: 'braket', name: 'Amazon Braket', file: 'braket.py', type: 'python',
+    template: `from braket.circuits import Circuit\nfrom braket.devices import LocalSimulator\n\ncircuit = Circuit().h(0).cnot(0, 1)\n\ndevice = LocalSimulator()\nresult = device.run(circuit, shots=1024).result()\n\n# Expose counts for the platform\ncounts_raw = result.measurement_counts\ncounts = {k: int(v) for k, v in counts_raw.items()}\n` },
+  { id: 'tket', name: 'TKET', file: 'tket.py', type: 'python',
+    template: `from pytket import Circuit\nfrom pytket.extensions.qiskit import AerBackend\n\ncirc = Circuit(2, 2)\ncirc.H(0)\ncirc.CX(0, 1)\ncirc.Measure(0, 0)\ncirc.Measure(1, 1)\n\nbackend = AerBackend()\ncompiled_circ = backend.get_compiled_circuit(circ)\nresult = backend.run_circuit(compiled_circ, n_shots=1024)\n\n# Extract counts into standard format\ncounts_raw = result.get_counts()\ncounts = {f"{k[0]}{k[1]}": v for k, v in counts_raw.items()}\n` },
+  { id: 'openqasm', name: 'OpenQASM', file: 'circuit.qasm', type: 'qasm',
+    template: `OPENQASM 2.0;\ninclude "qelib1.inc";\n\nqreg q[2];\ncreg c[2];\n\nh q[0];\ncx q[0], q[1];\nmeasure q[0] -> c[0];\nmeasure q[1] -> c[1];\n` },
+];
 
 /* ------------------------------------------------------------------ */
 /* Explorer Sub-Components                                              */
@@ -120,15 +117,18 @@ const ChevronIcon = ({ open }: { open: boolean }) => (
   </svg>
 );
 
+
 function FileItem({
   name,
   active,
   onClick,
+  onDelete,
   icon,
 }: {
   name: string;
   active: boolean;
   onClick: () => void;
+  onDelete?: () => void;
   icon: React.ReactNode;
 }) {
   const [hover, setHover] = useState(false);
@@ -140,100 +140,222 @@ function FileItem({
       style={{
         display: 'flex',
         alignItems: 'center',
-        gap: '8px',
+        justifyContent: 'space-between',
         padding: '6px 16px 6px 36px',
         cursor: 'pointer',
         fontSize: '0.85rem',
         userSelect: 'none',
-        backgroundColor: active
-          ? 'var(--color-primary-dim)'
-          : hover
-            ? 'var(--color-surface-3)'
-            : 'transparent',
-        color: active
-          ? 'var(--color-text)'
-          : hover
-            ? 'var(--color-text)'
-            : 'var(--color-text-muted)',
+        backgroundColor: active ? 'var(--color-primary-dim)' : hover ? 'var(--color-surface-3)' : 'transparent',
+        color: active ? 'var(--color-text)' : hover ? 'var(--color-text)' : 'var(--color-text-muted)',
         borderLeft: active ? '2px solid var(--color-primary)' : '2px solid transparent',
       }}
     >
-      {icon}
-      <span>{name}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {icon}
+        <span>{name}</span>
+      </div>
+      {onDelete && hover && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onDelete(); }}
+          style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '0 4px', fontSize: '1.1rem', lineHeight: '1', borderRadius: '4px' }}
+          onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-error)')}
+          onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-muted)')}
+        >
+          ×
+        </button>
+      )}
+    </div>
+  );
+}
+
+function FolderItem({
+  name,
+  active,
+  isRenaming,
+  onSelect,
+  onRename,
+  onDelete,
+  children
+}: {
+  name: string;
+  active: boolean;
+  isRenaming: boolean;
+  onSelect: () => void;
+  onRename: (newName: string) => void;
+  onDelete: () => void;
+  children: React.ReactNode;
+}) {
+  const [hover, setHover] = useState(false);
+  const [renameVal, setRenameVal] = useState(name);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+        onClick={onSelect}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '6px 16px 6px 32px', // Indented under Quantum-Project
+          cursor: 'pointer',
+          fontSize: '0.85rem',
+          userSelect: 'none',
+          backgroundColor: active ? 'var(--color-primary-dim)' : hover ? 'var(--color-surface-3)' : 'transparent',
+          color: active ? 'var(--color-text)' : hover ? 'var(--color-text)' : 'var(--color-text-muted)',
+          borderLeft: active ? '2px solid var(--color-primary)' : '2px solid transparent',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <FolderIcon open={true} />
+          {isRenaming ? (
+            <input
+              autoFocus
+              value={renameVal}
+              onChange={(e) => setRenameVal(e.target.value)}
+              onBlur={() => onRename(renameVal)}
+              onKeyDown={(e) => { if (e.key === 'Enter') onRename(renameVal); if (e.key === 'Escape') onRename(name); }}
+              onClick={(e) => e.stopPropagation()}
+              style={{ background: 'var(--color-surface-1)', color: 'var(--color-text)', border: '1px solid var(--color-primary)', borderRadius: '4px', padding: '2px 6px', fontSize: '0.85rem', outline: 'none', width: '120px' }}
+            />
+          ) : (
+            <span>{name}</span>
+          )}
+        </div>
+        {hover && !isRenaming && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', padding: '0 4px', fontSize: '1.1rem', lineHeight: '1' }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--color-error)')}
+            onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--color-text-muted)')}
+          >
+            ×
+          </button>
+        )}
+      </div>
+      {children && <div style={{ display: 'flex', flexDirection: 'column', paddingLeft: '16px' }}>{children}</div>}
     </div>
   );
 }
 
 function FileExplorer({
   activeFile,
-  onSelect,
+  files,
+  folders,
+  selectedFolder,
+  renamingFolder,
+  onSelectFile,
+  onSelectFolder,
+  onAddFile,
+  onAddFolder,
+  onRenameFolder,
+  onDeleteFile,
+  onDeleteFolder,
 }: {
   activeFile: string;
-  onSelect: (f: 'main.py' | 'main.qasm') => void;
+  files: Record<string, string>;
+  folders: string[];
+  selectedFolder: string;
+  renamingFolder: string | null;
+  onSelectFile: (f: string) => void;
+  onSelectFolder: (f: string) => void;
+  onAddFile: (fwId: string, template: string) => void;
+  onAddFolder: () => void;
+  onRenameFolder: (oldPath: string, newPath: string) => void;
+  onDeleteFile: (f: string) => void;
+  onDeleteFolder: (f: string) => void;
 }) {
   const [srcOpen, setSrcOpen] = useState(true);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+
+  const rootFiles = Object.keys(files).filter(f => !f.includes('/'));
+
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        paddingBottom: '12px',
-        borderBottom: '1px solid var(--color-border)',
-      }}
-    >
-      <div
-        style={{
-          padding: '16px 16px 12px',
-          fontSize: '0.75rem',
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-          color: 'var(--color-text-subtle)',
-        }}
-      >
-        Explorer
+    <div style={{ display: 'flex', flexDirection: 'column', paddingBottom: '12px', borderBottom: '1px solid var(--color-border)' }}>
+      <div style={{ padding: '16px 16px 12px', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <span>Explorer</span>
+        <div style={{ display: 'flex', gap: '4px', position: 'relative' }}>
+          <button
+            onClick={() => setAddMenuOpen(!addMenuOpen)}
+            title="New File"
+            style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', padding: 0 }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M13.85 4.44l-3.28-3.3-.35-.14H4.5l-.5.5v13l.5.5h10l.5-.5V4.8l-.15-.36zM10 2.2l2.8 2.8H10V2.2zM14 14H5V2h4v4h4v8zM8.5 7h-1v2h-2v1h2v2h1v-2h2V9h-2V7z"/>
+            </svg>
+          </button>
+          <button
+            onClick={onAddFolder}
+            title="New Folder"
+            style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '24px', height: '24px', padding: 0 }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M14.5 4h-5.4l-1.7-1.7-.3-.3H3.5l-.5.5v10l.5.5h11l.5-.5V4.5l-.5-.5zM4 3h2.6l1.7 1.7.3.3h5.4v1H4V3zm10 11H4V7h10v7zm-3.5-5h-2V7h-1v2h-2v1h2v2h1v-2h2V9z"/>
+            </svg>
+          </button>
+          
+          {addMenuOpen && (
+            <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: '4px', backgroundColor: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: '6px', boxShadow: '0 4px 12px rgba(0,0,0,0.2)', zIndex: 10, minWidth: '150px', overflow: 'hidden' }}>
+              {FRAMEWORKS.map((fw) => (
+                <div
+                  key={fw.id}
+                  onClick={() => { onAddFile(fw.id, fw.template); setAddMenuOpen(false); }}
+                  style={{ padding: '8px 12px', fontSize: '0.85rem', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--color-text)' }}
+                  onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-surface-3)')}
+                  onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
+                >
+                  <span style={{ width: '12px', display: 'inline-block' }}></span>
+                  {fw.name}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div
-        onClick={() => setSrcOpen(!srcOpen)}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '6px 16px',
-          cursor: 'pointer',
-          color: 'var(--color-text-muted)',
-          fontSize: '0.85rem',
-          userSelect: 'none',
-        }}
+        onClick={() => { setSrcOpen(!srcOpen); onSelectFolder(''); }}
+        style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '6px 16px', cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: '0.85rem', userSelect: 'none', backgroundColor: selectedFolder === '' ? 'var(--color-surface-3)' : 'transparent' }}
       >
         <ChevronIcon open={srcOpen} />
         <FolderIcon open={srcOpen} />
         <span style={{ fontWeight: 500, letterSpacing: '0.02em' }}>Quantum-Project</span>
       </div>
 
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '1px',
-          marginTop: '2px',
-          overflow: 'hidden',
-          height: srcOpen ? 'auto' : 0,
-        }}
-      >
-        <FileItem
-          name="main.py"
-          active={activeFile === 'main.py'}
-          onClick={() => onSelect('main.py')}
-          icon={<PythonIcon />}
-        />
-        <FileItem
-          name="main.qasm"
-          active={activeFile === 'main.qasm'}
-          onClick={() => onSelect('main.qasm')}
-          icon={<QasmIcon />}
-        />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1px', marginTop: '2px', overflow: 'hidden', height: srcOpen ? 'auto' : 0 }}>
+        {folders.map(folder => (
+          <FolderItem
+            key={folder}
+            name={folder}
+            active={selectedFolder === folder}
+            isRenaming={renamingFolder === folder}
+            onSelect={() => onSelectFolder(folder)}
+            onRename={(newName) => onRenameFolder(folder, newName)}
+            onDelete={() => onDeleteFolder(folder)}
+          >
+            {Object.keys(files).filter(f => f.startsWith(folder + '/') && f.substring(folder.length + 1).indexOf('/') === -1).map(filename => (
+              <FileItem
+                key={filename}
+                name={filename.substring(folder.length + 1)}
+                active={activeFile === filename}
+                onClick={() => onSelectFile(filename)}
+                onDelete={() => onDeleteFile(filename)}
+                icon={filename.endsWith('.qasm') ? <QasmIcon /> : <PythonIcon />}
+              />
+            ))}
+          </FolderItem>
+        ))}
+        {rootFiles.map((filename) => (
+          <FileItem
+            key={filename}
+            name={filename}
+            active={activeFile === filename}
+            onClick={() => onSelectFile(filename)}
+            onDelete={() => onDeleteFile(filename)}
+            icon={filename.endsWith('.qasm') ? <QasmIcon /> : <PythonIcon />}
+          />
+        ))}
       </div>
     </div>
   );
@@ -247,11 +369,43 @@ export default function IdePage() {
   const { user } = useAuth();
 
   // File state
-  const [activeFile, setActiveFile] = useState<'main.py' | 'main.qasm'>('main.py');
-  const [files, setFiles] = useState<{ 'main.py': string; 'main.qasm': string }>({
-    'main.py': DEFAULT_PYTHON,
-    'main.qasm': DEFAULT_QASM,
+  const defaultFw = FRAMEWORKS.find(f => f.id === 'qiskit')!;
+  const [activeFile, setActiveFile] = useState<string>(() => {
+    const saved = localStorage.getItem('ide_activeFile');
+    return saved || defaultFw.file;
   });
+  const [files, setFiles] = useState<Record<string, string>>(() => {
+    const saved = localStorage.getItem('ide_files');
+    return saved ? JSON.parse(saved) : { [defaultFw.file]: defaultFw.template };
+  });
+  const [folders, setFolders] = useState<string[]>(() => {
+    const saved = localStorage.getItem('ide_folders');
+    return saved ? JSON.parse(saved) : [];
+  });
+  const [selectedFolder, setSelectedFolder] = useState<string>('');
+  const [renamingFolder, setRenamingFolder] = useState<string | null>(null);
+
+  useEffect(() => {
+    localStorage.setItem('ide_activeFile', activeFile);
+  }, [activeFile]);
+
+  useEffect(() => {
+    localStorage.setItem('ide_files', JSON.stringify(files));
+  }, [files]);
+
+  useEffect(() => {
+    localStorage.setItem('ide_folders', JSON.stringify(folders));
+  }, [folders]);
+
+  const handleResetFile = () => {
+    if (window.confirm(`Are you sure you want to reset ${activeFile}?`)) {
+      // Find if it's an original framework file to restore its template
+      const fwMatch = FRAMEWORKS.find(f => f.file === activeFile);
+      const defaultContent = fwMatch ? fwMatch.template : '';
+      
+      setFiles(prev => ({ ...prev, [activeFile]: defaultContent }));
+    }
+  };
 
   // Settings State
   const [shots, setShots] = useState(1024);
@@ -356,7 +510,7 @@ export default function IdePage() {
   const openGhPush = useCallback(async () => {
     setShowGhPush(true);
     setGhPushResult(null);
-    setGhFilePath(activeFile === 'main.py' ? 'circuits/main.py' : 'circuits/main.qasm');
+    setGhFilePath(activeFile);
     setGhCommitMsg(`Update ${activeFile} via Quantum Studio`);
     setGhReposLoading(true);
     try {
@@ -399,9 +553,108 @@ export default function IdePage() {
 
   const ibmAvailable = providers.some((p) => p.id === 'ibm_quantum' && p.available);
 
-  const handleFileChange = (file: 'main.py' | 'main.qasm') => {
+  const handleFileChange = (file: string) => {
     setActiveFile(file);
     setEditorError(null);
+    if (selectedProvider === 'ibm_quantum' && !file.toLowerCase().includes('qiskit') && !file.toLowerCase().endsWith('.qasm')) {
+      setSelectedProvider('simulator');
+    } else if (selectedProvider === 'spinq' && !file.toLowerCase().includes('spinqit')) {
+      setSelectedProvider('simulator');
+    }
+  };
+
+  const handleSelectFolder = (folder: string) => {
+    setSelectedFolder(folder);
+  };
+
+  const handleAddFolder = () => {
+    let newFolderName = 'New Folder';
+    let i = 1;
+    while (folders.includes(newFolderName)) {
+      newFolderName = `New Folder ${i}`;
+      i++;
+    }
+    setFolders(prev => [...prev, newFolderName]);
+    setRenamingFolder(newFolderName);
+    setSelectedFolder(newFolderName);
+  };
+
+  const handleRenameFolder = (oldPath: string, newPath: string) => {
+    if (!newPath || newPath === oldPath || folders.includes(newPath)) {
+      setRenamingFolder(null);
+      return;
+    }
+    setFolders(prev => prev.map(f => f === oldPath ? newPath : f));
+    setFiles(prev => {
+      const next = { ...prev };
+      for (const [key, val] of Object.entries(next)) {
+        if (key.startsWith(oldPath + '/')) {
+          next[newPath + '/' + key.substring(oldPath.length + 1)] = val;
+          delete next[key];
+        }
+      }
+      return next;
+    });
+    if (selectedFolder === oldPath) {
+      setSelectedFolder(newPath);
+    }
+    if (activeFile.startsWith(oldPath + '/')) {
+      setActiveFile(newPath + '/' + activeFile.substring(oldPath.length + 1));
+    }
+    setRenamingFolder(null);
+  };
+
+  const handleDeleteFolder = (folderPath: string) => {
+    setFolders(prev => prev.filter(f => f !== folderPath));
+    setFiles(prev => {
+      const next = { ...prev };
+      for (const key of Object.keys(next)) {
+        if (key.startsWith(folderPath + '/')) {
+          delete next[key];
+        }
+      }
+      return next;
+    });
+    if (selectedFolder === folderPath) {
+      setSelectedFolder('');
+    }
+    if (activeFile.startsWith(folderPath + '/')) {
+      setActiveFile('');
+    }
+  };
+
+  const handleAddFile = (fwId: string, template: string) => {
+    const fw = FRAMEWORKS.find(f => f.id === fwId);
+    if (!fw) return;
+    const ext = fw.file.includes('.') ? fw.file.substring(fw.file.lastIndexOf('.')) : '';
+    const baseName = fw.file.includes('.') ? fw.file.substring(0, fw.file.lastIndexOf('.')) : fw.file;
+
+    let newName = selectedFolder ? `${selectedFolder}/${fw.file}` : fw.file;
+    let i = 1;
+    while (files[newName] !== undefined) {
+      newName = selectedFolder ? `${selectedFolder}/${baseName}_${i}${ext}` : `${baseName}_${i}${ext}`;
+      i++;
+    }
+    
+    setFiles(prev => ({ ...prev, [newName]: template }));
+    setActiveFile(newName);
+    setEditorError(null);
+  };
+
+  const handleDeleteFile = (file: string) => {
+    setFiles((prev) => {
+      const newFiles = { ...prev };
+      delete newFiles[file];
+      if (activeFile === file) {
+        const remaining = Object.keys(newFiles);
+        if (remaining.length > 0) {
+          setActiveFile(remaining[0]);
+        } else {
+          setActiveFile('');
+        }
+      }
+      return newFiles;
+    });
   };
 
   const handleCodeChange = (newCode: string | undefined) => {
@@ -413,7 +666,7 @@ export default function IdePage() {
     execution.reset();
     setAnalyzeResult(null);
     setBottomTab('terminal'); // Switch to terminal on run
-    const codeType = activeFile === 'main.py' ? 'python' : 'qasm';
+    const codeType = activeFile.endsWith('.qasm') ? 'qasm' : 'python';
 
     // Clean noiseConfig to only include >0 values if enabled
     let finalNoiseConfig = undefined;
@@ -459,7 +712,7 @@ export default function IdePage() {
     setAnalyzeResult(null);
     setBottomTab('analysis');
     try {
-      const codeType = activeFile === 'main.py' ? 'python' : 'qasm';
+      const codeType = activeFile.endsWith('.qasm') ? 'qasm' : 'python';
       const cleaned: Partial<NoiseConfig> = {};
       (Object.entries(noiseConfig) as [keyof NoiseConfig, unknown][]).forEach(([key, val]) => {
         if (typeof val === 'number' && val > 0) {
@@ -506,9 +759,23 @@ export default function IdePage() {
           display: 'flex',
           flexDirection: 'column',
           overflowY: 'auto',
+          backgroundColor: 'var(--color-surface-2)',
         }}
       >
-        <FileExplorer activeFile={activeFile} onSelect={handleFileChange} />
+        <FileExplorer
+          activeFile={activeFile}
+          files={files}
+          folders={folders}
+          selectedFolder={selectedFolder}
+          renamingFolder={renamingFolder}
+          onSelectFile={handleFileChange}
+          onSelectFolder={handleSelectFolder}
+          onAddFile={handleAddFile}
+          onAddFolder={handleAddFolder}
+          onRenameFolder={handleRenameFolder}
+          onDeleteFile={handleDeleteFile}
+          onDeleteFolder={handleDeleteFolder}
+        />
 
         {/* Execution Settings */}
         <div
@@ -561,8 +828,20 @@ export default function IdePage() {
               }
             >
               <option value="simulator">Local Simulator</option>
-              {ibmAvailable && <option value="ibm_quantum">IBM Quantum</option>}
-              <option value="spinq">SpinQ Gemini Mini Pro</option>
+              {ibmAvailable && (
+                <option 
+                  value="ibm_quantum" 
+                  disabled={!activeFile.toLowerCase().includes('qiskit') && !activeFile.toLowerCase().endsWith('.qasm')}
+                >
+                  IBM Quantum {(!activeFile.toLowerCase().includes('qiskit') && !activeFile.toLowerCase().endsWith('.qasm')) ? '(Qiskit/QASM only)' : ''}
+                </option>
+              )}
+              <option 
+                value="spinq"
+                disabled={!activeFile.toLowerCase().includes('spinqit')}
+              >
+                SpinQ Gemini Mini Pro {!activeFile.toLowerCase().includes('spinqit') ? '(SpinQit only)' : ''}
+              </option>
             </select>
             {selectedProvider === 'ibm_quantum' && credentialStatus !== 'valid' && (
               <div style={{ fontSize: '0.75rem', color: 'var(--color-error)', marginTop: '4px' }}>
@@ -838,8 +1117,40 @@ export default function IdePage() {
               gap: '8px',
             }}
           >
-            {activeFile === 'main.py' ? <PythonIcon /> : <QasmIcon />}
+            {activeFile.endsWith('.qasm') ? <QasmIcon /> : <PythonIcon />}
             {activeFile}
+            <button
+              onClick={handleResetFile}
+              title="Reset IDE"
+              style={{
+                background: 'var(--color-surface-2)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-muted)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '4px 8px',
+                marginLeft: '8px',
+                borderRadius: '4px',
+                fontSize: '0.75rem',
+                gap: '4px'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = 'var(--color-error)';
+                e.currentTarget.style.borderColor = 'var(--color-error)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = 'var(--color-text-muted)';
+                e.currentTarget.style.borderColor = 'var(--color-border)';
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 6h18"></path>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+              </svg>
+              Reset
+            </button>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {/* Push to GitHub button */}
@@ -1118,7 +1429,7 @@ export default function IdePage() {
                       >
                         Probability Distribution
                       </h4>
-                      <ProbabilityBarChart outcomes={execution.outcomes} maxDisplay={20} />
+                      <ProbabilityBarChart outcomes={execution.outcomes} maxDisplay={10} compact={true} />
                     </div>
                     <div style={{ flex: 1, overflowY: 'auto' }}>
                       <h4
@@ -1132,7 +1443,7 @@ export default function IdePage() {
                       >
                         Counts
                       </h4>
-                      <ResultsTable outcomes={execution.outcomes} maxDisplay={20} />
+                      <ResultsTable outcomes={execution.outcomes} maxDisplay={10} compact={true} />
                     </div>
                   </div>
                 ) : (

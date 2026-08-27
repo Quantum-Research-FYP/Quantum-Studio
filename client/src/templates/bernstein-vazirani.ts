@@ -52,9 +52,21 @@ export const bernsteinVaziraniTemplate: TemplateDefinition = {
     shots: 1024,
   },
   learnMore: {
-    imageSrc: '/images/algorithms/bernstein-vazirani.jpg',
-    longDescription: `The Bernstein-Vazirani algorithm solves the problem of finding a hidden binary string encoded in an oracle. 
-
-Classically, finding an n-bit string requires n queries to the oracle. The Bernstein-Vazirani algorithm, however, finds the entire hidden string in a single quantum query! It does this by using a clever arrangement of Hadamard gates before and after the oracle, causing constructive interference exactly on the state that corresponds to the hidden string.`,
-  },
+    headerImageSrc: '/images/algorithms/bernstein-vazirani.jpg',
+    description: "An algorithm that finds a hidden bit string in a single query.",
+    sections: [
+      {
+        title: "Overview",
+        content: `The Bernstein-Vazirani algorithm demonstrates how quantum superposition and phase kickback can be used to solve a specific problem exponentially faster than classical computers. Given an oracle function f(x) = s · x (mod 2), the algorithm finds the hidden string 's' in exactly one query.\n\nA classical computer would require 'n' queries (where n is the length of the string) to find the string by querying each bit position one by one.`
+      },
+      {
+        title: "Circuit Matrix",
+        content: `The transformation is primarily H^(⊗n) · Oracle · H^(⊗n). The phase kickback from the oracle applies a phase of (-1)^(s·x) to the states, and the final Hadamard transform constructively interferes exactly at the basis state |s⟩.`
+      },
+      {
+        title: "Use Cases",
+        content: `• Quantum Advantage Demonstration: Providing a clear, understandable example of exponential quantum speedup.\n• Oracle Design: Teaching the concept of quantum oracles and phase kickback.\n• Cryptanalysis: Forming the basis for more advanced quantum algorithms breaking classical ciphers.`
+      }
+    ]
+  }
 };

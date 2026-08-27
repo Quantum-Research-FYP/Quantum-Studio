@@ -207,7 +207,7 @@ const NAV_GROUPS = [
   {
     label: 'Library',
     items: [
-      { to: '/experiments', label: 'Experiments', Icon: IconExperiments },
+      { to: '/experiments', label: 'My Projects', Icon: IconExperiments },
       { to: '/templates', label: 'Templates', Icon: IconTemplates },
     ],
   },

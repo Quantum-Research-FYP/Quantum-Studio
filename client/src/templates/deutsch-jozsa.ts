@@ -49,9 +49,21 @@ export const deutschJozsaTemplate: TemplateDefinition = {
     shots: 1024,
   },
   learnMore: {
-    imageSrc: '/images/algorithms/deutsch-jozsa.jpg',
-    longDescription: `The Deutsch-Jozsa algorithm was one of the first examples of a quantum algorithm that is exponentially faster than any possible deterministic classical algorithm. 
-
-It solves a specific black-box problem: determining if a given function (the "oracle") is either completely constant (returns the same value for all inputs) or balanced (returns 0 for half of inputs and 1 for the other half). A classical computer requires multiple queries, but this quantum algorithm solves it in a single query by exploiting quantum interference.`,
-  },
+    headerImageSrc: '/images/algorithms/deutsch-jozsa.jpg',
+    description: "One of the first examples of a quantum algorithm that is exponentially faster than any possible deterministic classical algorithm.",
+    sections: [
+      {
+        title: "Overview",
+        content: `The Deutsch-Jozsa algorithm solves a black-box problem: determining whether a given function (the oracle) is constant (outputs the same value for all inputs) or balanced (outputs 1 for half the inputs and 0 for the other half).\n\nClassically, determining this with 100% certainty requires 2^(n-1) + 1 queries. The quantum algorithm determines the answer with 100% certainty in exactly one single query, exploiting phase kickback.`
+      },
+      {
+        title: "Circuit Matrix",
+        content: `The algorithm uses an 'n' qubit register for the input and a single ancillary qubit initialized to |->. After applying Hadamards to all qubits, querying the oracle, and applying Hadamards again, the measurement of the input register will be 00...0 if the function is constant, and anything else if it is balanced.`
+      },
+      {
+        title: "Use Cases",
+        content: `• Algorithmic Foundations: Essential for understanding early quantum algorithm design.\n• Verification: Testing quantum computers and oracle implementations.\n• Complexity Theory: Proving separations between quantum and classical complexity classes.`
+      }
+    ]
+  }
 };
