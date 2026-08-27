@@ -5,7 +5,9 @@ qiskit-aer>=0.14.0
 qiskit-ibm-runtime>=0.20.0
 cirq
 pennylane
-amazon-braket-sdk
+amazon-braket-sdk<1.90.0
+amazon-braket-default-simulator<1.28.0
+antlr4-python3-runtime==4.9.2
 pytket
 pytket-qiskit
 spinqit
