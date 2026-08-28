@@ -85,7 +85,7 @@ else:
 _ALLOWED_MODULES = frozenset({
     'qiskit', 'qiskit_aer', 'qiskit_ibm_runtime', 'spinqit',
     'cirq', 'pennylane', 'braket', 'pytket',
-    'numpy', 'math', 'cmath',
+    'numpy', 'math', 'cmath', 'sympy',
     'collections', 'itertools', 'functools',
 })
 
