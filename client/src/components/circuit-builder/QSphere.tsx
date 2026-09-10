@@ -240,6 +240,7 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
                 stroke={n.color}
                 strokeWidth="1.5"
                 opacity={n.isBack ? 0.2 : 0.6}
+                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
               />
             );
           })}
@@ -248,11 +249,18 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
           {nodes.map((n) => {
             if (n.prob < 1e-4) return null;
             return (
-              <g key={`node-${n.state}`} className="qsphere__node" style={{ color: n.color }}>
+              <g 
+                key={`node-${n.state}`} 
+                className="qsphere__node" 
+                style={{ 
+                  color: n.color,
+                  transition: 'color 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+                }}
+              >
                 {/* Glow effect */}
-                <circle cx={n.x} cy={n.y} r={n.r * 2.5} fill="url(#nodeGlow)" />
+                <circle cx={n.x} cy={n.y} r={n.r * 2.5} fill="url(#nodeGlow)" style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }} />
                 {/* Core */}
-                <circle cx={n.x} cy={n.y} r={n.r} fill={n.color} stroke="#000" strokeWidth="1" />
+                <circle cx={n.x} cy={n.y} r={n.r} fill={n.color} stroke="#000" strokeWidth="1" style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }} />
 
                 {/* Label if it's on front or high probability */}
                 {(!n.isBack || n.prob > 0.1) &&
@@ -265,7 +273,7 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
                     const boxY = n.y - n.r - boxHeight - 2;
 
                     return (
-                      <g className="qsphere__label-group">
+                      <g className="qsphere__label-group" style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}>
                         <rect
                           x={boxX}
                           y={boxY}
@@ -273,6 +281,7 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
                           height={boxHeight}
                           rx={3}
                           fill="rgba(25, 30, 40, 0.9)"
+                          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                         />
                         <text
                           x={n.x}
@@ -281,6 +290,7 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
                           fontSize="10"
                           textAnchor="middle"
                           className="qsphere__label"
+                          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
                         >
                           {labelText}
                         </text>

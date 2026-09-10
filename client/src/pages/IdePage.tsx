@@ -759,7 +759,7 @@ export default function IdePage() {
           display: 'flex',
           flexDirection: 'column',
           overflowY: 'auto',
-          backgroundColor: 'var(--color-surface-2)',
+          backgroundColor: 'var(--color-bg)',
         }}
       >
         <FileExplorer
