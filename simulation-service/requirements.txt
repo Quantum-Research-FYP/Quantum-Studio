@@ -115,7 +115,7 @@ scipy==1.15.3
 semantic-version==2.10.0
 six==1.17.0
 sortedcontainers==2.4.0
-spinqit==0.2.4
+# spinqit==0.2.4
 starlette==1.6.0
 stevedore==5.8.0
 symengine==0.14.1

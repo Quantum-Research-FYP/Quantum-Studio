@@ -142,17 +142,27 @@ export default function BlochSphere({ x, y, z, label }: BlochSphereProps) {
           y2={vec.y2d}
           stroke={probColor}
           strokeWidth="2.5"
-          markerEnd="url(#arrowhead)"
+          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+        />
+
+        {/* State Vector Arrowhead */}
+        <polygon 
+          points="-6,-3 0,0 -6,3" 
+          fill={probColor}
+          style={{ 
+            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            transform: `translate(${vec.x2d}px, ${vec.y2d}px) rotate(${Math.atan2(vec.y2d - cy, vec.x2d - cx) * (180 / Math.PI)}deg)`
+          }}
         />
 
         {/* Vector point */}
-        <circle cx={vec.x2d} cy={vec.y2d} r={4} fill={probColor} />
-
-        <defs>
-          <marker id="arrowhead" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-            <polygon points="0 0, 6 3, 0 6" fill={probColor} />
-          </marker>
-        </defs>
+        <circle 
+          cx={vec.x2d} 
+          cy={vec.y2d} 
+          r={4} 
+          fill={probColor} 
+          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+        />
       </svg>
     </div>
   );

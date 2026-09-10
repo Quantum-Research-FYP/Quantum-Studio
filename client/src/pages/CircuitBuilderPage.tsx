@@ -562,8 +562,8 @@ export default function CircuitBuilderPage() {
       )}
 
       {isTranspilationModalOpen && (
-        <div className="te-overlay" role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, zIndex: 1000, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
-          <div style={{ width: '100%', maxWidth: '1200px', height: '100%', maxHeight: '90vh', backgroundColor: 'var(--color-bg)', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 20px 40px rgba(0,0,0,0.4)', display: 'flex', flexDirection: 'column' }}>
+        <div className="te-overlay" role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, zIndex: 1000, backgroundColor: 'rgba(7, 13, 26, 0.75)', backdropFilter: 'blur(10px)', WebkitBackdropFilter: 'blur(10px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px' }}>
+          <div style={{ width: '100%', maxWidth: '1300px', height: '100%', maxHeight: '92vh', backgroundColor: 'rgba(13, 22, 39, 0.65)', backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', border: '1px solid var(--color-border-strong)', borderRadius: 'var(--radius-xl)', overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column' }}>
             <TranspilationPanel
               qasm={generateOpenQasm(circuit)}
               codeType="qasm"

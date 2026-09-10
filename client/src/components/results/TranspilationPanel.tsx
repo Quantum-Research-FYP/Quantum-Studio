@@ -65,17 +65,19 @@ const SECTION_IDS = [
 // ─────────────────────────────────────────────────────────────────────────────
 
 const card: CSSProperties = {
-  backgroundColor: 'var(--color-surface)',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-lg)',
-  padding: 'var(--spacing-md)',
-  marginBottom: 'var(--spacing-md)',
-  boxShadow: 'var(--shadow-sm)',
-  transition: 'all 0.2s ease',
+  backgroundColor: 'rgba(13, 22, 39, 0.4)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  border: '1px solid var(--color-border-strong)',
+  borderRadius: 'var(--radius-xl)',
+  padding: 'var(--spacing-lg)',
+  marginBottom: 'var(--spacing-lg)',
+  boxShadow: 'var(--shadow-lg)',
+  transition: 'all 0.3s ease',
 };
 
 const sectionHeader: CSSProperties = {
-  fontSize: '0.7rem',
+  fontSize: '0.75rem',
   fontWeight: 700,
   textTransform: 'uppercase',
   letterSpacing: '0.08em',
@@ -84,7 +86,7 @@ const sectionHeader: CSSProperties = {
 };
 
 const badge = (color: string, bg: string): CSSProperties => ({
-  fontSize: '0.65rem',
+  fontSize: '0.8rem',
   padding: '4px 10px',
   borderRadius: 'var(--radius-full)',
   backgroundColor: bg,
@@ -110,9 +112,9 @@ function MetricDelta({
       <div style={sectionHeader}>{label}</div>
       <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
         <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)' }}>{before}</span>
-        <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>→</span>
+        <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>→</span>
         <span style={{ fontSize: '0.8rem', fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{after}</span>
-        <span style={{ fontSize: '0.65rem', padding: '1px 5px', borderRadius: '8px', backgroundColor: improved ? 'rgba(52,211,153,0.1)' : worse ? 'rgba(248,113,113,0.1)' : 'transparent', color, fontWeight: 600 }}>{symbol}</span>
+        <span style={{ fontSize: '0.8rem', padding: '1px 5px', borderRadius: '8px', backgroundColor: improved ? 'rgba(52,211,153,0.1)' : worse ? 'rgba(248,113,113,0.1)' : 'transparent', color, fontWeight: 600 }}>{symbol}</span>
       </div>
     </div>
   );
@@ -340,7 +342,7 @@ function DagViewer({ dagData, title, width = 560, height = 220, compact = false 
           })}
         </svg>
       </div>
-      <div style={{ display: 'flex', gap: '14px', marginTop: '8px', flexWrap: 'wrap', fontSize: '0.68rem', color: 'var(--color-text-muted)', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', gap: '14px', marginTop: '8px', flexWrap: 'wrap', fontSize: '0.85rem', color: 'var(--color-text-muted)', justifyContent: 'center' }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: 12, height: 12, borderRadius: '4px', backgroundColor: 'var(--color-surface-3)', border: '1px solid var(--color-border)', display: 'inline-block' }} />Gates</span>
         <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ width: 12, height: 12, borderRadius: '4px', backgroundColor: 'var(--color-surface-2)', border: '1px solid var(--color-border-strong)', display: 'inline-block' }} />I/O</span>
       </div>
@@ -355,7 +357,7 @@ function DagStats({ dagData }: { dagData: DagData | null | undefined }) {
   const twoQ = opNodes.filter((n) => ['CX','ECR','CZ','SWAP'].includes(n.label)).length;
   const meas = opNodes.filter((n) => n.label === 'MEASURE').length;
   return (
-    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '0.72rem', color: 'var(--color-text-muted)', marginTop: '6px' }}>
+    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '6px' }}>
       <span>Operation nodes: <b style={{ color: 'var(--color-text)' }}>{opNodes.length}</b></span>
       <span>1Q ops: <b style={{ color: 'var(--color-text)' }}>{oneQ}</b></span>
       <span>2Q ops: <b style={{ color: 'var(--color-text)' }}>{twoQ}</b></span>
@@ -410,10 +412,10 @@ function QasmCodeView({ qasm, maxHeight = 160 }: { qasm: string; maxHeight?: num
   const showToggle = lines.length > 12;
   return (
     <div>
-      <pre style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: '0.72rem', color: 'var(--color-text-muted)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: expanded ? `${maxHeight * 3}px` : `${maxHeight}px`, overflow: 'hidden' }}>
+      <pre style={{ margin: 0, fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-text-muted)', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: expanded ? `${maxHeight * 3}px` : `${maxHeight}px`, overflow: 'hidden' }}>
         {expanded ? qasm.trim() : preview}{!expanded && showToggle ? '\n...' : ''}
       </pre>
-      {showToggle && <button onClick={() => setExpanded((e) => !e)} style={{ marginTop: '4px', background: 'none', border: 'none', fontSize: '0.7rem', color: 'var(--color-primary)', cursor: 'pointer', padding: 0 }}>{expanded ? '▲ Show less' : `▼ Show all ${lines.length} lines`}</button>}
+      {showToggle && <button onClick={() => setExpanded((e) => !e)} style={{ marginTop: '4px', background: 'none', border: 'none', fontSize: '0.75rem', color: 'var(--color-primary)', cursor: 'pointer', padding: 0 }}>{expanded ? '▲ Show less' : `▼ Show all ${lines.length} lines`}</button>}
     </div>
   );
 }
@@ -428,8 +430,8 @@ function SectionCard({ id, icon, label, sublabel, accent, children, isActive = f
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: 'var(--spacing-md)' }}>
         <span style={{ display: 'flex', alignItems: 'center', color: 'var(--color-text-muted)' }}>{icon}</span>
         <div>
-          <div style={{ fontWeight: 600, fontSize: '0.9rem', color: isActive ? 'var(--color-primary)' : 'var(--color-text)' }}>{label}</div>
-          {sublabel && <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>{sublabel}</div>}
+          <div style={{ fontWeight: 600, fontSize: '0.8rem', color: isActive ? 'var(--color-primary)' : 'var(--color-text)' }}>{label}</div>
+          {sublabel && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{sublabel}</div>}
         </div>
       </div>
       {children}
@@ -486,14 +488,14 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
     <div style={{ ...card, marginBottom: '10px', padding: '12px', borderColor: changed ? 'var(--color-primary)' : 'var(--color-border)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '8px', cursor: 'pointer' }} onClick={() => setExpanded((e) => !e)}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1 }}>
-          <span style={{ fontSize: '0.65rem', padding: '1px 6px', borderRadius: '8px', backgroundColor: 'var(--color-surface-3)', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>#{index + 1}</span>
+          <span style={{ fontSize: '0.8rem', padding: '1px 6px', borderRadius: '8px', backgroundColor: 'var(--color-surface-3)', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)', whiteSpace: 'nowrap' }}>#{index + 1}</span>
           <div>
-            <div style={{ fontWeight: 600, fontSize: '0.82rem' }}>{pass.passName}</div>
+            <div style={{ fontWeight: 600, fontSize: '0.8rem' }}>{pass.passName}</div>
             <div style={{ display: 'flex', gap: '5px', alignItems: 'center', marginTop: '2px' }}>
-              <div style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{pass.passClass}</div>
+              <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{pass.passClass}</div>
               {/* Pass type badge */}
               <span style={{
-                fontSize: '0.6rem', padding: '1px 5px', borderRadius: '6px',
+                fontSize: '0.75rem', padding: '1px 5px', borderRadius: '6px',
                 backgroundColor: isAnalysis ? 'rgba(99,102,241,0.1)' : 'rgba(52,211,153,0.1)',
                 color: isAnalysis ? '#818cf8' : 'var(--color-success)',
                 fontWeight: 600, letterSpacing: '0.02em',
@@ -506,7 +508,7 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
           <span style={badge(statusColor, `${statusColor}18`)}>{statusLabel}</span>
-          <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>{pass.executionTimeMs.toFixed(1)} ms</span>
+          <span style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>{pass.executionTimeMs.toFixed(1)} ms</span>
           <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{expanded ? '▲' : '▼'}</span>
         </div>
       </div>
@@ -529,7 +531,7 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
               backgroundColor: 'rgba(99,102,241,0.06)',
               border: '1px solid rgba(99,102,241,0.25)',
               borderRadius: '6px', padding: '10px 14px',
-              fontSize: '0.78rem', color: '#818cf8',
+              fontSize: '0.8rem', color: '#818cf8',
               lineHeight: 1.5, marginBottom: '12px',
             }}>
               <strong><span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>{SVGIcons.Search} Analysis Pass</span></strong> — This pass reads and inspects the DAG to compute
@@ -549,12 +551,12 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
           <div style={{ display: 'grid', gridTemplateColumns: isAnalysis ? '1fr' : 'minmax(0, 1fr) minmax(0, 1fr)', gap: '12px', marginBottom: '12px' }}>
             <div style={{ backgroundColor: 'var(--color-surface-2)', borderRadius: '6px', padding: '10px' }}>
               <div style={{ ...sectionHeader, color: 'var(--color-primary)', marginBottom: '6px' }}>B. Why is this pass in the pipeline?</div>
-              <p style={{ margin: 0, fontSize: '0.78rem', lineHeight: 1.55, color: 'var(--color-text-muted)' }}>{pass.pipelineReason || 'This pass is part of the optimization pipeline configured for the current Qiskit transpiler settings.'}</p>
+              <p style={{ margin: 0, fontSize: '0.8rem', lineHeight: 1.55, color: 'var(--color-text-muted)' }}>{pass.pipelineReason || 'This pass is part of the optimization pipeline configured for the current Qiskit transpiler settings.'}</p>
             </div>
             {!isAnalysis && (
               <div style={{ backgroundColor: 'var(--color-surface-2)', borderRadius: '6px', padding: '10px' }}>
                 <div style={{ ...sectionHeader, color: changed ? 'var(--color-success)' : 'var(--color-text-subtle)', marginBottom: '6px' }}>C. What did it find?</div>
-                <p style={{ margin: 0, fontSize: '0.78rem', lineHeight: 1.55, color: 'var(--color-text-muted)' }}>{!changed ? 'This pass executed but found no applicable pattern in the current circuit. No circuit change was made.' : pass.patternFound || 'The pass modified the circuit, but the exact pattern could not be reliably determined from the transformation.'}</p>
+                <p style={{ margin: 0, fontSize: '0.8rem', lineHeight: 1.55, color: 'var(--color-text-muted)' }}>{!changed ? 'This pass executed but found no applicable pattern in the current circuit. No circuit change was made.' : pass.patternFound || 'The pass modified the circuit, but the exact pattern could not be reliably determined from the transformation.'}</p>
               </div>
             )}
           </div>
@@ -572,11 +574,11 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
               <div style={{ marginTop: '8px' }}>
                 <div style={{ ...sectionHeader, marginBottom: '4px' }}>Changed gate types</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                  {pass.changedGates.map((g, i) => <span key={i} style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--color-surface-3)', fontFamily: 'var(--font-mono)', color: g.includes('+') ? 'var(--color-warning)' : 'var(--color-success)' }}>{g}</span>)}
+                  {pass.changedGates.map((g, i) => <span key={i} style={{ fontSize: '0.8rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--color-surface-3)', fontFamily: 'var(--font-mono)', color: g.includes('+') ? 'var(--color-warning)' : 'var(--color-success)' }}>{g}</span>)}
                 </div>
               </div>
             )}
-            {delta > 0 && <div style={{ marginTop: '8px', fontSize: '0.72rem', color: 'var(--color-warning)', backgroundColor: 'rgba(251,191,36,0.07)', padding: '6px 10px', borderRadius: '4px', borderLeft: '2px solid var(--color-warning)' }}>ℹ️ Gate count increased. This is often a representation change enabling further optimization by a later pass — not a failure.</div>}
+            {delta > 0 && <div style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--color-warning)', backgroundColor: 'rgba(251,191,36,0.07)', padding: '6px 10px', borderRadius: '4px', borderLeft: '2px solid var(--color-warning)' }}>ℹ️ Gate count increased. This is often a representation change enabling further optimization by a later pass — not a failure.</div>}
           </div>
 
           {/* J. Execution time */}
@@ -596,8 +598,8 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
           {/* F/G. DAG before/after */}
           {(pass.dagBefore || pass.dagAfter) && (
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '12px', marginBottom: '12px' }}>
-              <div><div style={{ ...sectionHeader, marginBottom: '6px' }}>F. DAG Before</div><div style={{ backgroundColor: 'var(--color-surface-3)', borderRadius: '6px', padding: '8px' }}>{pass.dagBefore ? <DagViewer dagData={pass.dagBefore} width={320} height={140} compact /> : <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontStyle: 'italic', padding: '8px' }}>Not captured</div>}</div></div>
-              <div><div style={{ ...sectionHeader, marginBottom: '6px' }}>G. DAG After {!changed && <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>(unchanged)</span>}</div><div style={{ backgroundColor: 'var(--color-surface-3)', borderRadius: '6px', padding: '8px' }}>{pass.dagAfter ? <DagViewer dagData={pass.dagAfter} width={320} height={140} compact /> : <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)', fontStyle: 'italic', padding: '8px' }}>{!changed ? 'DAG structure unchanged.' : 'Not captured.'}</div>}</div></div>
+              <div><div style={{ ...sectionHeader, marginBottom: '6px' }}>F. DAG Before</div><div style={{ backgroundColor: 'var(--color-surface-3)', borderRadius: '6px', padding: '8px' }}>{pass.dagBefore ? <DagViewer dagData={pass.dagBefore} width={320} height={140} compact /> : <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic', padding: '8px' }}>Not captured</div>}</div></div>
+              <div><div style={{ ...sectionHeader, marginBottom: '6px' }}>G. DAG After {!changed && <span style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>(unchanged)</span>}</div><div style={{ backgroundColor: 'var(--color-surface-3)', borderRadius: '6px', padding: '8px' }}>{pass.dagAfter ? <DagViewer dagData={pass.dagAfter} width={320} height={140} compact /> : <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic', padding: '8px' }}>{!changed ? 'DAG structure unchanged.' : 'Not captured.'}</div>}</div></div>
             </div>
           )}
 
@@ -605,13 +607,13 @@ function OptimizationPassCard({ pass, index }: { pass: TranspilePassTrace; index
           {pass.gnnFeatures?.before && pass.gnnFeatures?.after && (
             <div style={{ backgroundColor: 'var(--color-surface-2)', borderRadius: '6px', padding: '10px', marginBottom: '8px' }}>
               <div style={{ ...sectionHeader, marginBottom: '8px', color: 'var(--color-accent)' }}>GNN Research Features</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px', fontSize: '0.72rem' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '8px', fontSize: '0.75rem' }}>
                 {Object.entries(pass.gnnFeatures.after).map(([key, val]) => {
                   const before = (pass.gnnFeatures!.before as unknown as Record<string, number>)[key];
                   const d = (val as number) - before;
                   return (
                     <div key={key} style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                      <div style={{ color: 'var(--color-text-muted)', fontSize: '0.65rem' }}>{key}</div>
+                      <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>{key}</div>
                       <div style={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{before} → {val}{d !== 0 && <span style={{ marginLeft: '4px', color: d < 0 ? 'var(--color-success)' : 'var(--color-warning)' }}>({d > 0 ? '+' : ''}{d})</span>}</div>
                     </div>
                   );
@@ -636,11 +638,11 @@ function OptimizationPassesSection({ passes }: { passes: TranspilePassTrace[]; s
     <div>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
-          <span style={{ fontSize: '0.78rem', fontWeight: 600 }}>{passes.length} optimization passes</span>
+          <span style={{ fontSize: '0.8rem', fontWeight: 600 }}>{passes.length} optimization passes</span>
           <span style={badge('var(--color-success)', 'rgba(52,211,153,0.1)')}>{changedCount} modified circuit</span>
           <span style={badge('var(--color-text-muted)', 'var(--color-surface-3)')}>{passes.length - changedCount} no change</span>
         </div>
-        <button onClick={() => setExpanded((e) => !e)} className="btn" style={{ fontSize: '0.72rem', padding: '3px 10px' }}>{expanded ? '▲ Collapse' : '▼ Expand All'}</button>
+        <button onClick={() => setExpanded((e) => !e)} className="btn" style={{ fontSize: '0.75rem', padding: '3px 10px' }}>{expanded ? '▲ Collapse' : '▼ Expand All'}</button>
       </div>
       {expanded && passes.map((pass, idx) => <OptimizationPassCard key={`${pass.passName}-${idx}`} pass={pass} index={idx} />)}
       {!expanded && <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
@@ -741,31 +743,32 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
   ];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '500px', color: 'var(--color-text)', backgroundColor: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: '600px', color: 'var(--color-text)', backgroundColor: 'transparent', fontFamily: 'var(--font-sans)', borderRadius: 'var(--radius-xl)', overflow: 'hidden' }}>
       {/* Header */}
-      <div style={{ padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)', flexShrink: 0 }}>
+      <div style={{ padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border-strong)', backgroundColor: 'rgba(13, 22, 39, 0.4)', backdropFilter: 'blur(12px)', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '0.9rem', fontWeight: 700 }}>Transpilation Transparency</span>
-          <span style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '10px', backgroundColor: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>{backendName}</span>
-          {trace && <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)' }}>{trace.stages.reduce((s, st) => s + st.passes.length, 0)} passes · {trace.totalExecutionTimeMs.toFixed(0)} ms · Opt Level {trace.optimizationLevel}</span>}
+          <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>Transpilation Transparency</span>
+          <span style={{ fontSize: '0.85rem', padding: '2px 8px', borderRadius: '10px', backgroundColor: 'var(--color-primary-dim)', color: 'var(--color-primary)' }}>{backendName}</span>
+          {trace && <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{trace.stages.reduce((s, st) => s + st.passes.length, 0)} passes · {trace.totalExecutionTimeMs.toFixed(0)} ms · Opt Level {trace.optimizationLevel}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ fontSize: '0.72rem', color: 'var(--color-text-subtle)' }}>Opt Level:</label>
-          <select value={optimizationLevel} onChange={(e) => setOptimizationLevel(Number(e.target.value))} style={{ padding: '2px 6px', fontSize: '0.72rem', backgroundColor: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: '4px', color: 'var(--color-text)' }}>
+          <label style={{ fontSize: '0.75rem', color: 'var(--color-text-subtle)' }}>Opt Level:</label>
+          <select value={optimizationLevel} onChange={(e) => setOptimizationLevel(Number(e.target.value))} style={{ padding: '2px 6px', fontSize: '0.75rem', backgroundColor: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: '4px', color: 'var(--color-text)' }}>
             <option value={0}>0 (None)</option><option value={1}>1 (Light)</option><option value={2}>2 (Medium)</option><option value={3}>3 (Aggressive)</option>
           </select>
-          <button onClick={fetchTrace} className="btn" style={{ fontSize: '0.72rem', padding: '3px 8px' }}>↺ Reload</button>
-          {onClose && <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--color-text-subtle)', cursor: 'pointer', fontSize: '1.1rem' }}>&times;</button>}
+          <button onClick={fetchTrace} className="btn" style={{ fontSize: '0.75rem', padding: '3px 8px' }}>↺ Reload</button>
+          {onClose && <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--color-text-subtle)', cursor: 'pointer', fontSize: '0.8rem' }}>&times;</button>}
         </div>
       </div>
 
-      {/* Pipeline Nav */}
-      <div style={{ padding: '0 8px', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface-2)', overflowX: 'auto', flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: '0', alignItems: 'stretch', minWidth: 'max-content' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      {/* Sidebar Nav */}
+      <div style={{ width: '240px', padding: '16px 0', borderRight: '1px solid var(--color-border-strong)', backgroundColor: 'rgba(18, 30, 56, 0.5)', overflowY: 'auto', flexShrink: 0 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
           {navLabels.map((item, idx) => {
             const isActive = activeSectionIdx === idx;
             return (
-              <button key={idx} onClick={() => { setIsPlaying(false); setActiveSectionIdx(idx); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', background: 'none', border: 'none', borderBottom: isActive ? '2px solid var(--color-primary)' : '2px solid transparent', fontSize: '0.72rem', fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--color-primary)' : 'var(--color-text-muted)', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'color 0.15s' }}>
+              <button key={idx} onClick={() => { setIsPlaying(false); setActiveSectionIdx(idx); }} style={{ display: 'flex', alignItems: 'center', gap: '6px', padding: '8px 10px', background: 'none', border: 'none', borderLeft: isActive ? '3px solid var(--color-primary)' : '3px solid transparent', backgroundColor: isActive ? 'var(--color-primary-dim)' : 'transparent', borderRadius: '0 8px 8px 0', margin: '0 8px 0 0', fontSize: '0.75rem', fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--color-primary)' : 'var(--color-text-muted)', cursor: 'pointer', whiteSpace: 'nowrap', transition: 'color 0.15s' }}>
                 <span style={{ display: 'flex', alignItems: 'center' }}>{item.icon}</span>{item.label}
               </button>
             );
@@ -773,22 +776,25 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
         </div>
       </div>
 
+      {/* Main Content Area */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', backgroundColor: 'transparent' }}>
       {/* Playback Controls */}
-      <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)', flexShrink: 0 }}>
-        <button onClick={() => { setIsPlaying(false); setActiveSectionIdx((p) => Math.max(0, p - 1)); }} className="btn" disabled={activeSectionIdx <= 0} style={{ padding: '3px 8px', fontSize: '0.72rem' }}>⏮ Prev</button>
-        <button onClick={() => setIsPlaying((p) => !p)} className="btn btn--primary" style={{ padding: '3px 12px', fontSize: '0.72rem' }}>{isPlaying ? '⏸ Pause' : '▶ Play'}</button>
-        <button onClick={() => { setIsPlaying(false); setActiveSectionIdx((p) => Math.min(SECTION_IDS.length - 1, p + 1)); }} className="btn" disabled={activeSectionIdx >= SECTION_IDS.length - 1} style={{ padding: '3px 8px', fontSize: '0.72rem' }}>Next ⏭</button>
+      <div style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid var(--color-border-strong)', backgroundColor: 'rgba(13, 22, 39, 0.4)', flexShrink: 0 }}>
+        <button onClick={() => { setIsPlaying(false); setActiveSectionIdx((p) => Math.max(0, p - 1)); }} className="btn" disabled={activeSectionIdx <= 0} style={{ padding: '3px 8px', fontSize: '0.75rem' }}>⏮ Prev</button>
+        <button onClick={() => setIsPlaying((p) => !p)} className="btn btn--primary" style={{ padding: '3px 12px', fontSize: '0.75rem' }}>{isPlaying ? '⏸ Pause' : '▶ Play'}</button>
+        <button onClick={() => { setIsPlaying(false); setActiveSectionIdx((p) => Math.min(SECTION_IDS.length - 1, p + 1)); }} className="btn" disabled={activeSectionIdx >= SECTION_IDS.length - 1} style={{ padding: '3px 8px', fontSize: '0.75rem' }}>Next ⏭</button>
         <input type="range" min={0} max={SECTION_IDS.length - 1} value={activeSectionIdx} onChange={(e) => { setIsPlaying(false); setActiveSectionIdx(Number(e.target.value)); }} style={{ flex: 1, cursor: 'pointer' }} />
-        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.72rem', fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)' }}>{navLabels[activeSectionIdx]?.icon} {navLabels[activeSectionIdx]?.label}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)' }}>{navLabels[activeSectionIdx]?.icon} {navLabels[activeSectionIdx]?.label}</span>
       </div>
 
+        <div style={{ flex: 1, overflowY: 'auto', position: 'relative' }}>
       {/* Loading */}
       {loading && (
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px', padding: '40px' }}>
           <div style={{ width: '32px', height: '32px', border: '3px solid var(--color-border)', borderTopColor: 'var(--color-primary)', borderRadius: '50%', animation: 'tp-spin 1s linear infinite' }} />
           <style>{`@keyframes tp-spin { to { transform: rotate(360deg); } }`}</style>
           <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>Capturing transpilation passes from Qiskit PassManager…</div>
-          <div style={{ fontSize: '0.72rem', color: 'var(--color-text-subtle)' }}>This may take a few seconds for complex circuits or high optimization levels</div>
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-subtle)' }}>This may take a few seconds for complex circuits or high optimization levels</div>
         </div>
       )}
 
@@ -828,7 +834,7 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
                 {trace.backendBasisGates && (
                   <div style={{ marginTop: '10px' }}>
                     <div style={{ ...sectionHeader, marginBottom: '6px' }}>All basis gates</div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>{trace.backendBasisGates.map((g) => <span key={g} style={{ fontSize: '0.65rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--color-surface-3)', fontFamily: 'var(--font-mono)', color: 'var(--color-primary)' }}>{g}</span>)}</div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>{trace.backendBasisGates.map((g) => <span key={g} style={{ fontSize: '0.8rem', padding: '2px 6px', borderRadius: '4px', backgroundColor: 'var(--color-surface-3)', fontFamily: 'var(--font-mono)', color: 'var(--color-primary)' }}>{g}</span>)}</div>
                   </div>
                 )}
               </div>
@@ -870,7 +876,7 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
                     {routingStage && (
                       <div>
                         <div style={sectionHeader}>SWAPs Inserted</div>
-                        <div style={{ fontSize: '0.9rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: stage.swapCount > 0 ? 'var(--color-warning)' : 'var(--color-success)' }}>{stage.swapCount}</div>
+                        <div style={{ fontSize: '0.8rem', fontWeight: 700, fontFamily: 'var(--font-mono)', color: stage.swapCount > 0 ? 'var(--color-warning)' : 'var(--color-success)' }}>{stage.swapCount}</div>
                       </div>
                     )}
                   </div>
@@ -895,7 +901,7 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
                         </div>
                       ))}
                     </div>
-                    <div style={{ marginTop: '8px', fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>The logical operation structure is preserved; only the logical-to-physical qubit assignment changes.</div>
+                    <div style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>The logical operation structure is preserved; only the logical-to-physical qubit assignment changes.</div>
                   </div>
                 )}
 
@@ -904,7 +910,7 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
                   <div style={{ marginBottom: '14px' }}>
                     <div style={{ ...sectionHeader, marginBottom: '8px' }}>Hardware Topology</div>
                     <CouplingMapViewer couplingMap={trace.couplingMap} layoutMap={logicalLayoutMap} />
-                    <div style={{ marginTop: '6px', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Highlighted nodes show which physical qubits this circuit uses. Edges show which physical qubit pairs can perform two-qubit gates.</div>
+                    <div style={{ marginTop: '6px', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Highlighted nodes show which physical qubits this circuit uses. Edges show which physical qubit pairs can perform two-qubit gates.</div>
                   </div>
                 )}
 
@@ -933,13 +939,13 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                       {Object.entries(ganttData.qubitGates).map(([qubit, gates]) => (
                         <div key={qubit} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                          <span style={{ width: '52px', fontSize: '0.7rem', fontFamily: 'var(--font-mono)', fontWeight: 600, flexShrink: 0 }}>{qubit}</span>
+                          <span style={{ width: '52px', fontSize: '0.75rem', fontFamily: 'var(--font-mono)', fontWeight: 600, flexShrink: 0 }}>{qubit}</span>
                           <div style={{ flex: 1, height: '24px', position: 'relative', backgroundColor: 'var(--color-surface-2)', border: '1px solid var(--color-border)', borderRadius: '3px' }}>
                             {gates.map((g, idx) => {
                               const left = (g.start / ganttData.maxDuration) * 100;
                               const width = (g.duration / ganttData.maxDuration) * 100;
                               const is2Q = ['CX','CZ','SWAP','ECR'].includes(g.name);
-                              return <div key={idx} title={`${g.name}`} style={{ position: 'absolute', left: `${left}%`, width: `${Math.max(width, 2)}%`, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.6rem', fontWeight: 700, fontFamily: 'var(--font-mono)', backgroundColor: is2Q ? 'var(--color-primary-dim)' : 'var(--color-surface-3)', borderLeft: `1px solid ${is2Q ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRight: `1px solid ${is2Q ? 'var(--color-primary)' : 'var(--color-border)'}`, color: is2Q ? 'var(--color-primary)' : 'var(--color-text)' }}>{g.name}</div>;
+                              return <div key={idx} title={`${g.name}`} style={{ position: 'absolute', left: `${left}%`, width: `${Math.max(width, 2)}%`, height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.75rem', fontWeight: 700, fontFamily: 'var(--font-mono)', backgroundColor: is2Q ? 'var(--color-primary-dim)' : 'var(--color-surface-3)', borderLeft: `1px solid ${is2Q ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRight: `1px solid ${is2Q ? 'var(--color-primary)' : 'var(--color-border)'}`, color: is2Q ? 'var(--color-primary)' : 'var(--color-text)' }}>{g.name}</div>;
                             })}
                           </div>
                         </div>
@@ -956,7 +962,7 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
                   <div>
                     <div style={{ ...sectionHeader, marginBottom: '6px', marginTop: '4px' }}>Passes executed ({stage.passes.length})</div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {stage.passes.map((p) => <span key={p.passName} title={p.purpose} style={{ fontSize: '0.68rem', padding: '2px 8px', borderRadius: '10px', backgroundColor: p.circuitChanged ? 'var(--color-primary-dim)' : 'var(--color-surface-2)', border: `1px solid ${p.circuitChanged ? 'var(--color-primary)' : 'var(--color-border)'}`, color: p.circuitChanged ? 'var(--color-primary)' : 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>{p.passName}</span>)}
+                      {stage.passes.map((p) => <span key={p.passName} title={p.purpose} style={{ fontSize: '0.85rem', padding: '2px 8px', borderRadius: '10px', backgroundColor: p.circuitChanged ? 'var(--color-primary-dim)' : 'var(--color-surface-2)', border: `1px solid ${p.circuitChanged ? 'var(--color-primary)' : 'var(--color-border)'}`, color: p.circuitChanged ? 'var(--color-primary)' : 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>{p.passName}</span>)}
                     </div>
                   </div>
                 )}
@@ -990,7 +996,7 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
             <div style={{ overflowX: 'auto', marginBottom: '16px' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem' }}>
                 <thead>
-                  <tr>{['Metric', 'Before', 'After', 'Δ Change'].map((h) => <th key={h} style={{ textAlign: h === 'Metric' ? 'left' : 'right', padding: '6px 10px', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text-subtle)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>)}</tr>
+                  <tr>{['Metric', 'Before', 'After', 'Δ Change'].map((h) => <th key={h} style={{ textAlign: h === 'Metric' ? 'left' : 'right', padding: '6px 10px', borderBottom: '1px solid var(--color-border)', color: 'var(--color-text-subtle)', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>)}</tr>
                 </thead>
                 <tbody>
                   {[
@@ -1023,16 +1029,16 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
                 const pct = trace.totalExecutionTimeMs > 0 ? (stage.executionTimeMs / trace.totalExecutionTimeMs) * 100 : 0;
                 return (
                   <div key={stage.stageName} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '200px', fontSize: '0.72rem', flexShrink: 0 }}>{stageIcons[idx]} {stageLabels[idx].replace(/[①②③④⑤⑥]\s/, '')}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '200px', fontSize: '0.75rem', flexShrink: 0 }}>{stageIcons[idx]} {stageLabels[idx].replace(/[①②③④⑤⑥]\s/, '')}</span>
                     <div style={{ flex: 1, height: '16px', backgroundColor: 'var(--color-surface-2)', borderRadius: '4px', overflow: 'hidden' }}>
                       <div style={{ height: '100%', width: `${pct}%`, backgroundColor: stageAccents[idx], opacity: 0.6, borderRadius: '4px' }} />
                     </div>
-                    <span style={{ width: '55px', fontSize: '0.7rem', fontFamily: 'var(--font-mono)', textAlign: 'right', flexShrink: 0, color: 'var(--color-text-muted)' }}>{stage.executionTimeMs.toFixed(1)} ms</span>
+                    <span style={{ width: '55px', fontSize: '0.75rem', fontFamily: 'var(--font-mono)', textAlign: 'right', flexShrink: 0, color: 'var(--color-text-muted)' }}>{stage.executionTimeMs.toFixed(1)} ms</span>
                   </div>
                 );
               })}
             </div>
-            <div style={{ marginTop: '8px', fontSize: '0.72rem', color: 'var(--color-text-muted)', textAlign: 'right' }}>Total: {trace.totalExecutionTimeMs.toFixed(1)} ms</div>
+            <div style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--color-text-muted)', textAlign: 'right' }}>Total: {trace.totalExecutionTimeMs.toFixed(1)} ms</div>
 
             {/* Optimization summary */}
             {(() => {
@@ -1061,6 +1067,9 @@ export function TranspilationPanel({ qasm, codeType, backendName, onClose }: Tra
           </SectionCard>
         </div>
       )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
