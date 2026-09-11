@@ -5,7 +5,7 @@ export const tourSteps: Step[] = [
     target: 'body',
     placement: 'center',
     content: 'Welcome to Quantum Studio! Let us give you a quick tour of the platform and its features.',
-    disableBeacon: true,
+    skipBeacon: true,
   },
   {
     target: '.sidebar-nav-link[href="/create"]',

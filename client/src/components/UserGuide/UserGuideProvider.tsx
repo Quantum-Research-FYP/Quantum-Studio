@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Joyride, CallBackProps, STATUS, TooltipRenderProps } from 'react-joyride';
+import { Joyride, EventData, STATUS, TooltipRenderProps } from 'react-joyride';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { tourSteps } from './tourSteps';
 
@@ -82,7 +82,7 @@ export const UserGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setRun(true);
   };
 
-  const handleJoyrideCallback = (data: CallBackProps) => {
+  const handleJoyrideCallback = (data: EventData) => {
     const { status } = data;
     const finishedStatuses: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
 
@@ -95,19 +95,14 @@ export const UserGuideProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   return (
     <UserGuideContext.Provider value={{ startTour }}>
       <Joyride
-        callback={handleJoyrideCallback}
+        onEvent={handleJoyrideCallback}
         continuous
-        hideCloseButton
         run={run}
         scrollToFirstStep
-        showProgress
-        showSkipButton
         steps={tourSteps}
         tooltipComponent={CustomTooltip}
-        styles={{
-          options: {
-            zIndex: 10000,
-          },
+        options={{
+          zIndex: 10000,
         }}
       />
       {children}
