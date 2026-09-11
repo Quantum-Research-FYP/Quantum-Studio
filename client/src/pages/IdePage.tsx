@@ -1181,6 +1181,7 @@ export default function IdePage() {
             )}
 
             <button
+              id="run-button"
               className="btn btn--primary"
               style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 16px' }}
               onClick={handleRun}
@@ -1220,6 +1221,7 @@ export default function IdePage() {
         </div>
 
         <div
+          className="bottom-panel"
           style={{
             flex: 1,
             backgroundColor: 'var(--color-bg)',
