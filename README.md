@@ -1,5 +1,8 @@
 # Quantum Experiment Studio: System Architecture & Feature Reference
 
+<img width="1280" height="721" alt="WhatsApp Image 2026-09-12 at 00 58 13" src="https://github.com/user-attachments/assets/025aebd6-5133-45ab-b840-9a4ff7bf34a8" />
+
+
 > **Academic & Research Reference Manual**  
 > _A Comprehensive Feature Reference and Technical Specification for Quantum Circuit Design, IDE Simulation, Hardware Execution, Visual Diagnostics, and Research Paper Publication._
 
