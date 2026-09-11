@@ -96,7 +96,7 @@ export default function SignupPage() {
     setSubmitting(true);
     try {
       await signup(email, password);
-      navigate(from, { replace: true });
+      navigate(from, { replace: true, state: { ...((location.state as any) || {}), isNewSignup: true } });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'An error occurred.';
       const action = (err as { action?: string })?.action;

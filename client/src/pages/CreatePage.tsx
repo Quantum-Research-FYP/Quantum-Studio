@@ -1,6 +1,7 @@
-import { Link } from 'react-router-dom';
+import { useEffect } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
-
+import { useUserGuide } from '../components/UserGuide/UserGuideProvider';
 function IconPlus() {
   return (
     <svg
@@ -59,9 +60,28 @@ function IconArrowRight() {
 
 export default function CreatePage() {
   const { user } = useAuth();
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { startTour } = useUserGuide();
+
+  useEffect(() => {
+    if (location.state?.isNewSignup) {
+      startTour();
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location.state, navigate, startTour]);
 
   return (
-    <div className="page" style={{ padding: 0 }}>
+    <div className="page" style={{ padding: 0, position: 'relative' }}>
+      <button
+        className="btn btn--ghost btn--sm"
+        style={{ position: 'absolute', top: 24, right: 24, display: 'flex', gap: 8, alignItems: 'center', zIndex: 10 }}
+        onClick={startTour}
+        title="Start User Guide Tour"
+      >
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+        User Guide
+      </button>
       <div className="home-hero">
         <div className="home-hero__content">
           <h1 className="home-hero__title">Quantum Experiment Studio</h1>
