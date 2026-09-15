@@ -36,6 +36,8 @@ export function createApp(database: Db, onJobCreated?: () => void) {
   const allowedOrigins = [
     'http://localhost:5173',
     'https://quantum-studio2.vercel.app',
+    'https://www.quantumstudio.space',
+    'https://quantumstudio.space',
   ];
   if (process.env.APP_URL && !allowedOrigins.includes(process.env.APP_URL)) {
     allowedOrigins.push(process.env.APP_URL);
