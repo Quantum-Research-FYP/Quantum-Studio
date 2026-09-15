@@ -10,6 +10,8 @@ import {
   type SpinqSettingsResponse,
 } from '../api/integrations';
 import { getGitHubStatus, disconnectGitHub, type GitHubStatus } from '../api/github';
+import { API_BASE_URL } from '../config';
+
 
 type ViewState = 'loading' | 'no-settings' | 'has-settings' | 'error';
 type SettingsTab = 'ibm' | 'spinq' | 'github';
@@ -223,7 +225,7 @@ export default function SettingsPage() {
 
   // --- GitHub handlers ---
   function handleConnectGitHub() {
-    window.location.href = '/api/integrations/github/connect';
+    window.location.href = `${API_BASE_URL}/api/integrations/github/connect`;
   }
 
   async function handleDisconnectGitHub() {

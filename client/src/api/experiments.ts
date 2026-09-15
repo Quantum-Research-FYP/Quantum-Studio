@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 // ---------------------------------------------------------------------------
 // Experiments API client
 // ---------------------------------------------------------------------------
@@ -130,14 +131,14 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 // ---------------------------------------------------------------------------
 
 export function createExperiment(input: CreateExperimentInput): Promise<ExperimentResponse> {
-  return request<ExperimentResponse>('/api/experiments', {
+  return request<ExperimentResponse>(`${API_BASE_URL}/api/experiments`, {
     method: 'POST',
     body: JSON.stringify(input),
   });
 }
 
 export function getExperiment(id: string): Promise<ExperimentResponse> {
-  return request<ExperimentResponse>(`/api/experiments/${encodeURIComponent(id)}`);
+  return request<ExperimentResponse>(`${API_BASE_URL}/api/experiments/${encodeURIComponent(id)}`);
 }
 
 export function listExperiments(
@@ -150,7 +151,7 @@ export function listExperiments(
   if (options.sortOrder) params.set('sortOrder', options.sortOrder);
 
   const qs = params.toString();
-  return request<ExperimentListResponse>(`/api/experiments${qs ? `?${qs}` : ''}`);
+  return request<ExperimentListResponse>(`${API_BASE_URL}/api/experiments${qs ? `?${qs}` : ''}`);
 }
 
 export function updateExperiment(
@@ -158,7 +159,7 @@ export function updateExperiment(
   input: UpdateExperimentInput,
   rowVersion: number,
 ): Promise<ExperimentResponse> {
-  return request<ExperimentResponse>(`/api/experiments/${encodeURIComponent(id)}`, {
+  return request<ExperimentResponse>(`${API_BASE_URL}/api/experiments/${encodeURIComponent(id)}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -173,7 +174,7 @@ export function renameExperiment(
   name: string,
   rowVersion: number,
 ): Promise<ExperimentResponse> {
-  return request<ExperimentResponse>(`/api/experiments/${encodeURIComponent(id)}`, {
+  return request<ExperimentResponse>(`${API_BASE_URL}/api/experiments/${encodeURIComponent(id)}`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -184,11 +185,11 @@ export function renameExperiment(
 }
 
 export function deleteExperiment(id: string): Promise<void> {
-  return request<void>(`/api/experiments/${encodeURIComponent(id)}`, {
+  return request<void>(`${API_BASE_URL}/api/experiments/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
 }
 
 export function exportExperimentRaw(id: string): Promise<ExperimentResponse> {
-  return request<ExperimentResponse>(`/api/experiments/${encodeURIComponent(id)}/raw`);
+  return request<ExperimentResponse>(`${API_BASE_URL}/api/experiments/${encodeURIComponent(id)}/raw`);
 }

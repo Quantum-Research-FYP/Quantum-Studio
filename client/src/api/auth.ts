@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 export interface User {
   id: string;
   email: string;
@@ -35,23 +36,23 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export function fetchCurrentUser(): Promise<AuthResponse> {
-  return request<AuthResponse>('/api/auth/me');
+  return request<AuthResponse>(`${API_BASE_URL}/api/auth/me`);
 }
 
 export function loginUser(email: string, password: string): Promise<AuthResponse> {
-  return request<AuthResponse>('/api/auth/login', {
+  return request<AuthResponse>(`${API_BASE_URL}/api/auth/login`, {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
 }
 
 export function signupUser(email: string, password: string): Promise<AuthResponse> {
-  return request<AuthResponse>('/api/auth/signup', {
+  return request<AuthResponse>(`${API_BASE_URL}/api/auth/signup`, {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
 }
 
 export function logoutUser(): Promise<void> {
-  return request<void>('/api/auth/logout', { method: 'POST' });
+  return request<void>(`${API_BASE_URL}/api/auth/logout`, { method: 'POST' });
 }

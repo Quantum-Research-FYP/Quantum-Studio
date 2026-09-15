@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 // ---------------------------------------------------------------------------
 // Integrations API client (IBM Quantum credentials)
 // ---------------------------------------------------------------------------
@@ -48,18 +49,18 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export function saveIbmSettings(token: string): Promise<IbmSettingsResponse> {
-  return request('/api/integrations/ibm-quantum/settings', {
+  return request(`${API_BASE_URL}/api/integrations/ibm-quantum/settings`, {
     method: 'POST',
     body: JSON.stringify({ token }),
   });
 }
 
 export function getIbmSettings(): Promise<IbmSettingsResponse> {
-  return request('/api/integrations/ibm-quantum/settings');
+  return request(`${API_BASE_URL}/api/integrations/ibm-quantum/settings`);
 }
 
 export function deleteIbmSettings(): Promise<void> {
-  return request('/api/integrations/ibm-quantum/settings', {
+  return request(`${API_BASE_URL}/api/integrations/ibm-quantum/settings`, {
     method: 'DELETE',
   });
 }
@@ -87,12 +88,12 @@ export function saveSpinqSettings(
   username: string,
   password?: string,
 ): Promise<SpinqSettingsResponse> {
-  return request('/api/integrations/spinq/settings', {
+  return request(`${API_BASE_URL}/api/integrations/spinq/settings`, {
     method: 'POST',
     body: JSON.stringify({ ip, port, username, password }),
   });
 }
 
 export function getSpinqSettings(): Promise<SpinqSettingsResponse> {
-  return request('/api/integrations/spinq/settings');
+  return request(`${API_BASE_URL}/api/integrations/spinq/settings`);
 }

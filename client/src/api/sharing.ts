@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 // ---------------------------------------------------------------------------
 // Sharing API client
 // ---------------------------------------------------------------------------
@@ -95,7 +96,7 @@ export async function getSharedExperiment(
   if (token) params.set('token', token);
 
   const qs = params.toString();
-  const url = `/api/shared/experiments/${encodeURIComponent(id)}${qs ? `?${qs}` : ''}`;
+  const url = `${API_BASE_URL}/api/shared/experiments/${encodeURIComponent(id)}${qs ? `?${qs}` : ''}`;
 
   const res = await fetch(url);
 
@@ -116,7 +117,7 @@ export async function getSharedExperiment(
 
 /** Update experiment visibility. */
 export function updateVisibility(id: string, visibility: Visibility): Promise<VisibilityResponse> {
-  return authRequest<VisibilityResponse>(`/api/experiments/${encodeURIComponent(id)}/visibility`, {
+  return authRequest<VisibilityResponse>(`${API_BASE_URL}/api/experiments/${encodeURIComponent(id)}/visibility`, {
     method: 'PATCH',
     body: JSON.stringify({ visibility }),
   });
@@ -124,20 +125,20 @@ export function updateVisibility(id: string, visibility: Visibility): Promise<Vi
 
 /** Get or create a share link for an unlisted experiment. */
 export function getShareLink(id: string): Promise<ShareLinkResponse> {
-  return authRequest<ShareLinkResponse>(`/api/experiments/${encodeURIComponent(id)}/share-link`);
+  return authRequest<ShareLinkResponse>(`${API_BASE_URL}/api/experiments/${encodeURIComponent(id)}/share-link`);
 }
 
 /** Rotate the share token (revokes old, issues new). */
 export function rotateShareToken(id: string): Promise<RotateTokenResponse> {
   return authRequest<RotateTokenResponse>(
-    `/api/experiments/${encodeURIComponent(id)}/share-token/rotate`,
+    `${API_BASE_URL}/api/experiments/${encodeURIComponent(id)}/share-token/rotate`,
     { method: 'POST' },
   );
 }
 
 /** Revoke the share token without issuing a new one. */
 export function revokeShareToken(id: string): Promise<void> {
-  return authRequest<void>(`/api/experiments/${encodeURIComponent(id)}/share-token`, {
+  return authRequest<void>(`${API_BASE_URL}/api/experiments/${encodeURIComponent(id)}/share-token`, {
     method: 'DELETE',
   });
 }

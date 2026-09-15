@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { API_BASE_URL } from '../config';
+
 
 /**
  * SsoCallbackPage
@@ -32,7 +34,7 @@ export default function SsoCallbackPage() {
 
     (async () => {
       try {
-        const res = await fetch(`/api/auth/session/exchange?token=${encodeURIComponent(token)}`, {
+        const res = await fetch(`${API_BASE_URL}/api/auth/session/exchange?token=${encodeURIComponent(token)}`, {
           credentials: 'include',
         });
 
