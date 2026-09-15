@@ -429,7 +429,8 @@ export function createAuthHandlers(pool: Db) {
       }
 
       const appUrl = process.env.APP_URL || 'http://localhost:5173';
-      const redirectUri = `${appUrl}/api/auth/github/callback`;
+      const serverUrl = process.env.SERVER_URL || appUrl;
+      const redirectUri = `${serverUrl}/api/auth/github/callback`;
 
       const url = new URL('https://github.com/login/oauth/authorize');
       url.searchParams.set('client_id', clientId);
