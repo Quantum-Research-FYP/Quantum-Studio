@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 // ---------------------------------------------------------------------------
 // GitHub Integration API client
 // ---------------------------------------------------------------------------
@@ -68,17 +69,17 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 
 /** Check GitHub connection status. */
 export function getGitHubStatus(): Promise<GitHubStatus> {
-  return request('/api/integrations/github/status');
+  return request(`${API_BASE_URL}/api/integrations/github/status`);
 }
 
 /** Disconnect GitHub account. */
 export function disconnectGitHub(): Promise<{ disconnected: boolean }> {
-  return request('/api/integrations/github/disconnect', { method: 'POST' });
+  return request(`${API_BASE_URL}/api/integrations/github/disconnect`, { method: 'POST' });
 }
 
 /** List user's GitHub repositories. */
 export function listGitHubRepos(page = 1): Promise<{ repos: GitHubRepo[] }> {
-  return request(`/api/integrations/github/repos?page=${page}`);
+  return request(`${API_BASE_URL}/api/integrations/github/repos?page=${page}`);
 }
 
 /** Push a file to a GitHub repository. */
@@ -90,7 +91,7 @@ export function pushToGitHub(
   commitMessage?: string,
   branch?: string,
 ): Promise<GitHubPushResult> {
-  return request('/api/integrations/github/push', {
+  return request(`${API_BASE_URL}/api/integrations/github/push`, {
     method: 'POST',
     body: JSON.stringify({ owner, repo, filePath, content, commitMessage, branch }),
   });
@@ -103,7 +104,7 @@ export function importFromGitHub(
   filePath: string,
   branch?: string,
 ): Promise<GitHubImportResult> {
-  return request('/api/integrations/github/import', {
+  return request(`${API_BASE_URL}/api/integrations/github/import`, {
     method: 'POST',
     body: JSON.stringify({ owner, repo, filePath, branch }),
   });

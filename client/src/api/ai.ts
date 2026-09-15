@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 // ---------------------------------------------------------------------------
 // AI Draft API client
 // ---------------------------------------------------------------------------
@@ -85,7 +86,7 @@ export async function generateDraft(
   prompt: string,
   signal?: AbortSignal,
 ): Promise<AiDraftResponse> {
-  const res = await fetch('/api/ai/draft', {
+  const res = await fetch(`${API_BASE_URL}/api/ai/draft`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -119,7 +120,7 @@ export async function chat(
   circuitCode: string,
   signal?: AbortSignal,
 ): Promise<ChatResponse> {
-  const res = await fetch('/api/ai/chat', {
+  const res = await fetch(`${API_BASE_URL}/api/ai/chat`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
@@ -149,7 +150,7 @@ export async function chat(
  * Validate an AI-generated circuit JSON without executing code.
  */
 export async function validateDraft(circuitJson: unknown): Promise<AiValidationResponse> {
-  const res = await fetch('/api/ai/validate', {
+  const res = await fetch(`${API_BASE_URL}/api/ai/validate`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },

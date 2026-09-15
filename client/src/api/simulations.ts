@@ -1,3 +1,4 @@
+import { API_BASE_URL } from '../config';
 // ---------------------------------------------------------------------------
 // Simulations API client
 // ---------------------------------------------------------------------------
@@ -127,34 +128,34 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export function submitJob(input: SubmitJobInput): Promise<JobResponse> {
-  return request<JobResponse>('/api/v1/simulations/jobs', {
+  return request<JobResponse>(`${API_BASE_URL}/api/v1/simulations/jobs`, {
     method: 'POST',
     body: JSON.stringify(input),
   });
 }
 
 export function getJobStatus(jobId: string): Promise<JobResponse> {
-  return request<JobResponse>(`/api/v1/simulations/jobs/${encodeURIComponent(jobId)}`);
+  return request<JobResponse>(`${API_BASE_URL}/api/v1/simulations/jobs/${encodeURIComponent(jobId)}`);
 }
 
 export function getJobResult(jobId: string): Promise<JobResultResponse> {
-  return request<JobResultResponse>(`/api/v1/simulations/jobs/${encodeURIComponent(jobId)}/result`);
+  return request<JobResultResponse>(`${API_BASE_URL}/api/v1/simulations/jobs/${encodeURIComponent(jobId)}/result`);
 }
 
 /** Build the URL for the server-side export endpoint (JSON or CSV). */
 export function getExportUrl(jobId: string, format: 'json' | 'csv'): string {
-  return `/api/v1/simulations/jobs/${encodeURIComponent(jobId)}/result/export?format=${format}`;
+  return `${API_BASE_URL}/api/v1/simulations/jobs/${encodeURIComponent(jobId)}/result/export?format=${format}`;
 }
 
 export function runStepper(code: string): Promise<StepperResponse> {
-  return request<StepperResponse>('/api/v1/simulations/stepper', {
+  return request<StepperResponse>(`${API_BASE_URL}/api/v1/simulations/stepper`, {
     method: 'POST',
     body: JSON.stringify({ code }),
   });
 }
 
 export function analyzeCircuit(input: SubmitJobInput): Promise<AnalyzeResponse> {
-  return request<AnalyzeResponse>('/api/v1/simulations/analyze', {
+  return request<AnalyzeResponse>(`${API_BASE_URL}/api/v1/simulations/analyze`, {
     method: 'POST',
     body: JSON.stringify(input),
   });
@@ -278,7 +279,7 @@ export interface TranspileTraceInput {
 }
 
 export function getTranspileTrace(input: TranspileTraceInput): Promise<TranspileTraceResponse> {
-  return request<TranspileTraceResponse>('/api/v1/simulations/transpile-trace', {
+  return request<TranspileTraceResponse>(`${API_BASE_URL}/api/v1/simulations/transpile-trace`, {
     method: 'POST',
     body: JSON.stringify(input),
   });

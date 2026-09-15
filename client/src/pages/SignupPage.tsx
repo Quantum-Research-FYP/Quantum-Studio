@@ -3,6 +3,8 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { Button } from '../components/ui/Button';
 import { GoogleIcon, GitHubIcon } from '../components/ui/Icons';
+import { API_BASE_URL } from '../config';
+
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 12;
@@ -279,7 +281,7 @@ export default function SignupPage() {
             <button
               type="button"
               className="auth-sso-btn"
-              onClick={() => (window.location.href = '/api/auth/google')}
+              onClick={() => (window.location.href = `${API_BASE_URL}/api/auth/google`)}
             >
               <GoogleIcon />
               Google
@@ -287,7 +289,7 @@ export default function SignupPage() {
             <button
               type="button"
               className="auth-sso-btn"
-              onClick={() => (window.location.href = '/api/auth/github')}
+              onClick={() => (window.location.href = `${API_BASE_URL}/api/auth/github`)}
             >
               <GitHubIcon />
               GitHub

@@ -2,6 +2,8 @@
 // Execution API client
 // ---------------------------------------------------------------------------
 import type { NoiseConfig } from './simulations';
+import { API_BASE_URL } from '../config';
+
 
 export interface ExecutionJobSummary {
   jobId: string;
@@ -88,30 +90,30 @@ async function request<T>(url: string, options?: RequestInit): Promise<T> {
 }
 
 export function listJobs(limit = 20): Promise<{ jobs: ExecutionJobSummary[] }> {
-  return request(`/api/execution/jobs?limit=${limit}`);
+  return request(`${API_BASE_URL}/api/execution/jobs?limit=${limit}`);
 }
 
 export function getProviders(): Promise<{ providers: ExecutionProvider[] }> {
-  return request('/api/execution/providers');
+  return request(`${API_BASE_URL}/api/execution/providers`);
 }
 
 export function listIbmBackends(): Promise<{ backends: IbmBackend[] }> {
-  return request('/api/execution/ibm/backends');
+  return request(`${API_BASE_URL}/api/execution/ibm/backends`);
 }
 
 export function submitExecutionJob(input: SubmitExecutionJobInput): Promise<ExecutionJobResponse> {
-  return request('/api/execution/jobs', {
+  return request(`${API_BASE_URL}/api/execution/jobs`, {
     method: 'POST',
     body: JSON.stringify(input),
   });
 }
 
 export function getExecutionJobStatus(jobId: string): Promise<ExecutionJobResponse> {
-  return request(`/api/execution/jobs/${encodeURIComponent(jobId)}`);
+  return request(`${API_BASE_URL}/api/execution/jobs/${encodeURIComponent(jobId)}`);
 }
 
 export function cancelExecutionJob(jobId: string): Promise<ExecutionJobResponse> {
-  return request(`/api/execution/jobs/${encodeURIComponent(jobId)}/cancel`, {
+  return request(`${API_BASE_URL}/api/execution/jobs/${encodeURIComponent(jobId)}/cancel`, {
     method: 'POST',
   });
 }
