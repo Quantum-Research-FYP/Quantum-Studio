@@ -1,15 +1,16 @@
 import { lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './hooks/useAuth';
 import AppShell from './components/AppShell';
 import ProtectedRoute from './components/ProtectedRoute';
 import { UserGuideProvider } from './components/UserGuide/UserGuideProvider';
 // Eagerly loaded — these are tiny and always needed on first paint
-import CreatePage from './pages/CreatePage';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import NotFoundPage from './pages/NotFoundPage';
 import SsoCallbackPage from './pages/SsoCallbackPage';
+import LandingPage from './pages/LandingPage';
+import ResearchPage from './pages/ResearchPage';
 
 // Lazy-loaded — heavy pages, only fetched when the user navigates to them
 const CircuitBuilderPage = lazy(() => import('./pages/CircuitBuilderPage'));
@@ -60,16 +61,17 @@ export default function App() {
           <Suspense fallback={<PageLoader />}>
             <Routes>
               <Route element={<AppShell />}>
-                <Route index element={<Navigate to="/create" replace />} />
-                <Route path="create" element={<CreatePage />} />
+                <Route index element={<LandingPage />} />
+                <Route path="create" element={<LandingPage />} />
                 <Route path="builder" element={<CircuitBuilderPage />} />
                 <Route path="ide" element={<IdePage />} />
                 <Route path="simulation-results" element={<ResultsPage />} />
+                <Route path="templates" element={<TemplatesPage />} />
+                <Route path="templates/:templateId" element={<TemplateDetailsPage />} />
+                <Route path="research" element={<ResearchPage />} />
                 <Route element={<ProtectedRoute />}>
                   <Route path="results" element={<ResultsPage />} />
                   <Route path="experiments" element={<ExperimentsPage />} />
-                  <Route path="templates" element={<TemplatesPage />} />
-                  <Route path="templates/:templateId" element={<TemplateDetailsPage />} />
                   <Route path="settings" element={<SettingsPage />} />
                 </Route>
                 <Route path="shared/:experimentId" element={<SharedExperimentPage />} />

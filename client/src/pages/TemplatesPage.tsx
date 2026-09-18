@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getTemplates, type TemplateDefinition } from '../templates';
+import Seo from '../components/Seo';
 
 export default function TemplatesPage() {
   const navigate = useNavigate();
@@ -58,6 +59,11 @@ export default function TemplatesPage() {
 
   return (
     <div className="workspace-page">
+      <Seo
+        title="Quantum Algorithm Templates — Quantum Experiment Studio"
+        description="Explore interactive quantum circuit examples including Bell states, Grover search, quantum teleportation, QFT, GHZ states, and more."
+        path="/templates"
+      />
       <style>{`
         .templates-gallery-premium {
           display: grid;
