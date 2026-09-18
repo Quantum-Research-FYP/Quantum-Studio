@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getTemplates } from '../templates';
+import Seo from '../components/Seo';
 
 export default function TemplateDetailsPage() {
   const { templateId } = useParams<{ templateId: string }>();
@@ -38,6 +39,29 @@ export default function TemplateDetailsPage() {
 
   return (
     <div className="template-details-page">
+      <Seo
+        title={`${template.name} Quantum Circuit — Quantum Experiment Studio`}
+        description={`${learnMore?.description || template.description} Explore the circuit steps and load this example into the interactive quantum circuit builder.`}
+        path={`/templates/${template.templateId}`}
+        image={learnMore?.headerImageSrc ? new URL(learnMore.headerImageSrc, 'https://quantumstudio.space').toString() : undefined}
+        type="article"
+        structuredData={{
+          '@context': 'https://schema.org',
+          '@type': 'TechArticle',
+          headline: `${template.name} quantum circuit`,
+          description: learnMore?.description || template.description,
+          url: `https://quantumstudio.space/templates/${template.templateId}`,
+          image: learnMore?.headerImageSrc
+            ? new URL(learnMore.headerImageSrc, 'https://quantumstudio.space').toString()
+            : 'https://quantumstudio.space/images/SEO-image.jpeg',
+          about: ['Quantum computing', ...template.tags],
+          isPartOf: {
+            '@type': 'WebSite',
+            name: 'Quantum Experiment Studio',
+            url: 'https://quantumstudio.space/',
+          },
+        }}
+      />
       <button className="template-details-back" type="button" onClick={() => navigate('/templates')}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
           <path d="m15 18-6-6 6-6" />

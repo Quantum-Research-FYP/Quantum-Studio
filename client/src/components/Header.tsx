@@ -270,7 +270,7 @@ export default function Header() {
     <aside className={`app-sidebar ${isCollapsed ? 'app-sidebar--collapsed' : ''}`}>
       {/* Brand & Toggle */}
       <div className="app-sidebar__header">
-        <Link to="/create" className="app-sidebar__brand">
+        <Link to="/" className="app-sidebar__brand">
           <div className="app-sidebar__logo">
             <img
               src="/favicon.png"
