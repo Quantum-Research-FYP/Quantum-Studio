@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import type { Db } from 'mongodb';
+import type { Db, UpdateFilter } from 'mongodb';
 import { v4 as uuid } from 'uuid';
 import { COLLECTIONS, type AppDocument } from '../db/collections.js';
 
@@ -7,12 +7,14 @@ import { COLLECTIONS, type AppDocument } from '../db/collections.js';
 // Types
 // ---------------------------------------------------------------------------
 
-export type Visibility = 'private' | 'unlisted' | 'public';
+export type Visibility = 'private' | 'unlisted';
+export type ShareAccess = 'read' | 'write';
 
 export interface ShareToken {
   id: string;
   experimentId: string;
   tokenHash: string;
+  access: ShareAccess;
   createdAt: string;
   revokedAt: string | null;
 }
@@ -36,6 +38,7 @@ export interface SharedExperimentView {
   aiExplanation: string | null;
   aiGeneratedCode: string | null;
   aiShareProvenance: boolean;
+  rowVersion: number;
 }
 
 export interface ExperimentOwnershipInfo {
@@ -104,6 +107,7 @@ export function createSharingRepository(pool: Db) {
             aiExplanation: 1,
             aiGeneratedCode: 1,
             aiShareProvenance: 1,
+            rowVersion: 1,
           },
         },
       );
@@ -127,6 +131,7 @@ export function createSharingRepository(pool: Db) {
         aiExplanation: (doc.aiExplanation as string) ?? null,
         aiGeneratedCode: (doc.aiGeneratedCode as string) ?? null,
         aiShareProvenance: (doc.aiShareProvenance as boolean) ?? false,
+        rowVersion: doc.rowVersion as number,
       };
     },
 
@@ -140,25 +145,38 @@ export function createSharingRepository(pool: Db) {
         id: doc._id as string,
         experimentId: doc.experimentId as string,
         tokenHash: doc.tokenHash as string,
+        access: (doc.access as ShareAccess) ?? 'read',
         createdAt: (doc.createdAt as Date).toISOString(),
         revokedAt: null,
       };
     },
 
-    async findExperimentByTokenHash(tokenHash: string): Promise<string | null> {
+    async findActiveTokenByHash(
+      tokenHash: string,
+    ): Promise<{ experimentId: string; access: ShareAccess } | null> {
       const doc = await shareTokens.findOne(
         { tokenHash, revokedAt: null },
-        { projection: { experimentId: 1 } },
+        { projection: { experimentId: 1, access: 1 } },
       );
-      return doc ? (doc.experimentId as string) : null;
+      return doc
+        ? {
+            experimentId: doc.experimentId as string,
+            access: (doc.access as ShareAccess) ?? 'read',
+          }
+        : null;
     },
 
-    async createToken(experimentId: string, tokenHash: string): Promise<ShareToken> {
+    async createToken(
+      experimentId: string,
+      tokenHash: string,
+      access: ShareAccess,
+    ): Promise<ShareToken> {
       const now = new Date();
       const doc = {
         _id: uuid(),
         experimentId,
         tokenHash,
+        access,
         revokedAt: null,
         schemaVersion: 1,
         createdAt: now,
@@ -170,6 +188,7 @@ export function createSharingRepository(pool: Db) {
         id: doc._id,
         experimentId: doc.experimentId,
         tokenHash: doc.tokenHash,
+        access: doc.access,
         createdAt: doc.createdAt.toISOString(),
         revokedAt: null,
       };
@@ -181,6 +200,34 @@ export function createSharingRepository(pool: Db) {
         { $set: { revokedAt: new Date(), updatedAt: new Date() } },
       );
       return result.modifiedCount > 0;
+    },
+
+    async updateTokenAccess(experimentId: string, access: ShareAccess): Promise<boolean> {
+      const result = await shareTokens.updateOne(
+        { experimentId, revokedAt: null },
+        { $set: { access, updatedAt: new Date() } },
+      );
+      return result.matchedCount > 0;
+    },
+
+    async updateSharedExperiment(
+      experimentId: string,
+      name: string,
+      circuitJson: Record<string, unknown>,
+      expectedRowVersion: number,
+    ): Promise<{ rowVersion: number; updatedAt: string } | null> {
+      const updatedAt = new Date();
+      const result = await experiments.findOneAndUpdate(
+        { _id: experimentId, deletedAt: null, rowVersion: expectedRowVersion },
+        {
+          $set: { name, circuitJson, updatedAt },
+          $inc: { rowVersion: 1 },
+        } as unknown as UpdateFilter<AppDocument>,
+        { returnDocument: 'after', projection: { rowVersion: 1, updatedAt: 1 } },
+      );
+      return result
+        ? { rowVersion: result.rowVersion as number, updatedAt: updatedAt.toISOString() }
+        : null;
     },
 
     async updateVisibility(

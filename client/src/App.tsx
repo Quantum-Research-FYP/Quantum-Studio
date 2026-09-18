@@ -64,8 +64,9 @@ export default function App() {
                 <Route path="create" element={<CreatePage />} />
                 <Route path="builder" element={<CircuitBuilderPage />} />
                 <Route path="ide" element={<IdePage />} />
-                <Route path="results" element={<ResultsPage />} />
+                <Route path="simulation-results" element={<ResultsPage />} />
                 <Route element={<ProtectedRoute />}>
+                  <Route path="results" element={<ResultsPage />} />
                   <Route path="experiments" element={<ExperimentsPage />} />
                   <Route path="templates" element={<TemplatesPage />} />
                   <Route path="templates/:templateId" element={<TemplateDetailsPage />} />

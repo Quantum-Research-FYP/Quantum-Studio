@@ -2,6 +2,10 @@ import { API_BASE_URL } from '../config';
 export interface User {
   id: string;
   email: string;
+  name: string;
+  createdAt?: string;
+  hasPassword: boolean;
+  providers: string[];
 }
 
 export interface AuthResponse {
@@ -55,4 +59,25 @@ export function signupUser(email: string, password: string): Promise<AuthRespons
 
 export function logoutUser(): Promise<void> {
   return request<void>(`${API_BASE_URL}/api/auth/logout`, { method: 'POST' });
+}
+
+export function updateProfile(name: string): Promise<AuthResponse> {
+  return request<AuthResponse>(`${API_BASE_URL}/api/auth/profile`, {
+    method: 'PATCH',
+    body: JSON.stringify({ name }),
+  });
+}
+
+export function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+  return request<void>(`${API_BASE_URL}/api/auth/password`, {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+export function deleteAccount(currentPassword: string, confirmation: string): Promise<void> {
+  return request<void>(`${API_BASE_URL}/api/auth/account`, {
+    method: 'DELETE',
+    body: JSON.stringify({ currentPassword, confirmation }),
+  });
 }

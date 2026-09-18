@@ -207,6 +207,65 @@ describe('GET /api/auth/me', () => {
 
     expect(meRes.status).toBe(200);
     expect(meRes.body.user.email).toBe('alice@example.com');
+    expect(meRes.body.user.hasPassword).toBe(true);
+    expect(meRes.body.user).toHaveProperty('createdAt');
+  });
+});
+
+describe('account management', () => {
+  it('updates the current user profile', async () => {
+    const signupRes = await request(app)
+      .post('/api/auth/signup')
+      .send({ email: 'alice@example.com', password: 'securePassword!1' });
+
+    const res = await request(app)
+      .patch('/api/auth/profile')
+      .set('Cookie', signupRes.headers['set-cookie'])
+      .send({ name: 'Alice Quantum' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.user.name).toBe('Alice Quantum');
+  });
+
+  it('changes the password after verifying the current password', async () => {
+    const signupRes = await request(app)
+      .post('/api/auth/signup')
+      .send({ email: 'alice@example.com', password: 'securePassword!1' });
+
+    const changeRes = await request(app)
+      .post('/api/auth/password')
+      .set('Cookie', signupRes.headers['set-cookie'])
+      .send({ currentPassword: 'securePassword!1', newPassword: 'newSecurePassword!2' });
+
+    expect(changeRes.status).toBe(200);
+    expect(
+      (await request(app).post('/api/auth/login').send({
+        email: 'alice@example.com',
+        password: 'securePassword!1',
+      })).status,
+    ).toBe(401);
+    expect(
+      (await request(app).post('/api/auth/login').send({
+        email: 'alice@example.com',
+        password: 'newSecurePassword!2',
+      })).status,
+    ).toBe(200);
+  });
+
+  it('deletes the account and revokes its session', async () => {
+    const signupRes = await request(app)
+      .post('/api/auth/signup')
+      .send({ email: 'alice@example.com', password: 'securePassword!1' });
+    const cookies = signupRes.headers['set-cookie'];
+
+    const deleteRes = await request(app)
+      .delete('/api/auth/account')
+      .set('Cookie', cookies)
+      .send({ currentPassword: 'securePassword!1', confirmation: 'DELETE' });
+
+    expect(deleteRes.status).toBe(200);
+    expect(await db.collection(COLLECTIONS.USERS).countDocuments({})).toBe(0);
+    expect((await request(app).get('/api/auth/me').set('Cookie', cookies)).status).toBe(401);
   });
 });
 

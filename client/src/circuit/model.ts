@@ -29,6 +29,39 @@ export function addClbit(circuit: CircuitModel): CircuitModel {
 }
 
 /**
+ * Remove classical wires that are not referenced by an operation and remap
+ * the remaining targets to a dense, zero-based range.
+ */
+export function compactClassicalBits(circuit: CircuitModel): CircuitModel {
+  const usedClbits = Array.from(
+    new Set(circuit.operations.flatMap((op) => op.targets.clbits ?? [])),
+  ).sort((a, b) => a - b);
+
+  if (
+    usedClbits.length === circuit.clbits &&
+    usedClbits.every((clbit, index) => clbit === index)
+  ) {
+    return circuit;
+  }
+
+  const indexMap = new Map(usedClbits.map((clbit, index) => [clbit, index]));
+  return {
+    ...circuit,
+    clbits: usedClbits.length,
+    operations: circuit.operations.map((op) => {
+      if (!op.targets.clbits) return op;
+      return {
+        ...op,
+        targets: {
+          ...op.targets,
+          clbits: op.targets.clbits.map((clbit) => indexMap.get(clbit)!),
+        },
+      };
+    }),
+  };
+}
+
+/**
  * Find all operations that reference a specific wire.
  * Used to determine whether removal requires user confirmation.
  */

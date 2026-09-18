@@ -25,6 +25,7 @@ export { formatAngleDisplay } from './angle-format';
 export {
   addClbit,
   addQubit,
+  compactClassicalBits,
   createEmptyCircuit,
   deleteGate,
   getDependentOperations,

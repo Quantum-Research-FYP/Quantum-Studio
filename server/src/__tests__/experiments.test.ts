@@ -30,6 +30,58 @@ beforeEach(async () => {
   await db.collection(COLLECTIONS.EXPERIMENTS).deleteMany({});
   await db.collection(COLLECTIONS.SESSIONS).deleteMany({});
   await db.collection(COLLECTIONS.USERS).deleteMany({});
+  await db.collection(COLLECTIONS.EXPERIMENT_SHARE_TOKENS).deleteMany({});
+  await db.collection(COLLECTIONS.SHARE_AUDIT_EVENTS).deleteMany({});
+});
+
+describe('unlisted share access', () => {
+  it('allows write links to update and prevents read-only links from updating', async () => {
+    const { cookie } = await createUserSession();
+    const created = await request(app)
+      .post('/api/experiments')
+      .set('Cookie', cookie)
+      .send({ name: 'Shared circuit', circuitJson: validCircuit });
+    const id = created.body.id;
+
+    expect(
+      (await request(app)
+        .patch(`/api/experiments/${id}/visibility`)
+        .set('Cookie', cookie)
+        .send({ visibility: 'public' })).status,
+    ).toBe(400);
+
+    await request(app)
+      .patch(`/api/experiments/${id}/visibility`)
+      .set('Cookie', cookie)
+      .send({ visibility: 'unlisted' });
+
+    const link = await request(app)
+      .get(`/api/experiments/${id}/share-link?access=write`)
+      .set('Cookie', cookie);
+    expect(link.status).toBe(200);
+    expect(link.body.access).toBe('write');
+
+    const shared = await request(app).get(`/api/shared/experiments/${id}?token=${link.body.token}`);
+    expect(shared.status).toBe(200);
+    expect(shared.body.access).toBe('write');
+
+    const updatedCircuit = { qubits: 1, operations: [] };
+    const update = await request(app)
+      .put(`/api/shared/experiments/${id}?token=${link.body.token}`)
+      .send({ name: 'Edited through link', circuitJson: updatedCircuit, rowVersion: shared.body.rowVersion });
+    expect(update.status).toBe(200);
+    expect(update.body.rowVersion).toBe(shared.body.rowVersion + 1);
+
+    await request(app)
+      .patch(`/api/experiments/${id}/share-token/access`)
+      .set('Cookie', cookie)
+      .send({ access: 'read' });
+
+    const denied = await request(app)
+      .put(`/api/shared/experiments/${id}?token=${link.body.token}`)
+      .send({ name: 'Denied', circuitJson: updatedCircuit, rowVersion: update.body.rowVersion });
+    expect(denied.status).toBe(403);
+  });
 });
 
 // ---------------------------------------------------------------------------

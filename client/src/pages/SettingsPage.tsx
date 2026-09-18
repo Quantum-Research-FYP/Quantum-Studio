@@ -11,10 +11,11 @@ import {
 } from '../api/integrations';
 import { getGitHubStatus, disconnectGitHub, type GitHubStatus } from '../api/github';
 import { API_BASE_URL } from '../config';
+import ProfileSettingsPanel from '../components/settings/ProfileSettingsPanel';
 
 
 type ViewState = 'loading' | 'no-settings' | 'has-settings' | 'error';
-type SettingsTab = 'ibm' | 'spinq' | 'github';
+type SettingsTab = 'profile' | 'ibm' | 'spinq' | 'github';
 
 const STATUS_CONFIG = {
   valid: { label: 'Connected', className: 'settings-status--valid' },
@@ -27,7 +28,7 @@ export default function SettingsPage() {
   const { user } = useAuth();
 
   // --- Tab state ---
-  const [activeTab, setActiveTab] = useState<SettingsTab>('ibm');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('profile');
 
   // --- IBM state ---
   const [viewState, setViewState] = useState<ViewState>('loading');
@@ -264,7 +265,7 @@ export default function SettingsPage() {
 
   if (!user) {
     return (
-      <div className="settings-page">
+      <div className="workspace-page settings-page">
         <div className="alert alert--error" role="alert">
           You must be logged in to access settings.
         </div>
@@ -273,49 +274,57 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="settings-page">
-      <div className="settings-page__header">
-        <h1 className="settings-page__title">Settings</h1>
-        <p className="settings-page__subtitle">Manage your account integrations and preferences.</p>
+    <div className="workspace-page settings-page">
+      <div className="workspace-page__header settings-page__header">
+        <div className="workspace-page__heading">
+          <h1 className="page__title">Settings</h1>
+          <p className="page__subtitle">Manage your profile, security, and integrations.</p>
+        </div>
       </div>
 
       <div className="settings-layout">
-        <nav className="settings-nav" aria-label="Settings navigation">
+        <nav className="settings-nav" aria-label="Settings sections" role="tablist">
+          <button
+            className={`settings-nav__item ${activeTab === 'profile' ? 'settings-nav__item--active' : ''}`}
+            type="button"
+            onClick={() => setActiveTab('profile')}
+            role="tab"
+            aria-selected={activeTab === 'profile'}
+          >
+            Profile & Account
+          </button>
           <button
             className={`settings-nav__item ${activeTab === 'ibm' ? 'settings-nav__item--active' : ''}`}
             type="button"
             onClick={() => setActiveTab('ibm')}
+            role="tab"
+            aria-selected={activeTab === 'ibm'}
           >
-            <span className="settings-nav__icon" aria-hidden="true">
-              ⚛
-            </span>
             IBM Quantum
           </button>
           <button
             className={`settings-nav__item ${activeTab === 'spinq' ? 'settings-nav__item--active' : ''}`}
             type="button"
             onClick={() => setActiveTab('spinq')}
+            role="tab"
+            aria-selected={activeTab === 'spinq'}
           >
-            <span className="settings-nav__icon" aria-hidden="true">
-              ⚛
-            </span>
             SpinQ Quantum
           </button>
           <button
             className={`settings-nav__item ${activeTab === 'github' ? 'settings-nav__item--active' : ''}`}
             type="button"
             onClick={() => setActiveTab('github')}
+            role="tab"
+            aria-selected={activeTab === 'github'}
           >
-            <span className="settings-nav__icon" aria-hidden="true">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z" />
-              </svg>
-            </span>
             GitHub
           </button>
         </nav>
 
-        <div className="settings-content">
+        <div className="settings-content" role="tabpanel">
+          {activeTab === 'profile' && <ProfileSettingsPanel />}
+
           {/* ======================== IBM QUANTUM TAB ======================== */}
           {activeTab === 'ibm' && (
             <>

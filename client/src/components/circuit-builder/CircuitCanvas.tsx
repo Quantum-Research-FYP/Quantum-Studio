@@ -216,9 +216,7 @@ export default function CircuitCanvas({
     }
 
     if (selectedGate === 'MEASURE') {
-      if (clbits === 0) return;
-      const clbitIndex = Math.min(wireIndex, clbits - 1);
-      onPlaceGate('MEASURE', { qubits: [wireIndex], clbits: [clbitIndex] }, time);
+      onPlaceGate('MEASURE', { qubits: [wireIndex] }, time);
       return;
     }
 
@@ -259,7 +257,7 @@ export default function CircuitCanvas({
     }
     if (ps.stage === 'awaiting_angle') return false;
     if (!selectedGate) return false;
-    if (selectedGate === 'MEASURE') return clbits > 0;
+    if (selectedGate === 'MEASURE') return true;
     if (MULTI_QUBIT_GATES.has(selectedGate)) return true;
     return GATE_QUBIT_COUNT[selectedGate] === 1 && !GATE_REQUIRES_CLBITS[selectedGate];
   };

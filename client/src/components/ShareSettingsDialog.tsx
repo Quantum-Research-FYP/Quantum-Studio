@@ -1,6 +1,12 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import type { Visibility } from '../api/sharing';
-import { updateVisibility, getShareLink, rotateShareToken, revokeShareToken } from '../api/sharing';
+import type { ShareAccess, Visibility } from '../api/sharing';
+import {
+  updateVisibility,
+  getShareLink,
+  rotateShareToken,
+  revokeShareToken,
+  updateShareAccess,
+} from '../api/sharing';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -41,13 +47,7 @@ const VIS_OPTIONS: Array<{
     value: 'unlisted',
     icon: '🔗',
     title: 'Unlisted',
-    desc: 'Anyone with the link can view (read-only).',
-  },
-  {
-    value: 'public',
-    icon: '🌐',
-    title: 'Public',
-    desc: 'Discoverable by anyone on the platform.',
+    desc: 'Anyone with the link can access it using the permission you choose.',
   },
 ];
 
@@ -63,15 +63,17 @@ export default function ShareSettingsDialog({
   onClose,
 }: ShareSettingsDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const shareUrlCacheKey = `quantum-studio:share-url:${experimentId}`;
 
   const [visibility, setVisibility] = useState<Visibility>(initialVisibility);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [hasToken, setHasToken] = useState(false);
   const [opStatus, setOpStatus] = useState<OpStatus>('idle');
   const [statusMsg, setStatusMsg] = useState<StatusMsg | null>(null);
-  const [publicDisabled, setPublicDisabled] = useState(false);
+  const [access, setAccess] = useState<ShareAccess>('read');
   const [copied, setCopied] = useState(false);
   const [confirmRotate, setConfirmRotate] = useState(false);
+  const isLoading = opStatus === 'loading';
 
   // Clear "Copied!" after 2 s
   useEffect(() => {
@@ -90,14 +92,23 @@ export default function ShareSettingsDialog({
   const fetchShareLink = useCallback(async () => {
     setOpStatus('loading');
     try {
-      const result = await getShareLink(experimentId);
+      const result = await getShareLink(experimentId, access);
       setHasToken(result.hasToken);
-      if (result.shareUrl) setShareUrl(result.shareUrl);
+      setAccess(result.access);
+      if (result.shareUrl) {
+        setShareUrl(result.shareUrl);
+        sessionStorage.setItem(shareUrlCacheKey, result.shareUrl);
+      } else if (result.hasToken) {
+        setShareUrl(sessionStorage.getItem(shareUrlCacheKey));
+      } else {
+        setShareUrl(null);
+        sessionStorage.removeItem(shareUrlCacheKey);
+      }
       setOpStatus('idle');
     } catch {
       setOpStatus('idle');
     }
-  }, [experimentId]);
+  }, [experimentId, access, shareUrlCacheKey]);
 
   // ── Open / close ──────────────────────────────────────────────────────
 
@@ -114,6 +125,7 @@ export default function ShareSettingsDialog({
       setStatusMsg(null);
       setCopied(false);
       setConfirmRotate(false);
+      setAccess('read');
       dialog.showModal();
 
       // If already unlisted, load the existing token
@@ -156,6 +168,7 @@ export default function ShareSettingsDialog({
         if (prev === 'unlisted' && next !== 'unlisted') {
           setShareUrl(null);
           setHasToken(false);
+          sessionStorage.removeItem(shareUrlCacheKey);
           setStatusMsg({
             type: 'info',
             text: 'Visibility updated. The previous share link has been invalidated.',
@@ -170,25 +183,16 @@ export default function ShareSettingsDialog({
           await fetchShareLink();
         }
       } catch (err) {
-        const apiErr = err as Error & { errorCode?: string };
-        if (apiErr.errorCode === 'PUBLIC_SHARING_DISABLED') {
-          setPublicDisabled(true);
-          setVisibility(prev);
-          setStatusMsg({
-            type: 'error',
-            text: 'Public sharing is not enabled on this server.',
-          });
-        } else {
-          setVisibility(prev);
-          setStatusMsg({
-            type: 'error',
-            text: apiErr.message || 'Failed to update visibility.',
-          });
-        }
+        const apiErr = err as Error;
+        setVisibility(prev);
+        setStatusMsg({
+          type: 'error',
+          text: apiErr.message || 'Failed to update visibility.',
+        });
         setOpStatus('error');
       }
     },
-    [experimentId, visibility, opStatus, fetchShareLink],
+    [experimentId, visibility, opStatus, fetchShareLink, shareUrlCacheKey],
   );
 
   // ── Rotate ────────────────────────────────────────────────────────────
@@ -203,8 +207,9 @@ export default function ShareSettingsDialog({
     setStatusMsg(null);
     setCopied(false);
     try {
-      const result = await rotateShareToken(experimentId);
+      const result = await rotateShareToken(experimentId, access);
       setShareUrl(result.shareUrl);
+      sessionStorage.setItem(shareUrlCacheKey, result.shareUrl);
       setHasToken(true);
       setStatusMsg({
         type: 'info',
@@ -218,7 +223,28 @@ export default function ShareSettingsDialog({
       });
       setOpStatus('error');
     }
-  }, [experimentId, confirmRotate, hasToken]);
+  }, [experimentId, confirmRotate, hasToken, access, shareUrlCacheKey]);
+
+  const handleAccessChange = useCallback(
+    async (next: ShareAccess) => {
+      if (next === access || isLoading) return;
+      const previous = access;
+      setAccess(next);
+      setStatusMsg(null);
+      if (!hasToken) return;
+      setOpStatus('loading');
+      try {
+        await updateShareAccess(experimentId, next);
+        setStatusMsg({ type: 'success', text: `Link access changed to ${next === 'write' ? 'can edit' : 'view only'}.` });
+        setOpStatus('success');
+      } catch (err) {
+        setAccess(previous);
+        setStatusMsg({ type: 'error', text: err instanceof Error ? err.message : 'Failed to update link access.' });
+        setOpStatus('error');
+      }
+    },
+    [access, experimentId, hasToken, isLoading],
+  );
 
   // ── Revoke ────────────────────────────────────────────────────────────
 
@@ -231,6 +257,7 @@ export default function ShareSettingsDialog({
       await revokeShareToken(experimentId);
       setShareUrl(null);
       setHasToken(false);
+      sessionStorage.removeItem(shareUrlCacheKey);
       setStatusMsg({ type: 'info', text: 'Share link revoked.' });
       setOpStatus('success');
     } catch (err) {
@@ -240,7 +267,7 @@ export default function ShareSettingsDialog({
       });
       setOpStatus('error');
     }
-  }, [experimentId]);
+  }, [experimentId, shareUrlCacheKey]);
 
   // ── Copy ──────────────────────────────────────────────────────────────
 
@@ -261,8 +288,6 @@ export default function ShareSettingsDialog({
   }, [shareUrl]);
 
   // ── Render ────────────────────────────────────────────────────────────
-
-  const isLoading = opStatus === 'loading';
 
   return (
     <dialog ref={dialogRef} className="dialog share-dialog" aria-labelledby="share-dialog-title">
@@ -315,7 +340,7 @@ export default function ShareSettingsDialog({
         <p className="share-dialog__section-label">Who can access this experiment?</p>
         <div className="vis-options" role="group" aria-label="Visibility">
           {VIS_OPTIONS.map((opt) => {
-            const disabled = (opt.value === 'public' && publicDisabled) || isLoading;
+            const disabled = isLoading;
             const selected = visibility === opt.value;
             return (
               <button
@@ -337,11 +362,7 @@ export default function ShareSettingsDialog({
                 </span>
                 <span className="vis-option__body">
                   <span className="vis-option__title">{opt.title}</span>
-                  <span className="vis-option__desc">
-                    {opt.value === 'public' && publicDisabled
-                      ? 'Not enabled on this server.'
-                      : opt.desc}
-                  </span>
+                  <span className="vis-option__desc">{opt.desc}</span>
                 </span>
                 {selected && (
                   <span className="vis-option__check" aria-hidden="true">
@@ -367,6 +388,24 @@ export default function ShareSettingsDialog({
         {/* Share link section — only for unlisted */}
         {visibility === 'unlisted' && (
           <div className="share-link-section">
+            <p className="share-dialog__section-label">Link access</p>
+            <div className="share-access-select-wrap">
+              <select
+                className="share-access-select"
+                value={access}
+                onChange={(event) => handleAccessChange(event.target.value as ShareAccess)}
+                disabled={isLoading}
+                aria-label="Share link access"
+              >
+                <option value="read">View only</option>
+                <option value="write">Can edit</option>
+              </select>
+              <p className="share-access-help">
+                {access === 'write'
+                  ? 'People with the link can open and save changes in Circuit Builder.'
+                  : 'People with the link can view the circuit and results.'}
+              </p>
+            </div>
             <p className="share-dialog__section-label">Share link</p>
 
             {isLoading && !shareUrl ? (

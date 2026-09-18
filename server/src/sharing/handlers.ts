@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import type { Db } from 'mongodb';
 import { createSharingRepository, generateRawToken, hashToken } from './repository.js';
-import type { Visibility } from './repository.js';
+import type { ShareAccess, Visibility } from './repository.js';
 import {
   isSupportedVersion,
   isNewerVersion,
@@ -12,14 +12,15 @@ import {
 // Validation
 // ---------------------------------------------------------------------------
 
-const VALID_VISIBILITIES = new Set<Visibility>(['private', 'unlisted', 'public']);
+const VALID_VISIBILITIES = new Set<Visibility>(['private', 'unlisted']);
+const VALID_ACCESS = new Set<ShareAccess>(['read', 'write']);
 
 function isValidVisibility(value: unknown): value is Visibility {
   return typeof value === 'string' && VALID_VISIBILITIES.has(value as Visibility);
 }
 
-function isPublicSharingEnabled(): boolean {
-  return process.env.ENABLE_PUBLIC_SHARING === 'true';
+function isValidAccess(value: unknown): value is ShareAccess {
+  return typeof value === 'string' && VALID_ACCESS.has(value as ShareAccess);
 }
 
 // ---------------------------------------------------------------------------
@@ -50,30 +51,13 @@ export function createSharingHandlers(pool: Db) {
 
         const { visibility } = experiment;
 
-        // Private → always 404 for non-owners on this endpoint
-        if (visibility === 'private') {
+        if (visibility !== 'unlisted' || !rawToken) {
           res.status(404).json({ error: 'Not found.' });
           return;
         }
 
-        // Unlisted → require valid token
-        if (visibility === 'unlisted') {
-          if (!rawToken) {
-            res.status(404).json({ error: 'Not found.' });
-            return;
-          }
-
-          const tokenHash = hashToken(rawToken);
-          const matchedExperimentId = await repo.findExperimentByTokenHash(tokenHash);
-
-          if (matchedExperimentId !== experimentId) {
-            res.status(404).json({ error: 'Not found.' });
-            return;
-          }
-        }
-
-        // Public → no token needed (but check feature flag)
-        if (visibility === 'public' && !isPublicSharingEnabled()) {
+        const matchedToken = await repo.findActiveTokenByHash(hashToken(rawToken));
+        if (matchedToken?.experimentId !== experimentId) {
           res.status(404).json({ error: 'Not found.' });
           return;
         }
@@ -126,6 +110,8 @@ export function createSharingHandlers(pool: Db) {
           visibility: experiment.visibility,
           createdAt: migrated.createdAt,
           updatedAt: migrated.updatedAt,
+          rowVersion: experiment.rowVersion,
+          access: matchedToken.access,
           ...aiFields,
         });
       } catch (err) {
@@ -147,17 +133,8 @@ export function createSharingHandlers(pool: Db) {
 
         if (!isValidVisibility(visibility)) {
           res.status(400).json({
-            error: 'Visibility must be one of: private, unlisted, public.',
+            error: 'Visibility must be one of: private, unlisted.',
             errorCode: 'VALIDATION_VISIBILITY',
-          });
-          return;
-        }
-
-        // Block public if feature flag is disabled
-        if (visibility === 'public' && !isPublicSharingEnabled()) {
-          res.status(400).json({
-            error: 'Public sharing is not enabled.',
-            errorCode: 'PUBLIC_SHARING_DISABLED',
           });
           return;
         }
@@ -221,6 +198,12 @@ export function createSharingHandlers(pool: Db) {
       try {
         const userId = req.user!.id;
         const experimentId = req.params.id as string;
+        const requestedAccess = req.query.access ?? 'read';
+
+        if (!isValidAccess(requestedAccess)) {
+          res.status(400).json({ error: 'Access must be read or write.' });
+          return;
+        }
 
         const info = await repo.getExperimentOwnership(experimentId);
         if (!info) {
@@ -252,6 +235,7 @@ export function createSharingHandlers(pool: Db) {
           res.status(200).json({
             id: experimentId,
             hasToken: true,
+            access: existingToken.access,
             message: 'A share token already exists. Use the rotate endpoint to generate a new one.',
           });
           return;
@@ -260,7 +244,7 @@ export function createSharingHandlers(pool: Db) {
         // No active token — create one
         const rawToken = generateRawToken();
         const tokenHash = hashToken(rawToken);
-        await repo.createToken(experimentId, tokenHash);
+        await repo.createToken(experimentId, tokenHash, requestedAccess);
 
         await repo.recordAuditEvent(userId, experimentId, 'TOKEN_CREATED', {});
 
@@ -274,6 +258,7 @@ export function createSharingHandlers(pool: Db) {
           hasToken: true,
           shareUrl,
           token: rawToken,
+          access: requestedAccess,
         });
       } catch (err) {
         console.error('Get share link error:', err);
@@ -289,6 +274,12 @@ export function createSharingHandlers(pool: Db) {
       try {
         const userId = req.user!.id;
         const experimentId = req.params.id as string;
+        const requestedAccess = req.body?.access ?? 'read';
+
+        if (!isValidAccess(requestedAccess)) {
+          res.status(400).json({ error: 'Access must be read or write.' });
+          return;
+        }
 
         const info = await repo.getExperimentOwnership(experimentId);
         if (!info) {
@@ -314,7 +305,7 @@ export function createSharingHandlers(pool: Db) {
         // Issue new token
         const rawToken = generateRawToken();
         const tokenHash = hashToken(rawToken);
-        await repo.createToken(experimentId, tokenHash);
+        await repo.createToken(experimentId, tokenHash, requestedAccess);
 
         await repo.recordAuditEvent(userId, experimentId, 'TOKEN_ROTATED', {});
 
@@ -326,6 +317,7 @@ export function createSharingHandlers(pool: Db) {
           id: experimentId,
           shareUrl,
           token: rawToken,
+          access: requestedAccess,
         });
       } catch (err) {
         console.error('Rotate token error:', err);
@@ -364,6 +356,82 @@ export function createSharingHandlers(pool: Db) {
         res.status(204).send();
       } catch (err) {
         console.error('Revoke token error:', err);
+        res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
+      }
+    },
+
+    /** PATCH /api/experiments/:id/share-token/access */
+    async updateTokenAccess(req: Request, res: Response): Promise<void> {
+      try {
+        const userId = req.user!.id;
+        const experimentId = req.params.id as string;
+        const { access } = req.body ?? {};
+        if (!isValidAccess(access)) {
+          res.status(400).json({ error: 'Access must be read or write.' });
+          return;
+        }
+        const info = await repo.getExperimentOwnership(experimentId);
+        if (!info) {
+          res.status(404).json({ error: 'Experiment not found.' });
+          return;
+        }
+        if (info.ownerUserId !== userId) {
+          res.status(403).json({ error: 'Forbidden.' });
+          return;
+        }
+        if (!(await repo.updateTokenAccess(experimentId, access))) {
+          res.status(404).json({ error: 'No active share link.' });
+          return;
+        }
+        await repo.recordAuditEvent(userId, experimentId, 'TOKEN_ACCESS_CHANGED', { access });
+        res.status(200).json({ id: experimentId, access });
+      } catch (err) {
+        console.error('Update share access error:', err);
+        res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
+      }
+    },
+
+    /** PUT /api/shared/experiments/:id — write-token circuit update. */
+    async updateSharedExperiment(req: Request, res: Response): Promise<void> {
+      try {
+        const experimentId = req.params.id as string;
+        const rawToken = req.query.token;
+        if (typeof rawToken !== 'string') {
+          res.status(404).json({ error: 'Not found.' });
+          return;
+        }
+        const matchedToken = await repo.findActiveTokenByHash(hashToken(rawToken));
+        if (matchedToken?.experimentId !== experimentId || matchedToken.access !== 'write') {
+          res.status(403).json({ error: 'This share link does not allow editing.' });
+          return;
+        }
+        const { name, circuitJson, rowVersion } = req.body ?? {};
+        if (
+          typeof name !== 'string' ||
+          !name.trim() ||
+          name.trim().length > 120 ||
+          !circuitJson ||
+          typeof circuitJson !== 'object' ||
+          Array.isArray(circuitJson) ||
+          !Number.isInteger(rowVersion) ||
+          rowVersion < 1
+        ) {
+          res.status(400).json({ error: 'Invalid shared experiment update.' });
+          return;
+        }
+        const updated = await repo.updateSharedExperiment(
+          experimentId,
+          name.trim(),
+          circuitJson,
+          rowVersion,
+        );
+        if (!updated) {
+          res.status(409).json({ error: 'This experiment was updated elsewhere. Reload and try again.' });
+          return;
+        }
+        res.status(200).json({ id: experimentId, name: name.trim(), ...updated });
+      } catch (err) {
+        console.error('Update shared experiment error:', err);
         res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
       }
     },

@@ -48,7 +48,7 @@ export interface ExperimentListItem {
   rowVersion: number;
   lastRunStatus: string | null;
   lastRunAt: string | null;
-  visibility: 'private' | 'unlisted' | 'public';
+  visibility: 'private' | 'unlisted';
 }
 
 export interface ExperimentListResponse {

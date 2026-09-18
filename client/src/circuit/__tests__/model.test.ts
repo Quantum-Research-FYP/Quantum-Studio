@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   addClbit,
   addQubit,
+  compactClassicalBits,
   createEmptyCircuit,
   deleteGate,
   getDependentOperations,
@@ -42,6 +43,29 @@ describe('addQubit / addClbit', () => {
     const c0 = createEmptyCircuit();
     addQubit(c0);
     expect(c0.qubits).toBe(0);
+  });
+});
+
+describe('compactClassicalBits', () => {
+  it('removes unused classical bits and remaps measurement targets', () => {
+    let circuit = addQubit(createEmptyCircuit());
+    circuit = addClbit(addClbit(addClbit(circuit)));
+    const { circuit: measured } = placeGate(
+      circuit,
+      'MEASURE',
+      { qubits: [0], clbits: [2] },
+      0,
+    );
+
+    const compacted = compactClassicalBits(measured);
+
+    expect(compacted.clbits).toBe(1);
+    expect(compacted.operations[0].targets.clbits).toEqual([0]);
+  });
+
+  it('removes all classical bits when no measurements reference them', () => {
+    const circuit = addClbit(addQubit(createEmptyCircuit()));
+    expect(compactClassicalBits(circuit).clbits).toBe(0);
   });
 });
 

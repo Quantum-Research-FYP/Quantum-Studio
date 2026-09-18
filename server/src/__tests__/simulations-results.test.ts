@@ -109,6 +109,54 @@ async function insertResult(jobId: string, counts: Record<string, number>): Prom
 }
 
 // ---------------------------------------------------------------------------
+// Anonymous simulator access
+// ---------------------------------------------------------------------------
+
+describe('anonymous simulator access', () => {
+  it('allows an anonymous browser to submit and poll its own simulator job', async () => {
+    const browser = request.agent(app);
+    const submitted = await browser.post('/api/execution/jobs').send({
+      provider: 'simulator',
+      qasm: 'OPENQASM 2.0;\ninclude "qelib1.inc";\nqreg q[1];\nh q[0];',
+      shots: 100,
+      codeType: 'qasm',
+    });
+
+    expect(submitted.status).toBe(201);
+    expect(submitted.headers['set-cookie']?.[0]).toContain('anonymous_simulation_id=');
+
+    const ownStatus = await browser.get(`/api/execution/jobs/${submitted.body.jobId}`);
+    expect(ownStatus.status).toBe(200);
+
+    const otherBrowserStatus = await request(app).get(
+      `/api/execution/jobs/${submitted.body.jobId}`,
+    );
+    expect(otherBrowserStatus.status).toBe(404);
+  });
+
+  it('keeps hardware providers login-only for anonymous users', async () => {
+    const res = await request(app).post('/api/execution/jobs').send({
+      provider: 'ibm_quantum',
+      backend: 'ibm_brisbane',
+      qasm: 'OPENQASM 2.0;',
+      shots: 100,
+    });
+
+    expect(res.status).toBe(401);
+    expect(res.body.errorCode).toBe('AUTH_REQUIRED_FOR_PROVIDER');
+  });
+
+  it('only advertises the simulator to anonymous users', async () => {
+    const res = await request(app).get('/api/execution/providers');
+
+    expect(res.status).toBe(200);
+    expect(res.body.providers).toEqual([
+      { id: 'simulator', name: 'Simulator', available: true },
+    ]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // GET /api/v1/simulations/jobs/:jobId/result — enhanced response
 // ---------------------------------------------------------------------------
 
@@ -147,9 +195,9 @@ describe('GET /api/v1/simulations/jobs/:jobId/result', () => {
     expect(res.body.probabilities['011']).toBe(0.124);
   });
 
-  it('returns 401 without authentication', async () => {
+  it('does not expose a result without its anonymous simulation cookie', async () => {
     const res = await request(app).get('/api/v1/simulations/jobs/fake-id/result');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(404);
   });
 
   it("returns 404 for another user's job", async () => {
@@ -274,9 +322,9 @@ describe('GET /api/v1/simulations/jobs/:jobId/result/export (CSV)', () => {
 // ---------------------------------------------------------------------------
 
 describe('GET /api/v1/simulations/jobs/:jobId/result/export — error cases', () => {
-  it('returns 401 without authentication', async () => {
+  it('does not expose an export without its anonymous simulation cookie', async () => {
     const res = await request(app).get('/api/v1/simulations/jobs/fake-id/result/export');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(404);
   });
 
   it('returns 404 for a non-existent job', async () => {

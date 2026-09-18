@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { getSharedExperiment } from '../api/sharing';
 import type { SharedExperimentResponse } from '../api/sharing';
 import type { CircuitModel } from '../circuit';
@@ -56,6 +56,7 @@ export default function SharedExperimentPage() {
   const { experimentId } = useParams<{ experimentId: string }>();
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') ?? undefined;
+  const navigate = useNavigate();
 
   const [viewState, setViewState] = useState<ViewState>('loading');
   const [experiment, setExperiment] = useState<SharedExperimentResponse | null>(null);
@@ -76,6 +77,11 @@ export default function SharedExperimentPage() {
         if (cancelled) return;
         if (!data) {
           setViewState('not-found');
+        } else if (data.access === 'write' && token) {
+          navigate(
+            `/builder?sharedId=${encodeURIComponent(experimentId!)}&token=${encodeURIComponent(token)}`,
+            { replace: true },
+          );
         } else {
           setExperiment(data);
           setViewState('loaded');
@@ -91,7 +97,7 @@ export default function SharedExperimentPage() {
     return () => {
       cancelled = true;
     };
-  }, [experimentId, token]);
+  }, [experimentId, token, navigate]);
 
   // ── Loading ─────────────────────────────────────────────────────────────
   if (viewState === 'loading') {
