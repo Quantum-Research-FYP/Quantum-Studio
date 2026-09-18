@@ -21,6 +21,22 @@ function isValidEmailFormat(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function publicUser(user: AppDocument) {
+  const fallbackName = [user.firstname, user.lastname].filter(Boolean).join(' ');
+  return {
+    id: user._id,
+    email: user.email,
+    name: (user.name as string) || fallbackName || '',
+    createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : user.createdAt,
+    hasPassword: typeof user.passwordHash === 'string' && user.passwordHash.length > 0,
+    providers: [
+      user.googleUserId ? 'Google' : null,
+      user.githubUserId ? 'GitHub' : null,
+      user.moodleUserId ? 'Moodle' : null,
+    ].filter(Boolean),
+  };
+}
+
 /**
  * Create a short-lived one-time login token for cross-domain SSO handoff.
  * The browser is redirected to the frontend with this token, which it then
@@ -99,7 +115,8 @@ export function createAuthHandlers(pool: Db) {
 
         await createSession(pool, userId, req, res);
 
-        res.status(201).json({ user: { id: userId, email } });
+        const createdUser = await users.findOne({ _id: userId });
+        res.status(201).json({ user: publicUser(createdUser!) });
       } catch (err) {
         console.error('Signup error:', err);
         res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
@@ -138,7 +155,7 @@ export function createAuthHandlers(pool: Db) {
 
         await createSession(pool, user._id as string, req, res);
 
-        res.status(200).json({ user: { id: user._id, email: user.email } });
+        res.status(200).json({ user: publicUser(user) });
       } catch (err) {
         console.error('Login error:', err);
         res.status(500).json({ error: 'An unexpected error occurred. Please try again.' });
@@ -167,7 +184,129 @@ export function createAuthHandlers(pool: Db) {
         res.status(401).json({ error: 'Not authenticated.' });
         return;
       }
-      res.status(200).json({ user: req.user });
+      const user = await users.findOne({ _id: req.user.id });
+      if (!user) {
+        res.status(401).json({ error: 'Not authenticated.' });
+        return;
+      }
+      res.status(200).json({ user: publicUser(user) });
+    },
+
+    /** PATCH /api/auth/profile */
+    async updateProfile(req: Request, res: Response): Promise<void> {
+      if (!req.user) {
+        res.status(401).json({ error: 'Not authenticated.' });
+        return;
+      }
+
+      const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+      if (!name || name.length > 100) {
+        res.status(400).json({ error: 'Name must be between 1 and 100 characters.' });
+        return;
+      }
+
+      await users.updateOne(
+        { _id: req.user.id },
+        { $set: { name, updatedAt: new Date() } },
+      );
+      const user = await users.findOne({ _id: req.user.id });
+      res.status(200).json({ user: publicUser(user!) });
+    },
+
+    /** POST /api/auth/password */
+    async changePassword(req: Request, res: Response): Promise<void> {
+      if (!req.user) {
+        res.status(401).json({ error: 'Not authenticated.' });
+        return;
+      }
+
+      const { currentPassword, newPassword } = req.body ?? {};
+      if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+        res.status(400).json({ error: 'Current and new passwords are required.' });
+        return;
+      }
+
+      const user = await users.findOne({ _id: req.user.id });
+      if (!user || typeof user.passwordHash !== 'string') {
+        res.status(400).json({ error: 'Password changes are unavailable for this account.' });
+        return;
+      }
+      if (!(await verifyPassword(user.passwordHash, currentPassword))) {
+        res.status(401).json({ error: 'Current password is incorrect.' });
+        return;
+      }
+
+      const passwordCheck = validatePassword(newPassword);
+      if (!passwordCheck.valid) {
+        res.status(400).json({ error: passwordCheck.message });
+        return;
+      }
+      if (await verifyPassword(user.passwordHash, newPassword)) {
+        res.status(400).json({ error: 'New password must be different from your current password.' });
+        return;
+      }
+
+      await users.updateOne(
+        { _id: req.user.id },
+        { $set: { passwordHash: await hashPassword(newPassword), updatedAt: new Date() } },
+      );
+      res.status(200).json({ message: 'Password updated successfully.' });
+    },
+
+    /** DELETE /api/auth/account */
+    async deleteAccount(req: Request, res: Response): Promise<void> {
+      if (!req.user) {
+        res.status(401).json({ error: 'Not authenticated.' });
+        return;
+      }
+
+      const { confirmation, currentPassword } = req.body ?? {};
+      if (confirmation !== 'DELETE') {
+        res.status(400).json({ error: 'Type DELETE to confirm account deletion.' });
+        return;
+      }
+
+      const userId = req.user.id;
+      const user = await users.findOne({ _id: userId });
+      if (!user) {
+        res.status(404).json({ error: 'Account not found.' });
+        return;
+      }
+      if (typeof user.passwordHash === 'string') {
+        if (
+          typeof currentPassword !== 'string' ||
+          !(await verifyPassword(user.passwordHash, currentPassword))
+        ) {
+          res.status(401).json({ error: 'Current password is incorrect.' });
+          return;
+        }
+      }
+
+      const experiments = pool.collection<AppDocument>(COLLECTIONS.EXPERIMENTS);
+      const experimentIds = (await experiments.find({ ownerId: userId }).project({ _id: 1 }).toArray())
+        .map((doc) => doc._id);
+      const jobs = pool.collection<AppDocument>(COLLECTIONS.SIMULATION_JOBS);
+      const jobIds = (await jobs.find({ userId }).project({ _id: 1 }).toArray()).map(
+        (doc) => doc._id,
+      );
+
+      await Promise.all([
+        pool.collection(COLLECTIONS.SIMULATION_JOB_RESULTS).deleteMany({ jobId: { $in: jobIds } }),
+        pool.collection(COLLECTIONS.EXPERIMENT_SHARE_TOKENS).deleteMany({ experimentId: { $in: experimentIds } }),
+        pool.collection(COLLECTIONS.SHARE_AUDIT_EVENTS).deleteMany({
+          $or: [{ actorUserId: userId }, { experimentId: { $in: experimentIds } }],
+        }),
+        pool.collection(COLLECTIONS.AUDIT_LOG).deleteMany({ actorUserId: userId }),
+        pool.collection(COLLECTIONS.USER_INTEGRATION_SETTINGS).deleteMany({ userId }),
+        pool.collection(COLLECTIONS.SSO_LOGIN_TOKENS).deleteMany({ userId }),
+      ]);
+      await jobs.deleteMany({ userId });
+      await experiments.deleteMany({ ownerId: userId });
+      await pool.collection(COLLECTIONS.SESSIONS).deleteMany({ userId });
+      await users.deleteOne({ _id: userId });
+
+      clearSessionCookie(res);
+      res.status(200).json({ message: 'Account deleted.' });
     },
 
     /** POST /api/auth/moodle/callback */

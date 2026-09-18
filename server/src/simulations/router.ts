@@ -7,9 +7,7 @@ export function createSimulationsRouter(pool: Db, onJobCreated?: () => void): Ro
   const router = Router();
   const handlers = createSimulationHandlers(pool, onJobCreated);
 
-  // All simulation routes require authentication
-  router.use(requireAuth);
-
+  // Local simulation is available to guests; ownership is checked in handlers.
   router.post('/jobs', handlers.submitJob);
   router.get('/jobs/:jobId', handlers.getJobStatus);
   router.get('/jobs/:jobId/result', handlers.getJobResult);
@@ -17,7 +15,7 @@ export function createSimulationsRouter(pool: Db, onJobCreated?: () => void): Ro
 
   router.post('/stepper', handlers.runStepper);
   router.post('/analyze', handlers.analyzePerformance);
-  router.post('/transpile-trace', handlers.runTranspileTrace);
+  router.post('/transpile-trace', requireAuth, handlers.runTranspileTrace);
 
   return router;
 }

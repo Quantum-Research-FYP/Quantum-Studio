@@ -443,9 +443,11 @@ export default function IdePage() {
   const [editorError, setEditorError] = useState<{ line?: number; message: string } | null>(null);
 
   useEffect(() => {
-    if (!user) return;
     getProviders()
-      .then((data) => setProviders(data.providers))
+      .then((data) => {
+        setProviders(data.providers);
+        if (!user) setSelectedProvider('simulator');
+      })
       .catch(() => setProviders([{ id: 'simulator', name: 'Simulator', available: true }]));
   }, [user]);
 
@@ -828,19 +830,19 @@ export default function IdePage() {
               }
             >
               <option value="simulator">Local Simulator</option>
-              {ibmAvailable && (
+              {(!user || ibmAvailable) && (
                 <option 
                   value="ibm_quantum" 
-                  disabled={!activeFile.toLowerCase().includes('qiskit') && !activeFile.toLowerCase().endsWith('.qasm')}
+                  disabled={!user || (!activeFile.toLowerCase().includes('qiskit') && !activeFile.toLowerCase().endsWith('.qasm'))}
                 >
-                  IBM Quantum {(!activeFile.toLowerCase().includes('qiskit') && !activeFile.toLowerCase().endsWith('.qasm')) ? '(Qiskit/QASM only)' : ''}
+                  IBM Quantum {!user ? '(Login required)' : (!activeFile.toLowerCase().includes('qiskit') && !activeFile.toLowerCase().endsWith('.qasm')) ? '(Qiskit/QASM only)' : ''}
                 </option>
               )}
-              <option 
+              <option
                 value="spinq"
-                disabled={!activeFile.toLowerCase().includes('spinqit')}
+                disabled={!user || !activeFile.toLowerCase().includes('spinqit')}
               >
-                SpinQ Gemini Mini Pro {!activeFile.toLowerCase().includes('spinqit') ? '(SpinQit only)' : ''}
+                SpinQ Gemini Mini Pro {!user ? '(Login required)' : !activeFile.toLowerCase().includes('spinqit') ? '(SpinQit only)' : ''}
               </option>
             </select>
             {selectedProvider === 'ibm_quantum' && credentialStatus !== 'valid' && (

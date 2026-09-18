@@ -4,9 +4,9 @@ import { validateCircuit } from '../../circuit/validation';
 import { generateQiskitCode } from '../../circuit/codegen';
 
 describe('Template definitions', () => {
-  it('provides at least two templates', () => {
+  it('provides a broad starter catalog', () => {
     const templates = getTemplates();
-    expect(templates.length).toBeGreaterThanOrEqual(2);
+    expect(templates.length).toBeGreaterThanOrEqual(14);
   });
 
   it('each template has required metadata fields', () => {
@@ -105,5 +105,19 @@ describe('loadTemplateCircuit', () => {
     const template = getTemplateById('bell-state')!;
     const circuit = loadTemplateCircuit(template);
     expect(circuit.metadata?.name).toBe('Bell State');
+  });
+
+  it('all templates load as valid circuits', () => {
+    for (const template of getTemplates()) {
+      expect(validateCircuit(loadTemplateCircuit(template))).toEqual([]);
+    }
+  });
+
+  it('all templates include gallery artwork and educational details', () => {
+    for (const template of getTemplates()) {
+      expect(template.learnMore?.headerImageSrc).toMatch(/^\/images\/algorithms\//);
+      expect(template.learnMore?.description).toBeTruthy();
+      expect(template.learnMore?.sections.length).toBeGreaterThanOrEqual(3);
+    }
   });
 });

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useSphereRotation } from './useSphereRotation';
 
 interface BlochSphereProps {
   x: number;
@@ -13,33 +13,10 @@ export default function BlochSphere({ x, y, z, label }: BlochSphereProps) {
   const cy = size / 2;
   const R = size * 0.4;
 
-  const [rotation, setRotation] = useState({ x: 15 * (Math.PI / 180), y: -30 * (Math.PI / 180) });
-  const [isDragging, setIsDragging] = useState(false);
-  const lastMousePos = useRef({ x: 0, y: 0 });
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    setIsDragging(true);
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
-    if (e.target instanceof Element) e.target.setPointerCapture(e.pointerId);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging) return;
-    const dx = e.clientX - lastMousePos.current.x;
-    const dy = e.clientY - lastMousePos.current.y;
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
-
-    setRotation((prev) => {
-      let newX = prev.x - dy * 0.01;
-      newX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, newX));
-      return { x: newX, y: prev.y + dx * 0.01 };
-    });
-  };
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    setIsDragging(false);
-    if (e.target instanceof Element) e.target.releasePointerCapture(e.pointerId);
-  };
+  const { rotation, isDragging, pointerHandlers } = useSphereRotation({
+    x: 15 * (Math.PI / 180),
+    y: -30 * (Math.PI / 180),
+  });
 
   const tilt = rotation.x;
   const pan = rotation.y;
@@ -80,9 +57,8 @@ export default function BlochSphere({ x, y, z, label }: BlochSphereProps) {
       <svg
         width={size}
         height={size}
-        onPointerDown={handlePointerDown}
-        onPointerMove={handlePointerMove}
-        onPointerUp={handlePointerUp}
+        {...pointerHandlers}
+        aria-label={`${label || 'Qubit'} Bloch sphere. Drag to rotate.`}
         style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
       >
         {/* Sphere background */}
@@ -142,7 +118,7 @@ export default function BlochSphere({ x, y, z, label }: BlochSphereProps) {
           y2={vec.y2d}
           stroke={probColor}
           strokeWidth="2.5"
-          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+          style={{ transition: isDragging ? 'none' : 'all 0.25s ease-out' }}
         />
 
         {/* State Vector Arrowhead */}
@@ -150,7 +126,7 @@ export default function BlochSphere({ x, y, z, label }: BlochSphereProps) {
           points="-6,-3 0,0 -6,3" 
           fill={probColor}
           style={{ 
-            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            transition: isDragging ? 'none' : 'all 0.25s ease-out',
             transform: `translate(${vec.x2d}px, ${vec.y2d}px) rotate(${Math.atan2(vec.y2d - cy, vec.x2d - cx) * (180 / Math.PI)}deg)`
           }}
         />
@@ -161,7 +137,7 @@ export default function BlochSphere({ x, y, z, label }: BlochSphereProps) {
           cy={vec.y2d} 
           r={4} 
           fill={probColor} 
-          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+          style={{ transition: isDragging ? 'none' : 'all 0.25s ease-out' }}
         />
       </svg>
     </div>

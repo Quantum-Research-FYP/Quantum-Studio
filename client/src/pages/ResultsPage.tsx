@@ -9,6 +9,7 @@ import ProbabilityBarChart from '../components/results/ProbabilityBarChart';
 import ResultsTable from '../components/results/ResultsTable';
 import ExportButtons from '../components/results/ExportButtons';
 import { TranspilationPanel } from '../components/results/TranspilationPanel';
+import { useAuth } from '../hooks/useAuth';
 
 const DEFAULT_MAX_DISPLAY = 20;
 
@@ -49,21 +50,19 @@ function AllRunsHistoryView() {
       .finally(() => setLoading(false));
   }, []);
 
+  const completedRuns = jobs.filter((job) => job.status === 'completed').length;
+  const hardwareRuns = jobs.filter((job) => job.provider === 'ibm_quantum').length;
+  const latestRun = jobs[0]?.createdAt
+    ? new Date(jobs[0].createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+    : '—';
+  const formatRunDate = (date: string) =>
+    new Date(date).toLocaleString(undefined, {
+      month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    });
+
   return (
-    <div
-      className="page"
-      style={{ maxWidth: '1000px', margin: '0 auto', textAlign: 'left', padding: '40px 24px' }}
-    >
+    <div className="workspace-page">
       <style>{`
-        .run-history-premium-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 32px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-          padding-bottom: 24px;
-        }
-        
         .run-history-premium-list {
           display: flex;
           flex-direction: column;
@@ -183,24 +182,14 @@ function AllRunsHistoryView() {
         }
       `}</style>
 
-      <div className="run-history-premium-header">
-        <div>
-          <h1 className="page__title" style={{ textAlign: 'left', marginBottom: '8px' }}>
-            Run History
-          </h1>
-          <p
-            className="page__subtitle"
-            style={{
-              textAlign: 'left',
-              color: 'var(--color-text-muted)',
-              fontSize: '1.1rem',
-              margin: 0,
-            }}
-          >
+      <div className="workspace-page__header">
+        <div className="workspace-page__heading">
+          <h1 className="page__title">Run History</h1>
+          <p className="page__subtitle">
             A complete log of your quantum circuit executions on simulators and hardware.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="workspace-page__actions">
           <Link to="/builder" className="btn btn--ghost">
             Builder
           </Link>
@@ -210,29 +199,31 @@ function AllRunsHistoryView() {
         </div>
       </div>
 
+      {!loading && !error && jobs.length > 0 && (
+        <div className="run-history-summary" aria-label="Run history summary">
+          <div><span>Total runs</span><strong>{jobs.length}</strong></div>
+          <div><span>Completed</span><strong>{completedRuns}</strong></div>
+          <div><span>Hardware runs</span><strong>{hardwareRuns}</strong></div>
+          <div><span>Latest run</span><strong>{latestRun}</strong></div>
+        </div>
+      )}
+
       {loading && (
-        <div style={{ padding: '64px 0', textAlign: 'center', color: 'var(--color-text-muted)' }}>
+        <div className="run-history-loading" role="status">
+          <span className="run-history-loading__spinner" aria-hidden="true" />
           <p>Loading run history…</p>
         </div>
       )}
 
       {error && (
-        <div className="alert alert--error" role="alert" style={{ marginBottom: '24px' }}>
+        <div className="alert alert--error run-history-error" role="alert">
           {error}
         </div>
       )}
 
       {!loading && !error && jobs.length === 0 && (
-        <div
-          style={{
-            padding: '80px 0',
-            textAlign: 'center',
-            background: 'var(--color-surface-2)',
-            borderRadius: '16px',
-            border: '1px dashed var(--color-border-strong)',
-          }}
-        >
-          <div style={{ opacity: 0.5, marginBottom: '16px' }}>
+        <div className="run-history-empty-state">
+          <div className="run-history-empty-state__icon" aria-hidden="true">
             <svg
               width="48"
               height="48"
@@ -246,15 +237,8 @@ function AllRunsHistoryView() {
               <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
             </svg>
           </div>
-          <h3 style={{ fontSize: '1.25rem', color: 'var(--color-text)', marginBottom: '8px' }}>No runs yet</h3>
-          <p
-            style={{
-              color: 'var(--color-text-muted)',
-              marginBottom: '24px',
-              maxWidth: '400px',
-              margin: '0 auto 24px',
-            }}
-          >
+          <h3>No runs yet</h3>
+          <p>
             You haven't executed any quantum circuits. Run a circuit from the Builder or the IDE to
             see your history here.
           </p>
@@ -265,132 +249,33 @@ function AllRunsHistoryView() {
       )}
 
       {!loading && jobs.length > 0 && (
-        <div className="run-history-premium-list">
-          {jobs.map((job) => (
-            <div
-              key={job.jobId}
-              className="run-history-premium-card"
-              onClick={() => navigate(`/results?jobId=${job.jobId}`)}
-            >
-              <div className="run-card-left">
-                <div className="run-card-header">
-                  <span className={`run-card-status-pill status-pill--${job.status}`}>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        background: 'currentColor',
-                      }}
-                    ></span>
-                    {job.status}
+        <section className="run-history-section">
+          <div className="run-history-section__header">
+            <div><h2>Recent executions</h2><p>Select a run to inspect its measurements and execution details.</p></div>
+            <span>{jobs.length} runs</span>
+          </div>
+          <div className="run-history-list">
+            {jobs.map((job) => {
+              const isHardware = job.provider === 'ibm_quantum';
+              return (
+                <button key={job.jobId} type="button" className="run-history-card" onClick={() => navigate(`/results?jobId=${job.jobId}`)}>
+                  <span className={`run-history-card__provider ${isHardware ? 'run-history-card__provider--hardware' : ''}`} aria-hidden="true">{isHardware ? 'Q' : 'S'}</span>
+                  <span className="run-history-card__identity">
+                    <strong>{isHardware ? 'IBM Quantum Hardware' : 'Local Simulator'}</strong>
+                    <code>{job.jobId.substring(0, 8)}</code>
                   </span>
-                  <h3 className="run-card-title">
-                    {job.provider === 'ibm_quantum' ? 'IBM Quantum Hardware' : 'Local Simulator'}
-                  </h3>
-                </div>
-
-                <div className="run-card-meta">
-                  <div className="run-card-meta-item">
-                    <span className="run-card-meta-icon" style={{ display: 'flex' }}>
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <circle cx="12" cy="12" r="3"></circle>
-                        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
-                      </svg>
-                    </span>
-                    <span>{job.backend}</span>
-                  </div>
-                  <div className="run-card-meta-item">
-                    <span className="run-card-meta-icon" style={{ display: 'flex' }}>
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <circle cx="12" cy="12" r="10"></circle>
-                        <circle cx="12" cy="12" r="6"></circle>
-                        <circle cx="12" cy="12" r="2"></circle>
-                      </svg>
-                    </span>
-                    <span>{job.shots.toLocaleString()} shots</span>
-                  </div>
-                  <div className="run-card-meta-item">
-                    <span className="run-card-meta-icon" style={{ display: 'flex' }}>
-                      <svg
-                        width="14"
-                        height="14"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <line x1="4" y1="9" x2="20" y2="9"></line>
-                        <line x1="4" y1="15" x2="20" y2="15"></line>
-                        <line x1="10" y1="3" x2="8" y2="21"></line>
-                        <line x1="16" y1="3" x2="14" y2="21"></line>
-                      </svg>
-                    </span>
-                    <span style={{ fontFamily: 'monospace', opacity: 0.8 }}>
-                      {job.jobId.substring(0, 8)}...
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="run-card-right">
-                <div className="run-card-dates">
-                  <span className="date-label">Submitted</span>
-                  <span className="date-value">
-                    {new Date(job.createdAt).toLocaleString(undefined, {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
+                  <span className="run-history-card__details">
+                    <span><small>Backend</small>{job.backend}</span>
+                    <span><small>Shots</small>{job.shots.toLocaleString()}</span>
                   </span>
-                </div>
-                {job.completedAt && (
-                  <div className="run-card-dates">
-                    <span className="date-label">Completed</span>
-                    <span className="date-value">
-                      {new Date(job.completedAt).toLocaleString(undefined, {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
-                )}
-                <div className="run-card-action">
-                  <button
-                    className="btn btn--ghost btn--sm"
-                    style={{ border: '1px solid var(--color-border-strong)' }}
-                  >
-                    View Results →
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
+                  <span className={`run-history-card__status run-history-card__status--${job.status}`}><i aria-hidden="true" />{job.status}</span>
+                  <span className="run-history-card__date"><small>Submitted</small>{formatRunDate(job.createdAt)}</span>
+                  <span className="run-history-card__arrow" aria-hidden="true">→</span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       )}
     </div>
   );
@@ -503,6 +388,7 @@ function SimulationResultsView({ jobId }: { jobId: string }) {
 // ---------------------------------------------------------------------------
 
 function ExecutionResultsView({ jobId }: { jobId: string }) {
+  const { user } = useAuth();
   const { job, viewState, outcomes, error, polling, cancelling, cancelError, loadJob, cancel } =
     useExecution();
 
@@ -547,7 +433,7 @@ function ExecutionResultsView({ jobId }: { jobId: string }) {
   if (!job) return null;
 
   const isIbm = job.provider === 'ibm_quantum';
-  const isCancellable = ['submitted', 'queued', 'running'].includes(job.status);
+  const isCancellable = Boolean(user) && ['submitted', 'queued', 'running'].includes(job.status);
 
   return (
     <div className="results-page">

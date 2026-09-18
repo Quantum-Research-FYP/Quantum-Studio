@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { CircuitModel } from '../circuit';
-import { createEmptyCircuit } from '../circuit';
+import { compactClassicalBits, createEmptyCircuit } from '../circuit';
 
 const MAX_HISTORY = 200;
 
@@ -34,7 +34,7 @@ export function useCircuitHistory(cacheKey?: string): CircuitHistory {
       const saved = localStorage.getItem(cacheKey);
       if (saved) {
         try {
-          return [JSON.parse(saved)];
+          return [compactClassicalBits(JSON.parse(saved))];
         } catch (e) {
           console.error('Failed to parse cached circuit', e);
         }
@@ -46,10 +46,11 @@ export function useCircuitHistory(cacheKey?: string): CircuitHistory {
 
   const push = useCallback(
     (next: CircuitModel) => {
+      const normalized = compactClassicalBits(next);
       setStack((prev) => {
         // Truncate any redo future and append the new state
         const truncated = prev.slice(Math.max(0, prev.length - MAX_HISTORY + 1), index + 1);
-        return [...truncated, next];
+        return [...truncated, normalized];
       });
       setIndex((prev) => {
         // After truncation the new index is at the end
@@ -73,7 +74,7 @@ export function useCircuitHistory(cacheKey?: string): CircuitHistory {
   }, []);
 
   const reset = useCallback((initial?: CircuitModel) => {
-    const c = initial || createEmptyCircuit();
+    const c = initial ? compactClassicalBits(initial) : createEmptyCircuit();
     setStack([c]);
     setIndex(0);
     if (cacheKey && !initial) {

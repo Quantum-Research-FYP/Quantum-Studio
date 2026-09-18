@@ -310,7 +310,6 @@ export default function DiracNotation({
     <div className="dirac-notation">
       <div className="dirac-notation__header">
         <span className="dirac-notation__title">
-          <span className="dirac-notation__icon">∑</span>
           Mathematical State
           <button
             className="info-btn"

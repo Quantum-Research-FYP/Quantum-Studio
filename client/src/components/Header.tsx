@@ -128,6 +128,39 @@ const IconLogout = () => (
   </svg>
 );
 
+const IconLogin = () => (
+  <svg
+    width="17"
+    height="17"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.75"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" />
+    <path d="M10 17l5-5-5-5M15 12H3" />
+  </svg>
+);
+
+const IconSignup = () => (
+  <svg
+    width="17"
+    height="17"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.75"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M15 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
+    <circle cx="8" cy="7" r="4" />
+    <path d="M19 8v6M22 11h-6" />
+  </svg>
+);
+
 const IconSun = () => (
   <svg
     width="15"
@@ -320,11 +353,23 @@ export default function Header() {
           </div>
         ) : (
           <div className="sidebar-auth">
-            <Link to="/login" className="btn btn--ghost btn--full">
-              Log in
+            <Link
+              to="/login"
+              className="btn btn--ghost btn--full sidebar-auth__link"
+              title="Log in"
+              aria-label="Log in"
+            >
+              <span className="sidebar-auth__icon" aria-hidden="true"><IconLogin /></span>
+              <span className="sidebar-auth__label">Log in</span>
             </Link>
-            <Link to="/signup" className="btn btn--primary btn--full">
-              Sign up
+            <Link
+              to="/signup"
+              className="btn btn--primary btn--full sidebar-auth__link"
+              title="Sign up"
+              aria-label="Sign up"
+            >
+              <span className="sidebar-auth__icon" aria-hidden="true"><IconSignup /></span>
+              <span className="sidebar-auth__label">Sign up</span>
             </Link>
           </div>
         )}

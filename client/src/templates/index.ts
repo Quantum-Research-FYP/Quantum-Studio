@@ -9,6 +9,13 @@ import { bernsteinVaziraniTemplate } from './bernstein-vazirani';
 import { quantumTeleportationTemplate } from './quantum-teleportation';
 import { superdenseCodingTemplate } from './superdense-coding';
 import { qftTemplate } from './qft';
+import {
+  phaseKickbackTemplate,
+  repetitionCodeTemplate,
+  reversibleHalfAdderTemplate,
+  swapTestTemplate,
+  toffoliLogicTemplate,
+} from './additional-templates';
 
 export type {
   TemplateDefinition,
@@ -24,6 +31,11 @@ const TEMPLATES: readonly TemplateDefinition[] = [
   ghzStateTemplate,
   quantumTeleportationTemplate,
   superdenseCodingTemplate,
+  phaseKickbackTemplate,
+  swapTestTemplate,
+  toffoliLogicTemplate,
+  repetitionCodeTemplate,
+  reversibleHalfAdderTemplate,
   qftTemplate,
   groverTemplate,
   deutschJozsaTemplate,

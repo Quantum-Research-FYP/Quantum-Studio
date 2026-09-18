@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useRef } from 'react';
+import { useMemo } from 'react';
+import { useSphereRotation } from './useSphereRotation';
 
 interface QSphereProps {
   amplitudes: Record<string, { re: number; im: number }>;
@@ -12,37 +13,10 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
   const cy = size / 2;
   const R = size * 0.35; // Radius of the sphere
 
-  const [rotation, setRotation] = useState({ x: 15 * (Math.PI / 180), y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const lastMousePos = useRef({ x: 0, y: 0 });
-
-  const handlePointerDown = (e: React.PointerEvent) => {
-    setIsDragging(true);
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
-    if (e.target instanceof Element) {
-      e.target.setPointerCapture(e.pointerId);
-    }
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    if (!isDragging) return;
-    const dx = e.clientX - lastMousePos.current.x;
-    const dy = e.clientY - lastMousePos.current.y;
-    lastMousePos.current = { x: e.clientX, y: e.clientY };
-
-    setRotation((prev) => {
-      let newX = prev.x - dy * 0.01;
-      newX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, newX));
-      return { x: newX, y: prev.y + dx * 0.01 };
-    });
-  };
-
-  const handlePointerUp = (e: React.PointerEvent) => {
-    setIsDragging(false);
-    if (e.target instanceof Element) {
-      e.target.releasePointerCapture(e.pointerId);
-    }
-  };
+  const { rotation, isDragging, pointerHandlers } = useSphereRotation({
+    x: 15 * (Math.PI / 180),
+    y: 0,
+  });
 
   const tilt = rotation.x;
 
@@ -173,17 +147,15 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
         <svg
           viewBox={`0 0 ${size} ${size}`}
           className="qsphere__svg"
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerUp}
-          onPointerCancel={handlePointerUp}
+          {...pointerHandlers}
+          aria-label="Q-Sphere. Drag to rotate."
           style={{ cursor: isDragging ? 'grabbing' : 'grab', touchAction: 'none' }}
         >
           <defs>
             <radialGradient id="sphereGrad" cx="30%" cy="30%" r="70%">
-              <stop offset="0%" stopColor="rgba(255,255,255,0.08)" />
-              <stop offset="50%" stopColor="rgba(255,255,255,0.02)" />
-              <stop offset="100%" stopColor="rgba(0,0,0,0.4)" />
+              <stop offset="0%" stopColor="var(--qsphere-highlight)" />
+              <stop offset="52%" stopColor="var(--qsphere-mid)" />
+              <stop offset="100%" stopColor="var(--qsphere-shadow)" />
             </radialGradient>
             <radialGradient id="nodeGlow" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="currentColor" stopOpacity="0.8" />
@@ -197,8 +169,8 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
             cy={cy}
             r={R}
             fill="url(#sphereGrad)"
-            stroke="rgba(255,255,255,0.1)"
-            strokeWidth="1"
+            stroke="var(--qsphere-outline)"
+            strokeWidth="1.5"
           />
 
           {/* Equator / Latitude Rings */}
@@ -221,7 +193,7 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
                 rx={rRing}
                 ry={ry}
                 fill="none"
-                stroke="rgba(255,255,255,0.05)"
+                stroke="var(--qsphere-ring)"
                 strokeWidth="1"
               />
             );
@@ -240,7 +212,7 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
                 stroke={n.color}
                 strokeWidth="1.5"
                 opacity={n.isBack ? 0.2 : 0.6}
-                style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                style={{ transition: isDragging ? 'none' : 'all 0.25s ease-out' }}
               />
             );
           })}
@@ -254,13 +226,13 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
                 className="qsphere__node" 
                 style={{ 
                   color: n.color,
-                  transition: 'color 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+                  transition: isDragging ? 'none' : 'color 0.25s ease-out'
                 }}
               >
                 {/* Glow effect */}
-                <circle cx={n.x} cy={n.y} r={n.r * 2.5} fill="url(#nodeGlow)" style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+                <circle cx={n.x} cy={n.y} r={n.r * 2.5} fill="url(#nodeGlow)" style={{ transition: isDragging ? 'none' : 'all 0.25s ease-out' }} />
                 {/* Core */}
-                <circle cx={n.x} cy={n.y} r={n.r} fill={n.color} stroke="#000" strokeWidth="1" style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }} />
+                <circle cx={n.x} cy={n.y} r={n.r} fill={n.color} stroke="var(--qsphere-node-outline)" strokeWidth="1.25" style={{ transition: isDragging ? 'none' : 'all 0.25s ease-out' }} />
 
                 {/* Label if it's on front or high probability */}
                 {(!n.isBack || n.prob > 0.1) &&
@@ -273,24 +245,26 @@ export default function QSphere({ amplitudes, qubitCount }: QSphereProps) {
                     const boxY = n.y - n.r - boxHeight - 2;
 
                     return (
-                      <g className="qsphere__label-group" style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}>
+                      <g className="qsphere__label-group" style={{ transition: isDragging ? 'none' : 'all 0.25s ease-out' }}>
                         <rect
                           x={boxX}
                           y={boxY}
                           width={boxWidth}
                           height={boxHeight}
                           rx={3}
-                          fill="rgba(25, 30, 40, 0.9)"
-                          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                          fill="var(--qsphere-label-bg)"
+                          stroke="var(--qsphere-outline)"
+                          strokeWidth="0.75"
+                          style={{ transition: isDragging ? 'none' : 'all 0.25s ease-out' }}
                         />
                         <text
                           x={n.x}
                           y={n.y - n.r - 6}
-                          fill="#fff"
+                          fill="var(--qsphere-label-text)"
                           fontSize="10"
                           textAnchor="middle"
                           className="qsphere__label"
-                          style={{ transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)' }}
+                          style={{ transition: isDragging ? 'none' : 'all 0.25s ease-out' }}
                         >
                           {labelText}
                         </text>

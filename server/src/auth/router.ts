@@ -10,6 +10,9 @@ export function createAuthRouter(pool: Db): Router {
   router.post('/login', handlers.login);
   router.post('/logout', handlers.logout);
   router.get('/me', handlers.me);
+  router.patch('/profile', handlers.updateProfile);
+  router.post('/password', handlers.changePassword);
+  router.delete('/account', handlers.deleteAccount);
   router.post('/moodle/callback', handlers.moodleCallback);
   router.get('/google', handlers.googleAuth);
   router.get('/google/callback', handlers.googleCallback);

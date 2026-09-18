@@ -12,6 +12,7 @@ export function createSharedRouter(pool: Db): Router {
   const handlers = createSharingHandlers(pool);
 
   router.get('/experiments/:id', handlers.getSharedExperiment);
+  router.put('/experiments/:id', handlers.updateSharedExperiment);
 
   return router;
 }
@@ -29,6 +30,7 @@ export function createShareManagementRouter(pool: Db): Router {
   router.patch('/:id/visibility', handlers.updateVisibility);
   router.get('/:id/share-link', handlers.getShareLink);
   router.post('/:id/share-token/rotate', handlers.rotateToken);
+  router.patch('/:id/share-token/access', handlers.updateTokenAccess);
   router.delete('/:id/share-token', handlers.revokeToken);
 
   return router;

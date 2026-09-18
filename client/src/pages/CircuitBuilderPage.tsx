@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import type { CircuitModel, GateType, OperationTargets } from '../circuit';
 import {
-  addClbit,
   addQubit,
+  compactClassicalBits,
   deleteGate,
   generateOpenQasm,
   generateQiskitCode,
@@ -47,6 +47,7 @@ import {
 import { getIbmSettings } from '../api/integrations';
 import { getTemplateById, loadTemplateCircuit, type ExecutionConfig } from '../templates';
 import type { AiProvenanceInput } from '../api/experiments';
+import { getSharedExperiment, updateSharedExperiment } from '../api/sharing';
 
 /**
  * CircuitBuilderPage is the top-level page for the visual quantum circuit editor.
@@ -117,9 +118,17 @@ export default function CircuitBuilderPage() {
   const [isComparisonOpen, setIsComparisonOpen] = useState(false);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
   const [explainingCategory, setExplainingCategory] = useState<string | null>(null);
+  const [sharedEdit, setSharedEdit] = useState<{
+    id: string;
+    token: string;
+    name: string;
+    rowVersion: number;
+  } | null>(null);
+  const [sharedSaving, setSharedSaving] = useState(false);
+  const [sharedError, setSharedError] = useState<string | null>(null);
+  const [sharedLastSavedAt, setSharedLastSavedAt] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user) return;
     getProviders()
       .then((data) => setProviders(data.providers))
       .catch(() => setProviders([{ id: 'simulator', name: 'Simulator', available: true }]));
@@ -189,6 +198,34 @@ export default function CircuitBuilderPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [experimentId]);
 
+  const sharedId = searchParams.get('sharedId');
+  const sharedToken = searchParams.get('token');
+  useEffect(() => {
+    if (!sharedId || !sharedToken || loadedRef.current === `shared:${sharedId}`) return;
+    loadedRef.current = `shared:${sharedId}`;
+    setSharedError(null);
+    getSharedExperiment(sharedId, sharedToken)
+      .then((data) => {
+        if (!data || data.access !== 'write') {
+          setSharedError('This share link does not allow editing.');
+          return;
+        }
+        reset(data.circuitJson as unknown as CircuitModel);
+        experiment.reset();
+        experiment.setName(data.name);
+        setSharedEdit({
+          id: data.id,
+          token: sharedToken,
+          name: data.name,
+          rowVersion: data.rowVersion,
+        });
+      })
+      .catch((error) => {
+        setSharedError(error instanceof Error ? error.message : 'Failed to load shared experiment.');
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sharedId, sharedToken]);
+
   // Load template from URL params on mount (mutually exclusive with experimentId)
   const templateId = searchParams.get('templateId');
   const loadedTemplateRef = useRef<string | null>(null);
@@ -223,6 +260,27 @@ export default function CircuitBuilderPage() {
 
   // Save handler — prompts for name on first save
   const handleSave = useCallback(async () => {
+    if (sharedEdit) {
+      setSharedSaving(true);
+      setSharedError(null);
+      try {
+        const result = await updateSharedExperiment(
+          sharedEdit.id,
+          sharedEdit.token,
+          sharedEdit.name,
+          circuit as unknown as Record<string, unknown>,
+          sharedEdit.rowVersion,
+        );
+        setSharedEdit((current) => current ? { ...current, rowVersion: result.rowVersion } : current);
+        setSharedLastSavedAt(result.updatedAt);
+      } catch (error) {
+        setSharedError(error instanceof Error ? error.message : 'Failed to save shared experiment.');
+      } finally {
+        setSharedSaving(false);
+      }
+      return;
+    }
+
     let name = experiment.experimentName;
 
     if (!experiment.experimentId) {
@@ -244,7 +302,7 @@ export default function CircuitBuilderPage() {
       loadedLatestResult,
       provenance,
     );
-  }, [experiment, circuit, loadedRunSettings, loadedLatestResult, aiImportInfo]);
+  }, [sharedEdit, experiment, circuit, loadedRunSettings, loadedLatestResult, aiImportInfo]);
 
   // Save-as handler (prompt for name)
   const handleSaveAs = useCallback(async () => {
@@ -292,14 +350,16 @@ export default function CircuitBuilderPage() {
         setPendingJobId(job.jobId);
         setIsTranspilationModalOpen(true);
       } else {
-        navigate(`/results?jobId=${job.jobId}`, { replace: true });
+        navigate(`${user ? '/results' : '/simulation-results'}?jobId=${job.jobId}`, {
+          replace: true,
+        });
       }
     } catch (err: unknown) {
       setRunError(err instanceof Error ? err.message : 'Failed to submit execution job.');
     } finally {
       setIsRunning(false);
     }
-  }, [circuit, executionConfig, navigate, withTranspilation]);
+  }, [circuit, executionConfig, navigate, user, withTranspilation]);
 
   // Validation runs on every circuit change
   const errors = useMemo(() => validateCircuit(circuit), [circuit]);
@@ -337,10 +397,6 @@ export default function CircuitBuilderPage() {
     push(addQubit(circuit));
   }, [circuit, push]);
 
-  const handleAddClbit = useCallback(() => {
-    push(addClbit(circuit));
-  }, [circuit, push]);
-
   const handleRemoveQubit = useCallback(() => {
     const lastIndex = circuit.qubits - 1;
     if (lastIndex < 0) return;
@@ -357,26 +413,32 @@ export default function CircuitBuilderPage() {
     push(updated);
   }, [circuit, push]);
 
-  const handleRemoveClbit = useCallback(() => {
-    const lastIndex = circuit.clbits - 1;
-    if (lastIndex < 0) return;
-
-    const dependents = getDependentOperations(circuit, 'clbit', lastIndex);
-    if (dependents.length > 0) {
-      const confirmed = window.confirm(
-        `Classical bit c${lastIndex} has ${dependents.length} operation(s). Remove it and all dependent operations?`,
-      );
-      if (!confirmed) return;
-    }
-
-    const { circuit: updated } = removeWireWithDependents(circuit, 'clbit', lastIndex);
-    push(updated);
-  }, [circuit, push]);
-
   const handlePlaceGate = useCallback(
     (type: GateType, targets: OperationTargets, time: number, params?: Record<string, number>) => {
       try {
-        const { circuit: updated } = placeGate(circuit, type, targets, time, params);
+        let workingCircuit = compactClassicalBits(circuit);
+        let resolvedTargets = targets;
+
+        if (type === 'MEASURE') {
+          const qubit = targets.qubits[0];
+          const existingClbit = workingCircuit.operations.find(
+            (op) => op.type === 'MEASURE' && op.targets.qubits[0] === qubit,
+          )?.targets.clbits?.[0];
+          const clbit = existingClbit ?? workingCircuit.clbits;
+
+          if (existingClbit === undefined) {
+            workingCircuit = { ...workingCircuit, clbits: workingCircuit.clbits + 1 };
+          }
+          resolvedTargets = { ...targets, clbits: [clbit] };
+        }
+
+        const { circuit: updated } = placeGate(
+          workingCircuit,
+          type,
+          resolvedTargets,
+          time,
+          params,
+        );
         push(updated);
       } catch {
         // Validation error — gate can't be placed here
@@ -387,7 +449,7 @@ export default function CircuitBuilderPage() {
 
   const handleDeleteGate = useCallback(
     (operationId: string) => {
-      push(deleteGate(circuit, operationId));
+      push(compactClassicalBits(deleteGate(circuit, operationId)));
     },
     [circuit, push],
   );
@@ -397,11 +459,8 @@ export default function CircuitBuilderPage() {
       <div className="builder__toolbar">
         <WireList
           qubits={circuit.qubits}
-          clbits={circuit.clbits}
           onAddQubit={handleAddQubit}
           onRemoveQubit={handleRemoveQubit}
-          onAddClbit={handleAddClbit}
-          onRemoveClbit={handleRemoveClbit}
         />
         <UndoRedoControls canUndo={canUndo} canRedo={canRedo} onUndo={undo} onRedo={redo} />
         <button
@@ -420,12 +479,12 @@ export default function CircuitBuilderPage() {
           <button
             className="btn btn--primary btn--sm"
             onClick={handleSave}
-            disabled={experiment.saving}
-            aria-label={experiment.experimentId ? 'Save experiment' : 'Save as new experiment'}
+            disabled={experiment.saving || sharedSaving}
+            aria-label={sharedEdit || experiment.experimentId ? 'Save experiment' : 'Save as new experiment'}
           >
-            {experiment.saving ? 'Saving...' : 'Save'}
+            {experiment.saving || sharedSaving ? 'Saving...' : 'Save'}
           </button>
-          {experiment.experimentId && (
+          {experiment.experimentId && !sharedEdit && (
             <button
               className="btn btn--ghost btn--sm"
               onClick={handleSaveAs}
@@ -441,7 +500,10 @@ export default function CircuitBuilderPage() {
               if (window.confirm('Are you sure you want to clear the circuit?')) {
                 reset();
                 experiment.reset();
-                if (experimentId || templateId) {
+                setSharedEdit(null);
+                setSharedLastSavedAt(null);
+                setSharedError(null);
+                if (experimentId || templateId || sharedId) {
                   navigate('/builder');
                 }
               }
@@ -461,6 +523,11 @@ export default function CircuitBuilderPage() {
           {experiment.lastSavedAt && (
             <span className="builder__save-status">
               Saved {new Date(experiment.lastSavedAt).toLocaleTimeString()}
+            </span>
+          )}
+          {sharedLastSavedAt && (
+            <span className="builder__save-status">
+              Saved {new Date(sharedLastSavedAt).toLocaleTimeString()}
             </span>
           )}
           {experiment.experimentName && (
@@ -498,6 +565,9 @@ export default function CircuitBuilderPage() {
             </button>
           )}
         </div>
+      )}
+      {sharedError && (
+        <div className="alert alert--error" role="alert">{sharedError}</div>
       )}
 
       {/* AI import provenance banner */}
@@ -617,10 +687,14 @@ export default function CircuitBuilderPage() {
                     }
                   >
                     <option value="local">Local Simulator</option>
-                    {providers.some((p) => p.id === 'ibm_quantum' && p.available) && (
-                      <option value="ibm">IBM Quantum</option>
+                    {(!user || providers.some((p) => p.id === 'ibm_quantum' && p.available)) && (
+                      <option value="ibm" disabled={!user}>
+                        IBM Quantum {!user ? '(Login required)' : ''}
+                      </option>
                     )}
-                    <option value="spinq">SpinQ Gemini Mini Pro</option>
+                    <option value="spinq" disabled={!user}>
+                      SpinQ Gemini Mini Pro {!user ? '(Login required)' : ''}
+                    </option>
                   </select>
                 </div>
                 
@@ -646,15 +720,17 @@ export default function CircuitBuilderPage() {
                   </div>
                 )}
 
-                <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input 
-                    type="checkbox" 
-                    id="transpilation-viz"
-                    checked={withTranspilation}
-                    onChange={(e) => setWithTranspilation(e.target.checked)}
-                  />
-                  <label htmlFor="transpilation-viz" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>Show Transpilation Visualization</label>
-                </div>
+                {user && (
+                  <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <input
+                      type="checkbox"
+                      id="transpilation-viz"
+                      checked={withTranspilation}
+                      onChange={(e) => setWithTranspilation(e.target.checked)}
+                    />
+                    <label htmlFor="transpilation-viz" style={{ fontSize: '0.9rem', cursor: 'pointer' }}>Show Transpilation Visualization</label>
+                  </div>
+                )}
 
                 <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                   <button className="btn btn--ghost" onClick={() => setIsRunModalOpen(false)}>Cancel</button>

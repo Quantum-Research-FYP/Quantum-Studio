@@ -9,6 +9,7 @@ import { checkPollRateLimit } from './poll-rate-limiter.js';
 import { normalizeIbmStatus, isValidTransition } from './types.js';
 import type { ExecutionJobStatus } from './types.js';
 import { COLLECTIONS, type AppDocument } from '../db/collections.js';
+import { canAccessSimulation, getSimulationOwner } from '../simulations/anonymous-session.js';
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -112,10 +113,12 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
      * GET /api/execution/providers
      * List available execution providers and their capabilities.
      */
-    async getProviders(_req: Request, res: Response): Promise<void> {
+    async getProviders(req: Request, res: Response): Promise<void> {
       const providers = [
         { id: 'simulator', name: 'Simulator', available: true },
-        { id: 'ibm_quantum', name: 'IBM Quantum', available: isIbmQuantumEnabled() },
+        ...(req.user
+          ? [{ id: 'ibm_quantum', name: 'IBM Quantum', available: isIbmQuantumEnabled() }]
+          : []),
       ];
       res.status(200).json({ providers });
     },
@@ -149,9 +152,17 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
      * Submit an execution job (simulator or IBM Quantum).
      */
     async submitJob(req: Request, res: Response): Promise<void> {
-      const userId = req.user!.id;
       const { provider, backend, qasm, shots, idempotencyKey, codeType } = req.body ?? {};
       const resolvedCodeType: 'qasm' | 'python' = codeType === 'python' ? 'python' : 'qasm';
+
+      if (!req.user && provider && provider !== 'simulator') {
+        res.status(401).json({
+          error: 'Sign in to run circuits on hardware providers.',
+          errorCode: 'AUTH_REQUIRED_FOR_PROVIDER',
+          suggestion: 'Use the simulator provider or sign in.',
+        });
+        return;
+      }
 
       // Validate common fields
       if (!qasm || typeof qasm !== 'string' || qasm.trim().length === 0) {
@@ -170,6 +181,7 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
 
       // Simulator path: delegate to existing simulation job creation
       if (!provider || provider === 'simulator' || provider === 'spinq') {
+        const userId = getSimulationOwner(req, res);
         const job = await jobRepo.createJob({
           userId,
           qasmInput: qasm,
@@ -202,6 +214,8 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
           .json({ error: `Unsupported provider: ${provider}`, errorCode: 'INVALID_PROVIDER' });
         return;
       }
+
+      const userId = req.user!.id;
 
       if (!isIbmQuantumEnabled()) {
         featureDisabledResponse(res);
@@ -284,12 +298,11 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
      * Get job status with provider state refresh (cached with backoff).
      */
     async getJobStatus(req: Request, res: Response): Promise<void> {
-      const userId = req.user!.id;
       const jobId = req.params.jobId as string;
 
       const job = await jobRepo.getJob(jobId);
 
-      if (!job || job.createdByUserId !== userId) {
+      if (!job || !canAccessSimulation(req, job.createdByUserId)) {
         res.status(404).json({ error: 'Job not found.', errorCode: 'NOT_FOUND' });
         return;
       }
@@ -300,6 +313,7 @@ export function createExecutionHandlers(pool: Db, onSimulatorJobCreated?: () => 
         job.providerJobId &&
         !['completed', 'failed', 'cancelled'].includes(job.status)
       ) {
+        const userId = req.user!.id;
         // Rate limit polling
         const rateCheck = checkPollRateLimit(userId);
         if (!rateCheck.allowed) {

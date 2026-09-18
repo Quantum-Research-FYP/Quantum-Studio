@@ -28,6 +28,16 @@
   --color-border: rgba(148, 163, 184, 0.09);
   --color-border-strong: rgba(148, 163, 184, 0.18);
 
+  /* Q-Sphere visualization */
+  --qsphere-highlight: rgba(34, 211, 238, 0.14);
+  --qsphere-mid: rgba(18, 30, 56, 0.38);
+  --qsphere-shadow: rgba(7, 13, 26, 0.78);
+  --qsphere-outline: rgba(148, 163, 184, 0.32);
+  --qsphere-ring: rgba(148, 163, 184, 0.18);
+  --qsphere-label-bg: rgba(13, 22, 39, 0.94);
+  --qsphere-label-text: #f8fafc;
+  --qsphere-node-outline: rgba(7, 13, 26, 0.9);
+
   /* Status */
   --color-success: #34d399;
   --color-error: #f87171;
@@ -88,6 +98,15 @@
   
   --color-border: rgba(15, 23, 42, 0.07);
   --color-border-strong: rgba(15, 23, 42, 0.13);
+
+  --qsphere-highlight: rgba(255, 255, 255, 0.98);
+  --qsphere-mid: rgba(241, 245, 249, 0.5);
+  --qsphere-shadow: rgba(203, 213, 225, 0.58);
+  --qsphere-outline: rgba(15, 23, 42, 0.32);
+  --qsphere-ring: rgba(15, 23, 42, 0.2);
+  --qsphere-label-bg: rgba(255, 255, 255, 0.96);
+  --qsphere-label-text: #0f172a;
+  --qsphere-node-outline: rgba(15, 23, 42, 0.72);
   
   --color-success: #059669;
   --color-error: #dc2626;

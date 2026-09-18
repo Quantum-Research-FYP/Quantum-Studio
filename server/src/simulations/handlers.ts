@@ -4,6 +4,7 @@ import { createSimulationRepository } from './repository.js';
 import { validateSubmission, getResourceLimits } from './validation.js';
 import { getSimulationServiceUrl, fetchWithRetry } from './sim-fetch.js';
 import { createIntegrationsRepository } from '../integrations/repository.js';
+import { canAccessSimulation, getSimulationOwner } from './anonymous-session.js';
 
 /** Compute probability for each bitstring as count / shots, rounded to 4 decimal places. */
 function computeProbabilities(
@@ -88,8 +89,17 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
     /** POST /api/v1/simulations/jobs — Submit a new simulation job. */
     async submitJob(req: Request, res: Response): Promise<void> {
       try {
-        const { qasm, shots, mode, idempotencyKey, noiseConfig } = req.body ?? {};
-        const userId = req.user!.id;
+        const { qasm, shots, mode, provider, idempotencyKey, noiseConfig } = req.body ?? {};
+
+        if (!req.user && provider && provider !== 'local') {
+          res.status(401).json({
+            error: 'Sign in to run circuits on hardware providers.',
+            errorCode: 'AUTH_REQUIRED_FOR_PROVIDER',
+          });
+          return;
+        }
+
+        const userId = getSimulationOwner(req, res);
 
         // Validate input against resource limits
         const limits = getResourceLimits();
@@ -331,8 +341,6 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
     async getJobStatus(req: Request, res: Response): Promise<void> {
       try {
         const jobId = req.params.jobId as string;
-        const userId = req.user!.id;
-
         const job = await repo.getJob(jobId);
 
         if (!job) {
@@ -341,7 +349,7 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
         }
 
         // Users can only view their own jobs
-        if (job.createdByUserId !== userId) {
+        if (!canAccessSimulation(req, job.createdByUserId)) {
           res.status(404).json({ error: 'Job not found.' });
           return;
         }
@@ -357,8 +365,6 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
     async getJobResult(req: Request, res: Response): Promise<void> {
       try {
         const jobId = req.params.jobId as string;
-        const userId = req.user!.id;
-
         const job = await repo.getJob(jobId);
 
         if (!job) {
@@ -366,7 +372,7 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
           return;
         }
 
-        if (job.createdByUserId !== userId) {
+        if (!canAccessSimulation(req, job.createdByUserId)) {
           res.status(404).json({ error: 'Job not found.' });
           return;
         }
@@ -419,7 +425,6 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
     async getJobResultExport(req: Request, res: Response): Promise<void> {
       try {
         const jobId = req.params.jobId as string;
-        const userId = req.user!.id;
         const format = (req.query.format as string | undefined)?.toLowerCase() ?? 'json';
 
         if (format !== 'json' && format !== 'csv') {
@@ -437,7 +442,7 @@ export function createSimulationHandlers(pool: Db, onJobCreated?: () => void) {
           return;
         }
 
-        if (job.createdByUserId !== userId) {
+        if (!canAccessSimulation(req, job.createdByUserId)) {
           res.status(404).json({ error: 'Job not found.' });
           return;
         }

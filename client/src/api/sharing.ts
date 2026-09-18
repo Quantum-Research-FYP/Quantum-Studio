@@ -3,7 +3,8 @@ import { API_BASE_URL } from '../config';
 // Sharing API client
 // ---------------------------------------------------------------------------
 
-export type Visibility = 'private' | 'unlisted' | 'public';
+export type Visibility = 'private' | 'unlisted';
+export type ShareAccess = 'read' | 'write';
 
 export interface SharedExperimentResponse {
   id: string;
@@ -16,6 +17,8 @@ export interface SharedExperimentResponse {
   visibility: Visibility;
   createdAt: string;
   updatedAt: string;
+  rowVersion: number;
+  access: ShareAccess;
   aiAssisted?: boolean;
   aiProvider?: string | null;
   aiModel?: string | null;
@@ -36,12 +39,14 @@ export interface ShareLinkResponse {
   shareUrl?: string;
   token?: string;
   message?: string;
+  access: ShareAccess;
 }
 
 export interface RotateTokenResponse {
   id: string;
   shareUrl: string;
   token: string;
+  access: ShareAccess;
 }
 
 export interface ShareApiError {
@@ -124,15 +129,42 @@ export function updateVisibility(id: string, visibility: Visibility): Promise<Vi
 }
 
 /** Get or create a share link for an unlisted experiment. */
-export function getShareLink(id: string): Promise<ShareLinkResponse> {
-  return authRequest<ShareLinkResponse>(`${API_BASE_URL}/api/experiments/${encodeURIComponent(id)}/share-link`);
+export function getShareLink(id: string, access: ShareAccess = 'read'): Promise<ShareLinkResponse> {
+  return authRequest<ShareLinkResponse>(`${API_BASE_URL}/api/experiments/${encodeURIComponent(id)}/share-link?access=${access}`);
 }
 
 /** Rotate the share token (revokes old, issues new). */
-export function rotateShareToken(id: string): Promise<RotateTokenResponse> {
+export function rotateShareToken(id: string, access: ShareAccess): Promise<RotateTokenResponse> {
   return authRequest<RotateTokenResponse>(
     `${API_BASE_URL}/api/experiments/${encodeURIComponent(id)}/share-token/rotate`,
-    { method: 'POST' },
+    { method: 'POST', body: JSON.stringify({ access }) },
+  );
+}
+
+export function updateShareAccess(id: string, access: ShareAccess): Promise<void> {
+  return authRequest<void>(`${API_BASE_URL}/api/experiments/${encodeURIComponent(id)}/share-token/access`, {
+    method: 'PATCH',
+    body: JSON.stringify({ access }),
+  });
+}
+
+export interface SharedExperimentUpdateResponse {
+  id: string;
+  name: string;
+  rowVersion: number;
+  updatedAt: string;
+}
+
+export function updateSharedExperiment(
+  id: string,
+  token: string,
+  name: string,
+  circuitJson: Record<string, unknown>,
+  rowVersion: number,
+): Promise<SharedExperimentUpdateResponse> {
+  return authRequest<SharedExperimentUpdateResponse>(
+    `${API_BASE_URL}/api/shared/experiments/${encodeURIComponent(id)}?token=${encodeURIComponent(token)}`,
+    { method: 'PUT', body: JSON.stringify({ name, circuitJson, rowVersion }) },
   );
 }
 

@@ -142,9 +142,16 @@ export default function ExperimentsPage() {
   // Empty state
   if (!loading && !error && total === 0) {
     return (
-      <div className="page">
-        <h1 className="page__title">My Projects</h1>
-        <p className="page__subtitle">You don&apos;t have any saved projects yet.</p>
+      <div className="workspace-page">
+        <div className="workspace-page__header">
+          <div className="workspace-page__heading">
+            <h1 className="page__title">My Projects</h1>
+            <p className="page__subtitle">Manage your saved quantum circuits and experiments.</p>
+          </div>
+          <Link to="/builder" className="btn btn--primary">New Project</Link>
+        </div>
+
+        <p className="workspace-page__empty-copy">You don&apos;t have any saved projects yet.</p>
 
         <div className="cta-group">
           <Link to="/create" className="cta-card">
@@ -166,9 +173,12 @@ export default function ExperimentsPage() {
   }
 
   return (
-    <div className="experiments-page">
-      <div className="experiments-page__header">
-        <h1 className="page__title">My Projects</h1>
+    <div className="workspace-page experiments-page">
+      <div className="workspace-page__header experiments-page__header">
+        <div className="workspace-page__heading">
+          <h1 className="page__title">My Projects</h1>
+          <p className="page__subtitle">Manage your saved quantum circuits and experiments.</p>
+        </div>
         <Link to="/builder" className="btn btn--primary">
           New Project
         </Link>
@@ -191,9 +201,7 @@ export default function ExperimentsPage() {
                 <th scope="col">Updated</th>
                 <th scope="col">Visibility</th>
                 <th scope="col">Last Run</th>
-                <th scope="col">
-                  <span className="sr-only">Actions</span>
-                </th>
+                <th scope="col" className="experiments-table__actions-heading">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -218,34 +226,36 @@ export default function ExperimentsPage() {
                     {experiment.lastRunAt ? formatDate(experiment.lastRunAt) : '--'}
                   </td>
                   <td className="experiments-table__actions">
-                    <button
-                      className="btn btn--ghost btn--sm"
-                      onClick={() => handleOpen(experiment)}
-                      aria-label={`Open ${experiment.name}`}
-                    >
-                      Open
-                    </button>
-                    <button
-                      className="btn btn--ghost btn--sm"
-                      onClick={() => handleShareClick(experiment)}
-                      aria-label={`Share ${experiment.name}`}
-                    >
-                      Share
-                    </button>
-                    <button
-                      className="btn btn--ghost btn--sm"
-                      onClick={(e) => handleRenameClick(experiment, e.currentTarget)}
-                      aria-label={`Rename ${experiment.name}`}
-                    >
-                      Rename
-                    </button>
-                    <button
-                      className="btn btn--ghost btn--sm btn--danger-text"
-                      onClick={(e) => handleDeleteClick(experiment, e.currentTarget)}
-                      aria-label={`Delete ${experiment.name}`}
-                    >
-                      Delete
-                    </button>
+                    <div className="experiments-table__action-row">
+                      <button
+                        className="btn btn--ghost btn--sm"
+                        onClick={() => handleOpen(experiment)}
+                        aria-label={`Open ${experiment.name}`}
+                      >
+                        Open
+                      </button>
+                      <button
+                        className="btn btn--ghost btn--sm"
+                        onClick={() => handleShareClick(experiment)}
+                        aria-label={`Share ${experiment.name}`}
+                      >
+                        Share
+                      </button>
+                      <button
+                        className="btn btn--ghost btn--sm"
+                        onClick={(e) => handleRenameClick(experiment, e.currentTarget)}
+                        aria-label={`Rename ${experiment.name}`}
+                      >
+                        Rename
+                      </button>
+                      <button
+                        className="btn btn--ghost btn--sm btn--danger-text"
+                        onClick={(e) => handleDeleteClick(experiment, e.currentTarget)}
+                        aria-label={`Delete ${experiment.name}`}
+                      >
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
