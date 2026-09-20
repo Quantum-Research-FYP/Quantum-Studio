@@ -30,9 +30,24 @@ export function createApp(database: Db, onJobCreated?: () => void) {
   const app = express();
 
   // Security headers
-  app.use(helmet());
+  // frame-ancestors replaces X-Frame-Options so Moodle is allowed to embed the studio.
+  const frameAncestors = [
+    "'self'",
+    ...(process.env.FRAME_ANCESTORS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
+  ];
+  app.use(
+    helmet({
+      frameguard: false, // removes X-Frame-Options: SAMEORIGIN
+      contentSecurityPolicy: {
+        useDefaults: true,
+        directives: { 'frame-ancestors': frameAncestors },
+      },
+    }),
+  );
 
-  // CORS — allow the frontend origin in both dev and production
   const allowedOrigins = [
     'http://localhost:5173',
     'https://quantum-studio2.vercel.app',
@@ -42,19 +57,25 @@ export function createApp(database: Db, onJobCreated?: () => void) {
   if (process.env.APP_URL && !allowedOrigins.includes(process.env.APP_URL)) {
     allowedOrigins.push(process.env.APP_URL);
   }
-  app.use(
-    cors({
-      origin: (origin, callback) => {
-        // Allow requests with no origin (curl, mobile apps, server-to-server)
-        if (!origin || allowedOrigins.includes(origin)) {
-          callback(null, true);
-        } else {
-          callback(new Error(`CORS: origin '${origin}' not allowed`));
-        }
-      },
-      credentials: true,
-    }),
-  );
+
+  const corsMiddleware = cors({
+    origin: (origin, callback) => {
+      // Allow requests with no origin (curl, mobile apps, server-to-server)
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`CORS: origin '${origin}' not allowed`));
+      }
+    },
+    credentials: true,
+  });
+
+  app.use((req, res, next) => {
+    // The Moodle SSO endpoint is a plain browser form post (page navigation), not a
+    // fetch/XHR, so CORS does not apply. The HMAC signature protects this route.
+    if (req.path === '/api/auth/moodle/callback') return next();
+    return corsMiddleware(req, res, next);
+  });
 
   // Body parsing and cookies
   app.use(express.json());
