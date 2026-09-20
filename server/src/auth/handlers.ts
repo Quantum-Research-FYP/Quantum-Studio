@@ -27,6 +27,7 @@ function publicUser(user: AppDocument) {
     id: user._id,
     email: user.email,
     name: (user.name as string) || fallbackName || '',
+    moodleUsername: (user.moodleUsername as string) || undefined,
     createdAt: user.createdAt instanceof Date ? user.createdAt.toISOString() : user.createdAt,
     hasPassword: typeof user.passwordHash === 'string' && user.passwordHash.length > 0,
     providers: [

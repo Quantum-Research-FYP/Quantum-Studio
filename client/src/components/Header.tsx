@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useTheme } from '../hooks/useTheme';
+import { useEmbedded } from '../hooks/useEmbedded';
 
 /* ------------------------------------------------------------------ */
 /* Icons                                                                */
@@ -257,6 +258,7 @@ export default function Header() {
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
   const { theme, toggle } = useTheme();
+  const embedded = useEmbedded();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const handleLogout = async () => {
@@ -339,17 +341,22 @@ export default function Header() {
           <div className="sidebar-user">
             <div className="sidebar-user__avatar">{initials}</div>
             <div className="sidebar-user__info">
-              <span className="sidebar-user__email">{user.email}</span>
+              <span className="sidebar-user__email">
+                {embedded && user.moodleUsername ? user.moodleUsername : user.email}
+              </span>
               <span className="sidebar-user__role">Researcher</span>
             </div>
-            <button
-              type="button"
-              className="sidebar-user__logout"
-              onClick={handleLogout}
-              title="Log out"
-            >
-              <IconLogout />
-            </button>
+            {/* Inside Moodle the session belongs to Moodle, so no logout button */}
+            {!embedded && (
+              <button
+                type="button"
+                className="sidebar-user__logout"
+                onClick={handleLogout}
+                title="Log out"
+              >
+                <IconLogout />
+              </button>
+            )}
           </div>
         ) : (
           <div className="sidebar-auth">

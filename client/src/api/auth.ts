@@ -3,6 +3,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  moodleUsername?: string;
   createdAt?: string;
   hasPassword: boolean;
   providers: string[];
